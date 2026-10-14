@@ -1,0 +1,61 @@
+// branch_unit tests: each condition taken and not taken, plus the cases that separate
+// signed from unsigned (0xFFFFFFFF is -1 signed, the largest value unsigned).
+testbench branch_unit_tb {
+    sig in_f3[3]
+    sig in_a[32]
+    sig in_b[32]
+
+    branch_unit dut(.funct3(in_f3), .a(in_a), .b(in_b))
+
+    fun check(f3[3], a[32], b[32], expected) {
+        in_f3 = f3
+        in_a = a
+        in_b = b
+        $tick()
+        if (dut.taken != expected)
+            $print("f3=%b a=%h b=%h got=%b want=%b", f3, a, b, dut.taken, expected)
+        $assert(dut.taken == expected)
+    }
+
+    test equality {
+        in_f3 = 0
+        in_a = 0
+        in_b = 0
+        $check(3b000, 32d5, 32d5, 1)                    // beq equal
+        $check(3b000, 32d5, 32d6, 0)                    // beq not equal
+        $check(3b001, 32d5, 32d6, 1)                    // bne not equal
+        $check(3b001, 32hFFFFFFFF, 32hFFFFFFFF, 0)      // bne equal
+    }
+
+    test signed_compare {
+        in_f3 = 0
+        in_a = 0
+        in_b = 0
+        $check(3b100, 32hFFFFFFFF, 32d1, 1)             // blt: -1 < 1
+        $check(3b100, 32d1, 32hFFFFFFFF, 0)             // blt: 1 < -1 false
+        $check(3b100, 32d3, 32d3, 0)                    // blt: equal false
+        $check(3b101, 32d3, 32d3, 1)                    // bge: equal taken
+        $check(3b101, 32hFFFFFFFF, 32d1, 0)             // bge: -1 >= 1 false
+        $check(3b101, 32h80000000, 32h7FFFFFFF, 0)      // bge: most negative vs most positive
+    }
+
+    test unsigned_compare {
+        in_f3 = 0
+        in_a = 0
+        in_b = 0
+        $check(3b110, 32d1, 32hFFFFFFFF, 1)             // bltu: 1 < 0xFFFFFFFF
+        $check(3b110, 32hFFFFFFFF, 32d1, 0)             // bltu: false
+        $check(3b110, 32d7, 32d7, 0)                    // bltu: equal false
+        $check(3b111, 32d7, 32d7, 1)                    // bgeu: equal taken
+        $check(3b111, 32hFFFFFFFF, 32d1, 1)             // bgeu: 0xFFFFFFFF >= 1
+        $check(3b111, 32h7FFFFFFF, 32h80000000, 0)      // bgeu: false
+    }
+
+    test reserved {
+        in_f3 = 0
+        in_a = 0
+        in_b = 0
+        $check(3b010, 32d5, 32d5, 0)                    // reserved funct3 never taken
+        $check(3b011, 32d5, 32d6, 0)
+    }
+}

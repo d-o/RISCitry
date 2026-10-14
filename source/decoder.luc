@@ -70,7 +70,7 @@ module decoder (
 
       7h63: // BRANCH: BEQ/BNE/BLT/BGE/BLTU/BGEU, condition from funct3
         ctrl.imm_type = Cpu.ImmType.B
-        ctrl.alu_op = 4b1000 // sub, so the ALU zero flag still serves BEQ/BNE until branch_unit exists
+        ctrl.alu_op = 4b1000 // sub; unused (branch_unit decides), kept so the ALU result is rs1 - rs2 in traces
         ctrl.branch = 1
         uses_rs1 = 1
         uses_rs2 = 1

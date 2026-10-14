@@ -17,7 +17,6 @@ testbench alu_tb {
         in_b = b
         $tick()
         $assert(dut.result == expected)
-        $assert(dut.zero == (expected == 32h0))
     }
 
     test add_sub {
@@ -25,9 +24,9 @@ testbench alu_tb {
         in_b = 0
         in_op = 0
         $check(4b0000, 32d5, 32d7, 32d12)                     // add
-        $check(4b0000, 32hFFFFFFFF, 32d1, 32h0)               // add wraps, zero flag set
+        $check(4b0000, 32hFFFFFFFF, 32d1, 32h0)               // add wraps to 0
         $check(4b1000, 32d7, 32d5, 32d2)                      // sub
-        $check(4b1000, 32d5, 32d5, 32h0)                      // sub equal -> zero (BEQ/BNE rely on this)
+        $check(4b1000, 32d5, 32d5, 32h0)                      // sub equal -> 0
         $check(4b1000, 32d5, 32d7, 32hFFFFFFFE)               // sub goes negative
     }
 

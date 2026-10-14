@@ -3,6 +3,7 @@
 global Cpu {
     // Which immediate format the instruction uses (imm_gen)
     enum ImmType { I, S, B, U, J }
+    const IMM_TYPE_BITS = $width(ImmType)   // for ports: $width(Cpu.ImmType) doesn't resolve in a port list
 
     // What gets written to rd
     enum WbSel { ALU, MEM, PC4, IMM }

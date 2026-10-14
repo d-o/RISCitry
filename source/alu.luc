@@ -2,8 +2,7 @@ module alu (
     input a[32],
     input b[32],
     input alu_op[4],
-    output result[32],
-    output zero
+    output result[32]
   ) {
 
   sig sig_result[32]
@@ -25,7 +24,6 @@ module alu (
       default: sig_result = 32h0                  
     }
 
-    result = sig_result    
-    zero = (sig_result == 32h0)
+    result = sig_result
   }
 }

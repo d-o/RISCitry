@@ -1,6 +1,9 @@
 // The RV32E core: everything that runs on the CPU clock. No board I/O here, so testbenches
 // can drive clk directly (testbenches only see a module's ports, and $is_sim() is 0 in them).
-// Moved verbatim from basic-riscve-16k16k.luc; the top module is now just board glue.
+//
+// decoder (what the instruction needs) + control_unit (when, by FSM state) drive the datapath:
+//   inst_mem -> if_id_reg -> decoder/imm_gen; register_file -> alu / branch_unit;
+//   data_ram for loads/stores; the write-back mux picks rd's value from ctrl.wb_sel.
 module cpu (
     input clk,
     input rst,
@@ -14,60 +17,64 @@ module cpu (
     control_unit control(.rst(rst));
 
     simple_ram data_ram(#WIDTH(32), #ENTRIES(64));
-    dff if_id_reg[32](.rst(rst));
+    dff if_id_reg[32](.rst(rst));   // instruction latched at the end of FETCH
   }
 
   instruction_mem inst_mem;
-  instruction_decoder decoderName;
+  decoder dec;
   imm_gen immediate_generator;
   alu alu_unit;
-  sig data_mem_out[32];
+  branch_unit branch;
+
+  sig instruction[32];
+  sig pc_plus_4[32];
 
   always {
-    // --- Pipeline Wire Routing ---
+    // --- fetch ---
     inst_mem.pc = pc_unit.pc;
     if_id_reg.d = inst_mem.instruction;
-    decoderName.instruction = if_id_reg.q;
+    instruction = if_id_reg.q;
 
-    control.opcode = decoderName.opcode;
-    control.funct3 = decoderName.funct3
-    control.funct7 = decoderName.funct7;
-    control.alu_zero = alu_unit.zero;
+    // --- decode ---
+    dec.instruction = instruction;
+    control.ctrl = dec.ctrl;
+    control.branch_taken = branch.taken;
 
-    immediate_generator.instruction = if_id_reg.q;
-    immediate_generator.opcode = decoderName.opcode;
+    immediate_generator.instruction = instruction;
+    immediate_generator.imm_type = dec.ctrl.imm_type;
 
-    alu_unit.a = reg_file.read_data1;
-    alu_unit.alu_op = control.alu_op;
+    reg_file.rs1 = instruction[19:15];
+    reg_file.rs2 = instruction[24:20];
+    reg_file.rd = instruction[11:7];
 
-    if (control.alu_src_b) {
-      alu_unit.b = immediate_generator.immediate;
-    } else {
-      alu_unit.b = reg_file.read_data2;
-    }
+    // --- execute ---
+    if (dec.ctrl.alu_src_a) alu_unit.a = pc_unit.pc; else alu_unit.a = reg_file.read_data1;
+    if (dec.ctrl.alu_src_b) alu_unit.b = immediate_generator.immediate; else alu_unit.b = reg_file.read_data2;
+    alu_unit.alu_op = dec.ctrl.alu_op;
 
+    branch.funct3 = instruction[14:12];
+    branch.a = reg_file.read_data1;
+    branch.b = reg_file.read_data2;
+
+    // --- memory (word access only for now) ---
     data_ram.address = alu_unit.result[7:2];
     data_ram.write_data = reg_file.read_data2;
-    data_ram.write_enable = control.data_mem_write;
-    data_mem_out = data_ram.read_data;
+    data_ram.write_enable = control.mem_write;
 
-    // Restore clean RISC-V ports
-    reg_file.rs1 = decoderName.rs1;
-    reg_file.rs2 = decoderName.rs2;
-    reg_file.rd = decoderName.rd;
+    // --- write back ---
+    pc_plus_4 = pc_unit.pc + 4;  // pc is still this instruction's own address until the state machine moves on
     reg_file.reg_write = control.reg_write;
-
-    if (decoderName.opcode == 7h03) {
-      reg_file.write_data = data_mem_out;
-    } else if (decoderName.opcode == 7h6F) {
-      reg_file.write_data = pc_unit.pc + 4;        // JAL link: pc is still the jal's own address in EXECUTE
-    } else {
-      reg_file.write_data = alu_unit.result;
+    case (dec.ctrl.wb_sel) {
+      Cpu.WbSel.MEM: reg_file.write_data = data_ram.read_data;
+      Cpu.WbSel.PC4: reg_file.write_data = pc_plus_4;
+      Cpu.WbSel.IMM: reg_file.write_data = immediate_generator.immediate;
+      default:       reg_file.write_data = alu_unit.result;
     }
 
+    // --- next pc ---
     pc_unit.pc_write = control.pc_write;
     pc_unit.pc_src = control.pc_src;
-    pc_unit.target_address = pc_unit.pc + immediate_generator.immediate;
+    if (dec.ctrl.jalr) pc_unit.target_address = alu_unit.result; else pc_unit.target_address = pc_unit.pc + immediate_generator.immediate;
 
     debug_pc = pc_unit.pc;
     debug_x1 = reg_file.debug_x1;

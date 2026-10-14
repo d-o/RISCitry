@@ -1,36 +1,30 @@
-// Sign-extended immediates: each format's bits are reassembled in spec order, then $resize
-// sign-extends them to 32 bits (it sign-extends because the value is marked $signed).
+// Sign-extended immediates, selected by the decoder's imm_type. Each format's bits are
+// reassembled in spec order, then $resize sign-extends them to 32 bits (because they're $signed).
 module imm_gen (
-    input instruction[32],     // V2 style port width array
-    input opcode[7],           
-    output immediate[32]       
+    input instruction[32],
+    input imm_type[Cpu.IMM_TYPE_BITS],
+    output immediate[32]
   ) {
 
   always {
-    case (opcode) {
-      // 1. I-Type Arithmetic constants (like ADDI)
-      7h13:
-        immediate = $resize($signed(instruction[31:20]), 32);
+    case (imm_type) {
+      Cpu.ImmType.I: // ADDI etc., loads, JALR
+        immediate = $resize($signed(instruction[31:20]), 32)
 
-      // 2. I-Type Memory Loads (like LW)
-      7h03:
-        immediate = $resize($signed(instruction[31:20]), 32);
+      Cpu.ImmType.S: // stores
+        immediate = $resize($signed(c{instruction[31:25], instruction[11:7]}), 32)
 
-      // 3. S-Type Memory Stores (like SW)
-      7h23:
-        immediate = $resize($signed(c{instruction[31:25], instruction[11:7]}), 32);
+      Cpu.ImmType.B: // branches
+        immediate = $resize($signed(c{instruction[31], instruction[7], instruction[30:25], instruction[11:8], 1b0}), 32)
 
-      // 4. B-Type Branches (like BNE/BEQ)
-      7h63:
-        immediate = $resize($signed(c{instruction[31], instruction[7], instruction[30:25], instruction[11:8], 1b0}), 32);
+      Cpu.ImmType.U: // LUI, AUIPC: upper 20 bits, low 12 bits zero
+        immediate = c{instruction[31:12], 12h000}
 
-      // 5. J-Type Unconditional Jumps (like JAL)
-      7h6F:
-        immediate = $resize($signed(c{instruction[31], instruction[19:12], instruction[20], instruction[30:21], 1b0}), 32);
+      Cpu.ImmType.J: // JAL
+        immediate = $resize($signed(c{instruction[31], instruction[19:12], instruction[20], instruction[30:21], 1b0}), 32)
 
-      // Default fallback
       default:
-        immediate = 32h0;
+        immediate = 32h0
     }
   }
 }

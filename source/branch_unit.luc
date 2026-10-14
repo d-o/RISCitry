@@ -1,0 +1,21 @@
+// Branch condition: decides whether a BRANCH instruction is taken. Combinational.
+// funct3 selects the comparison; reserved codes (010, 011) are never taken (the decoder flags them illegal).
+module branch_unit (
+    input funct3[3],
+    input a[32],               // rs1
+    input b[32],               // rs2
+    output taken
+  ) {
+
+  always {
+    case (funct3) {
+      3b000: taken = a == b;                          // BEQ
+      3b001: taken = a != b;                          // BNE
+      3b100: taken = $signed(a) < $signed(b);         // BLT
+      3b101: taken = !($signed(a) < $signed(b));      // BGE
+      3b110: taken = a < b;                           // BLTU
+      3b111: taken = !(a < b);                        // BGEU
+      default: taken = 0;
+    }
+  }
+}
