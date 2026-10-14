@@ -1,0 +1,75 @@
+// The RV32E core: everything that runs on the CPU clock. No board I/O here, so testbenches
+// can drive clk directly (testbenches only see a module's ports, and $is_sim() is 0 in them).
+// Moved verbatim from basic-riscve-16k16k.luc; the top module is now just board glue.
+module cpu (
+    input clk,
+    input rst,
+    output debug_pc[32],     // address of the instruction being fetched/executed
+    output debug_x1[32]      // x1, the LED display register
+  ) {
+
+  .clk(clk) {
+    program_counter pc_unit(.rst(rst));
+    register_file reg_file(.rst(rst));
+    control_unit control(.rst(rst));
+
+    simple_ram data_ram(#WIDTH(32), #ENTRIES(64));
+    dff if_id_reg[32](.rst(rst));
+  }
+
+  instruction_mem inst_mem;
+  instruction_decoder decoderName;
+  imm_gen immediate_generator;
+  alu alu_unit;
+  sig data_mem_out[32];
+
+  always {
+    // --- Pipeline Wire Routing ---
+    inst_mem.pc = pc_unit.pc;
+    if_id_reg.d = inst_mem.instruction;
+    decoderName.instruction = if_id_reg.q;
+
+    control.opcode = decoderName.opcode;
+    control.funct3 = decoderName.funct3
+    control.funct7 = decoderName.funct7;
+    control.alu_zero = alu_unit.zero;
+
+    immediate_generator.instruction = if_id_reg.q;
+    immediate_generator.opcode = decoderName.opcode;
+
+    alu_unit.a = reg_file.read_data1;
+    alu_unit.alu_op = control.alu_op;
+
+    if (control.alu_src_b) {
+      alu_unit.b = immediate_generator.immediate;
+    } else {
+      alu_unit.b = reg_file.read_data2;
+    }
+
+    data_ram.address = alu_unit.result[7:2];
+    data_ram.write_data = reg_file.read_data2;
+    data_ram.write_enable = control.data_mem_write;
+    data_mem_out = data_ram.read_data;
+
+    // Restore clean RISC-V ports
+    reg_file.rs1 = decoderName.rs1;
+    reg_file.rs2 = decoderName.rs2;
+    reg_file.rd = decoderName.rd;
+    reg_file.reg_write = control.reg_write;
+
+    if (decoderName.opcode == 7h03) {
+      reg_file.write_data = data_mem_out;
+    } else if (decoderName.opcode == 7h6F) {
+      reg_file.write_data = pc_unit.pc + 4;        // JAL link: pc is still the jal's own address in EXECUTE
+    } else {
+      reg_file.write_data = alu_unit.result;
+    }
+
+    pc_unit.pc_write = control.pc_write;
+    pc_unit.pc_src = control.pc_src;
+    pc_unit.target_address = pc_unit.pc + immediate_generator.immediate;
+
+    debug_pc = pc_unit.pc;
+    debug_x1 = reg_file.debug_x1;
+  }
+}
