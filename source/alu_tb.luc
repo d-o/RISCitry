@@ -1,0 +1,71 @@
+// ALU unit tests: one check per alu_op, plus the edge cases that tell
+// signed from unsigned and logical from arithmetic.
+// alu is combinational; $tick() lets the inputs settle and records a step in the waveform.
+// Lucid rules learned here: call testbench functions with a $ prefix ($check), and drive the
+// DUT through sigs that are also assigned directly in each test (assignments inside a fun
+// alone fail the "never driven" check).
+testbench alu_tb {
+    sig in_a[32]
+    sig in_b[32]
+    sig in_op[4]
+
+    alu dut(.a(in_a), .b(in_b), .alu_op(in_op))
+
+    fun check(op[4], a[32], b[32], expected[32]) {
+        in_op = op
+        in_a = a
+        in_b = b
+        $tick()
+        $assert(dut.result == expected)
+        $assert(dut.zero == (expected == 32h0))
+    }
+
+    test add_sub {
+        in_a = 0
+        in_b = 0
+        in_op = 0
+        $check(4b0000, 32d5, 32d7, 32d12)                     // add
+        $check(4b0000, 32hFFFFFFFF, 32d1, 32h0)               // add wraps, zero flag set
+        $check(4b1000, 32d7, 32d5, 32d2)                      // sub
+        $check(4b1000, 32d5, 32d5, 32h0)                      // sub equal -> zero (BEQ/BNE rely on this)
+        $check(4b1000, 32d5, 32d7, 32hFFFFFFFE)               // sub goes negative
+    }
+
+    test shifts {
+        in_a = 0
+        in_b = 0
+        in_op = 0
+        $check(4b0001, 32h00000001, 32d7, 32h00000080)        // sll
+        $check(4b0001, 32h00000001, 32d33, 32h00000002)       // sll uses only b[4:0] (33 -> 1)
+        $check(4b0101, 32h80000000, 32d4, 32h08000000)        // srl fills with 0
+        $check(4b1101, 32h80000000, 32d4, 32hF8000000)        // sra fills with sign bit
+        $check(4b1101, 32h40000000, 32d4, 32h04000000)        // sra of a positive value
+    }
+
+    test compares {
+        in_a = 0
+        in_b = 0
+        in_op = 0
+        $check(4b0010, 32hFFFFFFFF, 32d1, 32d1)               // slt: -1 < 1 signed
+        $check(4b0010, 32d1, 32hFFFFFFFF, 32d0)               // slt: 1 < -1 is false
+        $check(4b0011, 32hFFFFFFFF, 32d1, 32d0)               // sltu: 0xFFFFFFFF < 1 is false
+        $check(4b0011, 32d1, 32hFFFFFFFF, 32d1)               // sltu: 1 < 0xFFFFFFFF
+        $check(4b0010, 32d3, 32d3, 32d0)                      // slt equal -> 0
+    }
+
+    test logic_ops {
+        in_a = 0
+        in_b = 0
+        in_op = 0
+        $check(4b0100, 32hF0F0F0F0, 32hFF00FF00, 32h0FF00FF0) // xor
+        $check(4b0110, 32hF0F0F0F0, 32h0F0F0F0F, 32hFFFFFFFF) // or
+        $check(4b0111, 32hF0F0F0F0, 32hFF00FF00, 32hF000F000) // and
+    }
+
+    test unused_op {
+        in_a = 0
+        in_b = 0
+        in_op = 0
+        $check(4b1001, 32d5, 32d7, 32h0)                      // codes with no operation give 0
+    }
+}

@@ -11,7 +11,9 @@ module alu (
   always {
     case (alu_op) {
       4b0000:  sig_result = a + b                 
-      4b1000:  sig_result = a - b                 
+      // Signed on purpose: Alchitry Labs 2.0.57's simulator truncates a negative unsigned
+      // a - b to 8 bits (5 - 7 -> 0xFE). Low 32 bits are identical, so hardware is unchanged.
+      4b1000:  sig_result = $signed(a) - $signed(b)
       4b0001:  sig_result = a << b[4:0]           // SLLI / SLL
       4b0101:  sig_result = a >> b[4:0]           // SRLI / SRL
       4b0010:  sig_result = $signed(a) < $signed(b) ? 32h1 : 32h0 
