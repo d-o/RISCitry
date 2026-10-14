@@ -129,12 +129,50 @@ MEMORY = [
     ("halt",),
 ]
 
+# Byte and halfword loads/stores through mem_align and the byte-laned RAM: every width at every
+# offset, sign vs zero extension, partial stores read back as words, a negative offset, and a byte
+# store into a never-written word (the other bytes read as 0).
+BYTES = [
+    ("addi", 2, 0, 0x80),           # base address
+    ("lui", 3, 0x80818),
+    ("addi", 3, 3, -0xFF),          # x3 = 0x80817F01: bytes 01 7F 81 80
+    ("sw", 3, 2, 0),
+    ("lb", 4, 2, 0),                # 0x01
+    ("lb", 5, 2, 1),                # 0x7F
+    ("lb", 6, 2, 2),                # 0x81 -> 0xFFFFFF81
+    ("lb", 7, 2, 3),                # 0x80 -> 0xFFFFFF80
+    ("lbu", 8, 2, 2),               # 0x00000081
+    ("lbu", 9, 2, 3),               # 0x00000080
+    ("lh", 10, 2, 0),               # 0x7F01
+    ("lh", 11, 2, 2),               # 0x8081 -> 0xFFFF8081
+    ("lhu", 12, 2, 2),              # 0x00008081
+    ("lhu", 13, 2, 0),
+    ("addi", 14, 0, -1),            # x14 = 0xFFFFFFFF
+    ("sw", 0, 2, 4),
+    ("sb", 14, 2, 4),               # word +4 = 0x000000FF
+    ("sb", 3, 2, 6),                # byte 0x01 at offset 2 -> 0x000100FF
+    ("lw", 15, 2, 4),
+    ("sh", 14, 2, 6),               # upper half -> 0xFFFF00FF
+    ("lw", 15, 2, 4),
+    ("sh", 3, 2, 4),                # lower half 0x7F01 -> 0xFFFF7F01
+    ("lw", 1, 2, 4),
+    ("lb", 1, 2, 5),                # 0x7F
+    ("addi", 5, 2, 8),
+    ("sb", 0, 5, -1),               # address 0x87: top byte of word +4 -> 0x00FF7F01
+    ("lw", 6, 2, 4),
+    ("sb", 14, 2, 9),               # never-written word +8: byte 1 -> 0x0000FF00
+    ("lw", 7, 2, 8),
+    ("lbu", 8, 2, 9),
+    ("halt",),
+]
+
 PROGRAMS = {
     "LARSON": LARSON,
     "ALU": ALU,
     "BRANCHES": BRANCHES,
     "JUMPS": JUMPS,
     "MEMORY": MEMORY,
+    "BYTES": BYTES,
 }
 
 # The program the board runs (instantiated by the top module).

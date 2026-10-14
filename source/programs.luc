@@ -2,7 +2,7 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { LARSON, ALU, BRANCHES, JUMPS, MEMORY }
+    enum Id { LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES }
 
     const LARSON = {
         32hFCDFF0EF,  // 0x007c: jal x1, right
@@ -127,5 +127,38 @@ global Programs {
         32hEEF18193,  // 0x0008: addi x3, x3, -0x111
         32hDEADC1B7,  // 0x0004: lui x3, 0xdeadc
         32h04000113  // 0x0000: addi x2, x0, 64
+    }
+    const BYTES = {
+        32h0000006F,  // 0x0078: halt
+        32h00914403,  // 0x0074: lbu x8, 9(x2)
+        32h00812383,  // 0x0070: lw x7, 8(x2)
+        32h00E104A3,  // 0x006c: sb x14, 9(x2)
+        32h00412303,  // 0x0068: lw x6, 4(x2)
+        32hFE028FA3,  // 0x0064: sb x0, -1(x5)
+        32h00810293,  // 0x0060: addi x5, x2, 8
+        32h00510083,  // 0x005c: lb x1, 5(x2)
+        32h00412083,  // 0x0058: lw x1, 4(x2)
+        32h00311223,  // 0x0054: sh x3, 4(x2)
+        32h00412783,  // 0x0050: lw x15, 4(x2)
+        32h00E11323,  // 0x004c: sh x14, 6(x2)
+        32h00412783,  // 0x0048: lw x15, 4(x2)
+        32h00310323,  // 0x0044: sb x3, 6(x2)
+        32h00E10223,  // 0x0040: sb x14, 4(x2)
+        32h00012223,  // 0x003c: sw x0, 4(x2)
+        32hFFF00713,  // 0x0038: addi x14, x0, -1
+        32h00015683,  // 0x0034: lhu x13, 0(x2)
+        32h00215603,  // 0x0030: lhu x12, 2(x2)
+        32h00211583,  // 0x002c: lh x11, 2(x2)
+        32h00011503,  // 0x0028: lh x10, 0(x2)
+        32h00314483,  // 0x0024: lbu x9, 3(x2)
+        32h00214403,  // 0x0020: lbu x8, 2(x2)
+        32h00310383,  // 0x001c: lb x7, 3(x2)
+        32h00210303,  // 0x0018: lb x6, 2(x2)
+        32h00110283,  // 0x0014: lb x5, 1(x2)
+        32h00010203,  // 0x0010: lb x4, 0(x2)
+        32h00312023,  // 0x000c: sw x3, 0(x2)
+        32hF0118193,  // 0x0008: addi x3, x3, -255
+        32h808181B7,  // 0x0004: lui x3, 0x80818
+        32h08000113  // 0x0000: addi x2, x0, 128
     }
 }

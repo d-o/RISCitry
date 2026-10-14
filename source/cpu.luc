@@ -3,7 +3,7 @@
 //
 // decoder (what the instruction needs) + control_unit (when, by FSM state) drive the datapath:
 //   inst_mem -> if_id_reg -> decoder/imm_gen; register_file -> alu / branch_unit;
-//   data_ram for loads/stores; the write-back mux picks rd's value from ctrl.wb_sel.
+//   data_ram (byte lanes) + mem_align for loads/stores; the write-back mux picks rd's value from ctrl.wb_sel.
 module cpu #(
     PROGRAM_ID = 0,          // which program the instruction ROM holds: a Programs.Id
     SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1   // 1 in testbenches: data RAM uses its Lucid model
@@ -29,6 +29,7 @@ module cpu #(
   imm_gen immediate_generator;
   alu alu_unit;
   branch_unit branch;
+  mem_align align;
 
   sig instruction[32];
   sig pc_plus_4[32];
@@ -60,16 +61,21 @@ module cpu #(
     branch.a = reg_file.read_data1;
     branch.b = reg_file.read_data2;
 
-    // --- memory (word access only for now) ---
+    // --- memory: byte/halfword lanes via mem_align ---
+    align.funct3 = instruction[14:12];
+    align.addr_low = alu_unit.result[1:0];
+    align.store_data = reg_file.read_data2;
+    align.load_word = data_ram.read_data;
+
     data_ram.address = alu_unit.result[7:2];
-    data_ram.write_data = reg_file.read_data2;
-    data_ram.write_enable = control.mem_write;
+    data_ram.write_data = align.write_data;
+    if (control.mem_write) data_ram.byte_enable = align.byte_enable; else data_ram.byte_enable = 4b0000;
 
     // --- write back ---
     pc_plus_4 = pc_unit.pc + 4;  // pc is still this instruction's own address until the state machine moves on
     reg_file.reg_write = control.reg_write;
     case (dec.ctrl.wb_sel) {
-      Cpu.WbSel.MEM: reg_file.write_data = data_ram.read_data;
+      Cpu.WbSel.MEM: reg_file.write_data = align.load_data;
       Cpu.WbSel.PC4: reg_file.write_data = pc_plus_4;
       Cpu.WbSel.IMM: reg_file.write_data = immediate_generator.immediate;
       default:       reg_file.write_data = alu_unit.result;

@@ -2,8 +2,8 @@
 
 It executes one instruction per step and knows nothing about the hardware's FSM, so a test
 can compare the core's architectural state (pc, registers) against it after every instruction.
-Deliberately strict: anything the core doesn't implement (byte/halfword access, CSRs) raises,
-as do RAM accesses outside the 256-byte data memory and loads from never-written words.
+Deliberately strict: anything the core doesn't implement (CSRs, traps) raises, as do RAM accesses
+outside the 256-byte data memory, misaligned accesses, and loads from never-written words.
 """
 MASK = 0xFFFFFFFF
 RAM_BYTES = 256   # simple_ram: 64 words, addressed by alu.result[7:2]
@@ -31,11 +31,14 @@ class Cpu:
         if rd:
             self.x[rd] = value & MASK
 
-    def _ram_addr(self, addr):
+    def _ram_addr(self, addr, size):
+        """(word address, bit shift) for a little-endian access of `size` bytes."""
         addr &= MASK
-        if addr >= RAM_BYTES or addr % 4:
-            raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} outside the {RAM_BYTES}-byte RAM or unaligned")
-        return addr
+        if addr >= RAM_BYTES:
+            raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} outside the {RAM_BYTES}-byte RAM")
+        if addr % size:
+            raise ValueError(f"pc={self.pc:#x}: misaligned {size}-byte access at {addr:#x} (not supported)")
+        return addr & ~3, 8 * (addr & 3)
 
     def step(self):
         w = self.rom.get(self.pc, self.default_word)
@@ -75,14 +78,22 @@ class Cpu:
                      5: _sext(a, 32) >= _sext(b, 32), 6: a < b, 7: a >= b}[f3]
             if taken:
                 next_pc = (self.pc + imm) & MASK
-        elif op == 0x03 and f3 == 2:
-            addr = self._ram_addr(self.reg(rs1) + i_imm)
-            if addr not in self.mem:
-                raise ValueError(f"pc={self.pc:#x}: load from {addr:#x} before any store (RAM starts unknown)")
-            self.write(rd, self.mem[addr])
-        elif op == 0x23 and f3 == 2:
+        elif op == 0x03 and f3 in (0, 1, 2, 4, 5):
+            addr, size = self.reg(rs1) + i_imm, 1 << (f3 & 3)
+            word_addr, shift = self._ram_addr(addr, size)
+            if word_addr not in self.mem:
+                raise ValueError(f"pc={self.pc:#x}: load from {word_addr:#x} before any store (RAM starts unknown)")
+            value = (self.mem[word_addr] >> shift) & ((1 << (8 * size)) - 1)
+            if f3 < 4:                       # LB/LH/LW sign-extend; LBU/LHU zero-extend
+                value = _sext(value, 8 * size)
+            self.write(rd, value)
+        elif op == 0x23 and f3 in (0, 1, 2):
             s_imm = _sext(((w >> 25) << 5) | ((w >> 7) & 31), 12)
-            self.mem[self._ram_addr(self.reg(rs1) + s_imm)] = self.reg(rs2)
+            size = 1 << f3
+            word_addr, shift = self._ram_addr(self.reg(rs1) + s_imm, size)
+            mask = ((1 << (8 * size)) - 1) << shift
+            old = self.mem.get(word_addr, 0)   # a partial store into an unwritten word: other bytes are 0
+            self.mem[word_addr] = (old & ~mask) | ((self.reg(rs2) << shift) & mask)
         elif (op == 0x0F and f3 == 0) or w in (0x00000073, 0x00100073):
             pass  # FENCE, ECALL, EBREAK: no-ops on this core (no traps yet)
         else:

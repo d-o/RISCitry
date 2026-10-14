@@ -1,0 +1,53 @@
+// Byte/halfword handling between the core and the 32-bit, byte-laned data RAM. Combinational.
+// funct3 is the load/store width: LB 000, LH 001, LW 010, LBU 100, LHU 101; SB 000, SH 001, SW 010.
+// Little-endian: byte address offset 0 is bits [7:0].
+// Misaligned halfword/word accesses aren't supported (no traps yet): the low address bits are
+// ignored, so they act on the aligned halfword/word. rv32sim raises on them instead.
+module mem_align (
+    input funct3[3],
+    input addr_low[2],         // byte address bits [1:0]
+    input store_data[32],      // rs2
+    input load_word[32],       // whole word read from data_ram
+    output write_data[32],     // store data copied into every lane it could occupy
+    output byte_enable[4],     // lanes a store writes (only used when the instruction stores)
+    output load_data[32]       // loaded value, sign- or zero-extended to 32 bits
+  ) {
+
+  sig byte_sel[8]
+  sig half_sel[16]
+
+  always {
+    case (addr_low) {
+      2b00: byte_sel = load_word[7:0]
+      2b01: byte_sel = load_word[15:8]
+      2b10: byte_sel = load_word[23:16]
+      default: byte_sel = load_word[31:24]
+    }
+    if (addr_low[1]) half_sel = load_word[31:16]; else half_sel = load_word[15:0];
+
+    case (funct3) {
+      3b000: load_data = $resize($signed(byte_sel), 32)   // LB
+      3b001: load_data = $resize($signed(half_sel), 32)   // LH
+      3b100: load_data = c{24h000000, byte_sel}           // LBU
+      3b101: load_data = c{16h0000, half_sel}             // LHU
+      default: load_data = load_word                      // LW
+    }
+
+    case (funct3[1:0]) {
+      2b00: // SB
+        write_data = c{store_data[7:0], store_data[7:0], store_data[7:0], store_data[7:0]}
+        case (addr_low) {
+          2b00: byte_enable = 4b0001
+          2b01: byte_enable = 4b0010
+          2b10: byte_enable = 4b0100
+          default: byte_enable = 4b1000
+        }
+      2b01: // SH
+        write_data = c{store_data[15:0], store_data[15:0]}
+        if (addr_low[1]) byte_enable = 4b1100; else byte_enable = 4b0011;
+      default: // SW
+        write_data = store_data
+        byte_enable = 4b1111
+    }
+  }
+}

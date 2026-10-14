@@ -21,5 +21,6 @@ module instruction_mem #(
     if (PROGRAM_ID == Programs.Id.BRANCHES && word_addr < 21) instruction = Programs.BRANCHES[word_addr];
     if (PROGRAM_ID == Programs.Id.JUMPS && word_addr < 15) instruction = Programs.JUMPS[word_addr];
     if (PROGRAM_ID == Programs.Id.MEMORY && word_addr < 16) instruction = Programs.MEMORY[word_addr];
+    if (PROGRAM_ID == Programs.Id.BYTES && word_addr < 31) instruction = Programs.BYTES[word_addr];
   }
 }
