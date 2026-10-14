@@ -2,23 +2,15 @@
 
 It executes one instruction per step and knows nothing about the hardware's FSM, so a test
 can compare the core's architectural state (pc, registers) against it after every instruction.
+Deliberately strict: anything the core doesn't implement (byte/halfword access, CSRs) raises,
+as do RAM accesses outside the 256-byte data memory and loads from never-written words.
 """
-import re
-from pathlib import Path
-
 MASK = 0xFFFFFFFF
+RAM_BYTES = 256   # simple_ram: 64 words, addressed by alu.result[7:2]
 
 
 def _sext(v, bits):
     return v - (1 << bits) if v & (1 << (bits - 1)) else v
-
-
-def load_rom(luc_path):
-    """Read {address: word} from instruction_mem.luc's `14hXXXX: instruction = 32hXXXXXXXX` lines."""
-    text = Path(luc_path).read_text()
-    pairs = re.findall(r"14h([0-9A-Fa-f]+):\s*instruction\s*=\s*32h([0-9A-Fa-f]+)", text)
-    default = re.search(r"default:\s*instruction\s*=\s*32h([0-9A-Fa-f]+)", text)
-    return {int(a, 16) * 4: int(w, 16) for a, w in pairs}, int(default.group(1), 16)
 
 
 class Cpu:
@@ -38,6 +30,12 @@ class Cpu:
             raise ValueError(f"x{rd} doesn't exist in RV32E")
         if rd:
             self.x[rd] = value & MASK
+
+    def _ram_addr(self, addr):
+        addr &= MASK
+        if addr >= RAM_BYTES or addr % 4:
+            raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} outside the {RAM_BYTES}-byte RAM or unaligned")
+        return addr
 
     def step(self):
         w = self.rom.get(self.pc, self.default_word)
@@ -78,10 +76,15 @@ class Cpu:
             if taken:
                 next_pc = (self.pc + imm) & MASK
         elif op == 0x03 and f3 == 2:
-            self.write(rd, self.mem.get((self.reg(rs1) + i_imm) & MASK & ~3, 0))
+            addr = self._ram_addr(self.reg(rs1) + i_imm)
+            if addr not in self.mem:
+                raise ValueError(f"pc={self.pc:#x}: load from {addr:#x} before any store (RAM starts unknown)")
+            self.write(rd, self.mem[addr])
         elif op == 0x23 and f3 == 2:
             s_imm = _sext(((w >> 25) << 5) | ((w >> 7) & 31), 12)
-            self.mem[(self.reg(rs1) + s_imm) & MASK & ~3] = self.reg(rs2)
+            self.mem[self._ram_addr(self.reg(rs1) + s_imm)] = self.reg(rs2)
+        elif (op == 0x0F and f3 == 0) or w in (0x00000073, 0x00100073):
+            pass  # FENCE, ECALL, EBREAK: no-ops on this core (no traps yet)
         else:
             raise NotImplementedError(f"pc={self.pc:#x}: {w:08X} not modelled")
         self.pc = next_pc

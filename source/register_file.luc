@@ -8,7 +8,8 @@ module register_file (
     input reg_write,
     output read_data1[32],  
     output read_data2[32],
-    output debug_x1[32]      // NATIVE HOOK: Clean window straight to register x1
+    input debug_sel[4],      // debug read port: the board shows x1 on the LEDs, testbenches read any register
+    output debug_reg[32]
   ) {
 
   dff registers[16][32](.clk(clk), .rst(rst))
@@ -35,8 +36,8 @@ module register_file (
       read_data2 = registers.q[rs2_idx]
     }
 
-    // Pass the live contents of register x1 (index 1) directly out to the debug window
-    debug_x1 = registers.q[1]
+    // Debug read port (x0 reads as 0, like the real ports)
+    if (debug_sel == 4b0000) debug_reg = 32h00000000; else debug_reg = registers.q[debug_sel];
 
     // --- SYNCHRONOUS WRITE LOGIC ---
     registers.d = registers.q 

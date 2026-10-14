@@ -4,11 +4,15 @@
 // decoder (what the instruction needs) + control_unit (when, by FSM state) drive the datapath:
 //   inst_mem -> if_id_reg -> decoder/imm_gen; register_file -> alu / branch_unit;
 //   data_ram for loads/stores; the write-back mux picks rd's value from ctrl.wb_sel.
-module cpu (
+module cpu #(
+    PROGRAM_ID = 0,          // which program the instruction ROM holds: a Programs.Id
+    SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1   // 1 in testbenches: data RAM uses its Lucid model
+  ) (
     input clk,
     input rst,
+    input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
-    output debug_x1[32]      // x1, the LED display register
+    output debug_reg[32]     // register x[debug_sel]
   ) {
 
   .clk(clk) {
@@ -16,11 +20,11 @@ module cpu (
     register_file reg_file(.rst(rst));
     control_unit control(.rst(rst));
 
-    simple_ram data_ram(#WIDTH(32), #ENTRIES(64));
+    data_ram data_ram(#ENTRIES(64), #SIM_MODEL(SIM_RAM));
     dff if_id_reg[32](.rst(rst));   // instruction latched at the end of FETCH
   }
 
-  instruction_mem inst_mem;
+  instruction_mem inst_mem(#PROGRAM_ID(PROGRAM_ID));
   decoder dec;
   imm_gen immediate_generator;
   alu alu_unit;
@@ -77,6 +81,7 @@ module cpu (
     if (dec.ctrl.jalr) pc_unit.target_address = alu_unit.result; else pc_unit.target_address = pc_unit.pc + immediate_generator.immediate;
 
     debug_pc = pc_unit.pc;
-    debug_x1 = reg_file.debug_x1;
+    reg_file.debug_sel = debug_sel;
+    debug_reg = reg_file.debug_reg;
   }
 }
