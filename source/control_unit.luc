@@ -68,10 +68,10 @@ module control_unit (
               default: pc_src = 2b00;
             }
 
-          7h6F: // JAL Unconditional Jump Support
-            pc_src = 2b01;             
-            pc_write = 1;              
-            reg_write = 0;             
+          7h6F: // JAL: jump to pc + imm, link rd = pc + 4
+            pc_src = 2b01;
+            pc_write = 1;
+            reg_write = 1;
             state.d = STATE_FETCH;     
 
           7h03: // Load Word (LW)
