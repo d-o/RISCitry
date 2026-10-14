@@ -1,0 +1,16 @@
+// Control-signal encodings shared between decoder, imm_gen and the datapath.
+// tools/gen_decoder_tb.py mirrors these values; change both together.
+global Cpu {
+    // decoder.imm_type: which immediate format the instruction uses
+    const IMM_I = 3d0
+    const IMM_S = 3d1
+    const IMM_B = 3d2
+    const IMM_U = 3d3
+    const IMM_J = 3d4
+
+    // decoder.wb_sel: what gets written to rd
+    const WB_ALU = 2d0
+    const WB_MEM = 2d1
+    const WB_PC4 = 2d2
+    const WB_IMM = 2d3
+}

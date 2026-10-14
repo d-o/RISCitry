@@ -86,7 +86,59 @@ def decode_imm(word):
     raise ValueError(f"no immediate for opcode {op:#04x}")
 
 
-# --- named instructions used so far --------------------------------------------
+# --- every RV32I instruction: mnemonic -> (format, opcode, funct3, funct7) -----
+
+INSTRUCTIONS = {
+    "lui":   ("U", 0x37, None, None),
+    "auipc": ("U", 0x17, None, None),
+    "jal":   ("J", 0x6F, None, None),
+    "jalr":  ("I", 0x67, 0b000, None),
+    "beq":   ("B", 0x63, 0b000, None), "bne":  ("B", 0x63, 0b001, None),
+    "blt":   ("B", 0x63, 0b100, None), "bge":  ("B", 0x63, 0b101, None),
+    "bltu":  ("B", 0x63, 0b110, None), "bgeu": ("B", 0x63, 0b111, None),
+    "lb":    ("I", 0x03, 0b000, None), "lh":   ("I", 0x03, 0b001, None),
+    "lw":    ("I", 0x03, 0b010, None), "lbu":  ("I", 0x03, 0b100, None),
+    "lhu":   ("I", 0x03, 0b101, None),
+    "sb":    ("S", 0x23, 0b000, None), "sh":   ("S", 0x23, 0b001, None),
+    "sw":    ("S", 0x23, 0b010, None),
+    "addi":  ("I", 0x13, 0b000, None), "slti": ("I", 0x13, 0b010, None),
+    "sltiu": ("I", 0x13, 0b011, None), "xori": ("I", 0x13, 0b100, None),
+    "ori":   ("I", 0x13, 0b110, None), "andi": ("I", 0x13, 0b111, None),
+    "slli":  ("SHIFT", 0x13, 0b001, 0x00), "srli": ("SHIFT", 0x13, 0b101, 0x00),
+    "srai":  ("SHIFT", 0x13, 0b101, 0x20),
+    "add":   ("R", 0x33, 0b000, 0x00), "sub":  ("R", 0x33, 0b000, 0x20),
+    "sll":   ("R", 0x33, 0b001, 0x00), "slt":  ("R", 0x33, 0b010, 0x00),
+    "sltu":  ("R", 0x33, 0b011, 0x00), "xor":  ("R", 0x33, 0b100, 0x00),
+    "srl":   ("R", 0x33, 0b101, 0x00), "sra":  ("R", 0x33, 0b101, 0x20),
+    "or":    ("R", 0x33, 0b110, 0x00), "and":  ("R", 0x33, 0b111, 0x00),
+    "fence": ("I", 0x0F, 0b000, None),
+    "ecall": ("I", 0x73, 0b000, None), "ebreak": ("I", 0x73, 0b000, None),
+}
+
+
+def encode(mnemonic, rd=0, rs1=0, rs2=0, imm=0):
+    """Encode any RV32I instruction. Unused operands are ignored for that format."""
+    fmt, op, f3, f7 = INSTRUCTIONS[mnemonic]
+    if mnemonic == "ebreak":
+        imm = 1
+    if fmt == "R":
+        return r_type(op, rd, f3, rs1, rs2, f7)
+    if fmt == "SHIFT":
+        if not 0 <= imm < 32:
+            raise ValueError(f"shift amount {imm} must be 0..31")
+        return i_type(op, rd, f3, rs1, (f7 << 5) | imm)
+    if fmt == "I":
+        return i_type(op, rd, f3, rs1, imm)
+    if fmt == "S":
+        return s_type(op, f3, rs1, rs2, imm)
+    if fmt == "B":
+        return b_type(op, f3, rs1, rs2, imm)
+    if fmt == "U":
+        return u_type(op, rd, imm)
+    return j_type(op, rd, imm)
+
+
+# --- named shorthands ------------------------------------------------------------
 
 def addi(rd, rs1, imm): return i_type(0x13, rd, 0b000, rs1, imm)
 def slli(rd, rs1, sh):  return i_type(0x13, rd, 0b001, rs1, sh)
@@ -119,8 +171,19 @@ def _self_test():
         0x0010D093: srli(1, 1, 1),
         0x00109093: slli(1, 1, 1),
     }
+    known.update({
+        0x00008067: encode("jalr", 0, 1, imm=0),       # ret
+        0x00000073: encode("ecall"),
+        0x00100073: encode("ebreak"),
+        0x40A5D513: encode("srai", 10, 11, imm=10),    # srai a0, a1, 10
+        0x123452B7: encode("lui", 5, imm=0x12345),     # lui t0, 0x12345
+        0x0000A503: encode("lw", 10, 1, imm=0),        # lw a0, 0(ra)
+        0x00A12223: encode("sw", 0, 2, 10, imm=4),     # sw a0, 4(sp)
+    })
     for want, got in known.items():
         assert want == got, f"expected {want:08X}, encoder gave {got:08X}"
+    for name in INSTRUCTIONS:
+        assert INSTRUCTIONS[name][1] == encode(name, 1, 2, 3, 4) & 0x7F
     for imm in (0, 2, -2, 4094, -4096, 0x800, -0x800, 0xAAA, -0x556):
         assert decode_imm(beq(31, 31, imm)) == imm
     for imm in (0, 2, -2, 0xFFFFE, -0x100000, 0x800, 0x55554, -0x2AAAC):
