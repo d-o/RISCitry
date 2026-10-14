@@ -4,8 +4,8 @@ programs.luc: every program as a constant array in `global Programs` (the board 
 the testbenches use all of them).
 
 cpu_tb.luc: one testbench per program. Each runs the program on tools/rv32sim.py and checks the
-cpu core after every instruction: the pc (and at_fetch), and the destination register when the instruction
-writes one (x0 included, which must stay 0). Each check comes exactly as many clocks after the
+cpu core: the control state after every clock, and after every instruction the pc and the
+destination register when the instruction writes one (x0 included, which must stay 0). Each check comes exactly as many clocks after the
 last as this multi-cycle core should take (2, or 3 for stores, 4 for loads), so a missing or
 extra cycle is a failure. After the program halts, all 16 registers are compared.
 
@@ -20,6 +20,9 @@ import rv32sim
 ROOT = Path(__file__).resolve().parent.parent
 LARSON_STEPS = 34          # boot + two full sweeps; Larson never halts
 MAX_STEPS = 200            # a test program that doesn't reach halt by then is a bug
+# control_unit's state after each clock of an instruction, by the instruction's clock count
+STATES = {2: ["EXECUTE", "FETCH"], 3: ["EXECUTE", "MEM_ACCESS", "FETCH"],
+          4: ["EXECUTE", "MEM_ACCESS", "WRITEBACK", "FETCH"]}
 WRITES_RD = {0x37, 0x17, 0x6F, 0x67, 0x03, 0x13, 0x33}
 
 
@@ -97,9 +100,12 @@ def render_testbench(name, words, text):
         "        if (dut.debug_pc != pc)",
         '            $print("pc: got %h want %h", dut.debug_pc, pc)',
         "        $assert(dut.debug_pc == pc)",
-        "        if (!dut.at_fetch)",
-        '            $print("at_fetch: 0 at an instruction boundary")',
-        "        $assert(dut.at_fetch)",
+        "    }",
+        "",
+        "    fun expect_state(state[Cpu.STATE_BITS]) {",
+        "        if (dut.debug_state != state)",
+        '            $print("state: got %d want %d", dut.debug_state, state)',
+        "        $assert(dut.debug_state == state)",
         "    }",
         "",
         "    fun expect_reg(r[4], value[32]) {",
@@ -126,7 +132,8 @@ def render_testbench(name, words, text):
         model.step()
         steps += 1
         lines.append(f"        // {pc:#06x}: {text.get(pc, 'nop')}")
-        lines += ["        $tick_clock()"] * clocks_for(word)
+        for state in STATES[clocks_for(word)]:
+            lines += ["        $tick_clock()", f"        $expect_state(Cpu.State.{state})"]
         lines.append(f"        $expect_pc(32h{model.pc:08X})")
         if word & 0x7F in WRITES_RD:
             rd = (word >> 7) & 31

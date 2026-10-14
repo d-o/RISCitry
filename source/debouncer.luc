@@ -13,12 +13,14 @@ module debouncer #(
     dff sync0                // two flip-flops: in is asynchronous to clk
     dff sync1
     dff count[BITS]
+    dff stable               // registered: a 21-input AND straight into the step logic missed 100 MHz
   }
 
   always {
     sync0.d = in
     sync1.d = sync0.q
-    out = &count.q
+    stable.d = &count.q
+    out = stable.q
 
     if (!sync1.q) count.d = 0; else if (!&count.q) count.d = count.q + 1;
   }

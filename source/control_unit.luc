@@ -13,51 +13,49 @@ module control_unit (
     output pc_src[2],          // program_counter: 00 = pc + 4, 01 = pc + imm, 10 = JALR target
     output reg_write,
     output mem_write,
-    output at_fetch            // between instructions: the last one has finished, the next not started
+    output current_state[Cpu.STATE_BITS]   // a Cpu.State; FETCH = between instructions
   ) {
 
-  enum State { FETCH, EXECUTE, MEM_ACCESS, WRITEBACK }
-
-  dff state[$width(State)](#INIT(State.FETCH), .clk(clk), .rst(rst))
+  dff state[Cpu.STATE_BITS](#INIT(Cpu.State.FETCH), .clk(clk), .rst(rst))
 
   always {
     pc_write = 0
     pc_src = 2b00
     reg_write = 0
     mem_write = 0
-    at_fetch = state.q == State.FETCH
+    current_state = state.q
 
     case (state.q) {
-      State.FETCH:
-        state.d = State.EXECUTE
+      Cpu.State.FETCH:
+        state.d = Cpu.State.EXECUTE
 
-      State.EXECUTE:
+      Cpu.State.EXECUTE:
         if (ctrl.mem_read || ctrl.mem_write) {
-          state.d = State.MEM_ACCESS
+          state.d = Cpu.State.MEM_ACCESS
         } else {
           reg_write = ctrl.reg_write
           pc_write = 1
           if (ctrl.jump || (ctrl.branch && branch_taken)) pc_src = 2b01;
           if (ctrl.jalr) pc_src = 2b10;
-          state.d = State.FETCH
+          state.d = Cpu.State.FETCH
         }
 
-      State.MEM_ACCESS:
+      Cpu.State.MEM_ACCESS:
         if (ctrl.mem_write) {
           mem_write = 1
           pc_write = 1
-          state.d = State.FETCH
+          state.d = Cpu.State.FETCH
         } else {
-          state.d = State.WRITEBACK
+          state.d = Cpu.State.WRITEBACK
         }
 
-      State.WRITEBACK:
+      Cpu.State.WRITEBACK:
         reg_write = ctrl.reg_write
         pc_write = 1
-        state.d = State.FETCH
+        state.d = Cpu.State.FETCH
 
       default:
-        state.d = State.FETCH
+        state.d = Cpu.State.FETCH
     }
   }
 }

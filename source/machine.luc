@@ -1,5 +1,5 @@
 // The cpu plus the clock and reset sequencer that a front panel drives: run, run fast, or stop
-// and single-step one whole instruction at a time.
+// and single-step, either one whole instruction or one cpu clock at a time.
 //
 // The cpu still runs on a clock derived from clk (cpu_clk, a flip-flop, so glitch-free), not on clk
 // with a clock enable: the core's fmax (~62 MHz) is under 100 MHz, so a clock enable would fail
@@ -7,9 +7,12 @@
 //
 // cpu_clk changes only when the half-period counter fills: every 2^SLOW_BITS clocks when running,
 // every 2^FAST_BITS when running fast, stepping or resetting. Stopping happens only where a rising
-// edge would go, and only between instructions (cpu at_fetch), so a stop or a step always leaves a
-// whole instruction done and the clock low.
-//   at_fetch is in the cpu_clk domain; it's sampled half a cpu clock after the cpu last changed.
+// edge would go, so the clock is always low when stopped.
+//   Instruction mode: a step, or turning run off, keeps clocking until the cpu is between
+//   instructions (state FETCH), so it always leaves whole instructions done.
+//   Clock mode (clock_step): a step is one rising edge, and turning run off stops at the next one,
+//   wherever the cpu is. A step in instruction mode from mid-instruction finishes that instruction.
+//   The cpu state is in the cpu_clk domain; it's sampled half a cpu clock after it last changed.
 //   cpu_rst changes only with a falling edge, so it's never racing a rising one.
 // After rst the cpu clock runs (fast) with cpu_rst held for two rising edges, so a short reset
 // pulse is enough even when stopped.
@@ -21,13 +24,18 @@ module machine #(
   ) (
     input clk,
     input rst,
-    input run,               // 1: run; 0: stop at the end of the current instruction
+    input run,               // 1: run; 0: stop (see clock_step for where)
     input fast,              // run at the fast rate
-    input step,              // one-clock pulse: when stopped, run exactly one instruction
+    input clock_step,        // 1: step and stop by cpu clock; 0: by whole instruction
+    input step,              // one-clock pulse: when stopped, run one instruction (or one cpu clock)
     input debug_sel[4],
     output debug_pc[32],
     output debug_reg[32],
-    output halted            // stopped between instructions, waiting for run or step
+    output cpu_state[Cpu.STATE_BITS],   // the cpu's control state (a Cpu.State)
+    output cpu_clock,        // the cpu clock itself
+    output halted,           // stopped, waiting for run or step
+    output busy,             // finishing a step, or the instruction in progress when run went off
+    output in_reset          // the cpu is being held in reset
   ) {
 
   .clk(clk), .rst(rst) {
@@ -36,12 +44,13 @@ module machine #(
     dff cpu_clk
     dff cpu_rst(#INIT(1))
     dff reset_edges[2](#INIT(2))   // rising edges still to give the cpu with cpu_rst held
-    dff stepping                   // a step is in progress
-    dff moved                      // the step has given at least one rising edge
+    dff active                     // clocking towards a stop point (a step, or the end of a run)
+    dff moved                      // ...and has given at least one rising edge
   }
 
   sig core_clk
   sig resetting
+  sig at_fetch
   sig stopped
 
   .clk(core_clk) {
@@ -53,9 +62,10 @@ module machine #(
     phase.d = phase.q + 1
 
     resetting = reset_edges.q != 0
-    if (fast || stepping.q || resetting) half_done.d = &phase.q[FAST_BITS-1:0]; else half_done.d = &phase.q;
+    at_fetch = core.debug_state == Cpu.State.FETCH
+    if (fast || resetting || (active.q && !run)) half_done.d = &phase.q[FAST_BITS-1:0]; else half_done.d = &phase.q;
 
-    stopped = !cpu_clk.q && core.at_fetch && !run && !resetting && !stepping.q
+    stopped = !cpu_clk.q && !run && !resetting && !active.q
 
     if (half_done.q) {
       if (cpu_clk.q) {
@@ -65,21 +75,30 @@ module machine #(
           if (reset_edges.q == 1) cpu_rst.d = 0;
         }
       } else {
-        if (run || resetting || !core.at_fetch || (stepping.q && !moved.q)) {
+        if (run || resetting || (active.q && (!moved.q || (!at_fetch && !clock_step)))) {
           cpu_clk.d = 1
           moved.d = 1
         } else {
-          stepping.d = 0
+          active.d = 0
         }
       }
     }
 
+    // Running counts as a step already under way, so turning run off finishes like a step does.
+    if (run) {
+      active.d = 1
+      moved.d = 1
+    }
     if (step && stopped) {
-      stepping.d = 1
+      active.d = 1
       moved.d = 0
     }
 
     halted = stopped
+    busy = active.q && !run
+    in_reset = cpu_rst.q
+    cpu_clock = cpu_clk.q
+    cpu_state = core.debug_state
     core.debug_sel = debug_sel
     debug_pc = core.debug_pc
     debug_reg = core.debug_reg

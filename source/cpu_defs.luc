@@ -5,6 +5,10 @@ global Cpu {
     enum ImmType { I, S, B, U, J }
     const IMM_TYPE_BITS = $width(ImmType)   // for ports: $width(Cpu.ImmType) doesn't resolve in a port list
 
+    // control_unit's states (one instruction = FETCH, EXECUTE, then MEM_ACCESS/WRITEBACK if needed)
+    enum State { FETCH, EXECUTE, MEM_ACCESS, WRITEBACK }
+    const STATE_BITS = $width(State)
+
     // What gets written to rd
     enum WbSel { ALU, MEM, PC4, IMM }
 
