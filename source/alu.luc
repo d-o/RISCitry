@@ -1,0 +1,29 @@
+module alu (
+    input a[32],
+    input b[32],
+    input alu_op[4],
+    output result[32],
+    output zero
+  ) {
+
+  sig sig_result[32]
+
+  always {
+    case (alu_op) {
+      4b0000:  sig_result = a + b                 
+      4b1000:  sig_result = a - b                 
+      4b0001:  sig_result = a << b[4:0]           // SLLI / SLL
+      4b0101:  sig_result = a >> b[4:0]           // SRLI / SRL
+      4b0010:  sig_result = $signed(a) < $signed(b) ? 32h1 : 32h0 
+      4b0011:  sig_result = a < b ? 32h1 : 32h0    
+      4b0100:  sig_result = a ^ b                 
+      4b1101:  sig_result = $signed(a) >>> b[4:0] // SRAI / SRA
+      4b0110:  sig_result = a | b                 
+      4b0111:  sig_result = a & b                 
+      default: sig_result = 32h0                  
+    }
+
+    result = sig_result    
+    zero = (sig_result == 32h0)
+  }
+}

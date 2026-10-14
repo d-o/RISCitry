@@ -1,0 +1,48 @@
+module register_file (
+    input clk,
+    input rst,
+    input rs1[5],           
+    input rs2[5],           
+    input rd[5],            
+    input write_data[32],   
+    input reg_write,
+    output read_data1[32],  
+    output read_data2[32],
+    output debug_x1[32]      // NATIVE HOOK: Clean window straight to register x1
+  ) {
+
+  dff registers[16][32](.clk(clk), .rst(rst))
+
+  sig rs1_idx[4]
+  sig rs2_idx[4]
+  sig rd_idx[4]
+
+  always {
+    rs1_idx = rs1[3:0]
+    rs2_idx = rs2[3:0]
+    rd_idx  = rd[3:0]
+
+    // --- COMBINATIONAL READ LOGIC ---
+    if (rs1_idx == 4b0000) {
+      read_data1 = 32h00000000
+    } else {
+      read_data1 = registers.q[rs1_idx]
+    }
+
+    if (rs2_idx == 4b0000) {
+      read_data2 = 32h00000000
+    } else {
+      read_data2 = registers.q[rs2_idx]
+    }
+
+    // Pass the live contents of register x1 (index 1) directly out to the debug window
+    debug_x1 = registers.q[1]
+
+    // --- SYNCHRONOUS WRITE LOGIC ---
+    registers.d = registers.q 
+    
+    if (reg_write && (rd_idx != 4b0000) && (rd < 16)) {
+      registers.d[rd_idx] = write_data
+    }
+  }
+}

@@ -1,0 +1,107 @@
+module control_unit (
+    input clk,
+    input rst,
+    input opcode[7],       // Explicit 7-bit width array
+    input funct3[3],       // Explicit 3-bit width array
+    input funct7[7],       // Explicit 7-bit width array
+    input alu_zero,
+    output pc_write,
+    output pc_src[2],      // Explicit 2-bit width array
+    output reg_write,
+    output alu_src_b,
+    output alu_op[4],      // Explicit 4-bit width array
+    output data_mem_write
+  ) {
+
+  const STATE_FETCH      = 2b00;
+  const STATE_EXECUTE    = 2b01;
+  const STATE_MEM_ACCESS = 2b10;
+  const STATE_WRITEBACK  = 2b11;
+
+  // Sized explicitly to 2 bits to match our constants perfectly
+  dff state[2](.clk(clk), .rst(rst)); 
+
+  always {
+    // Blanket default safe states
+    pc_write = 0;
+    pc_src = 2b00;
+    reg_write = 0;
+    alu_src_b = 0;
+    alu_op = 4b0000;
+    data_mem_write = 0;
+
+    case (state.q) {
+      STATE_FETCH:
+        pc_write = 0;                  
+        state.d = STATE_EXECUTE;
+
+      STATE_EXECUTE:
+        case (opcode) {
+          7h13: // OP-IMM Immediate Operations (ADDI, SLLI, SRLI)
+            alu_src_b = 1;             
+            reg_write = 1;             
+            pc_write = 1;              
+            state.d = STATE_FETCH;
+            
+            case (funct3) {
+              3b000: alu_op = 4b0000; // ADDI
+              3b001: alu_op = 4b0001; // SLLI
+              3b101: alu_op = 4b0101; // SRLI
+              default: alu_op = 4b0000;
+            }
+
+          7h33: // R-Type Register Arithmetic
+            alu_src_b = 0;             
+            reg_write = 1;             
+            pc_write = 1;              
+            state.d = STATE_FETCH;
+            if (funct7 == 7h01) alu_op = 4b1000; else alu_op = 4b0000;
+
+          7h63: // B-Type Branches (BNE, BEQ)
+            alu_src_b = 0;             
+            alu_op = 4b1000;           
+            pc_write = 1;              
+            state.d = STATE_FETCH;
+            case (funct3) {
+              3b000: if (alu_zero) pc_src = 2b01; else pc_src = 2b00;
+              3b001: if (!alu_zero) pc_src = 2b01; else pc_src = 2b00;
+              default: pc_src = 2b00;
+            }
+
+          7h6F: // JAL Unconditional Jump Support
+            pc_src = 2b01;             
+            pc_write = 1;              
+            reg_write = 0;             
+            state.d = STATE_FETCH;     
+
+          7h03: // Load Word (LW)
+            alu_src_b = 1;             
+            alu_op = 4b0000;           
+            state.d = STATE_MEM_ACCESS;
+
+          7h23: // Store Word (SW)
+            alu_src_b = 1;             
+            alu_op = 4b0000;           
+            state.d = STATE_MEM_ACCESS;
+
+          default:
+            pc_write = 1;
+            pc_src = 2b00;
+            state.d = STATE_FETCH;
+        }
+
+      STATE_MEM_ACCESS:
+        if (opcode == 7h23) data_mem_write = 1; else state.d = STATE_WRITEBACK;
+        if (opcode == 7h23) pc_write = 1;
+        if (opcode == 7h23) state.d = STATE_FETCH;
+
+      STATE_WRITEBACK:
+        reg_write = 1;
+        pc_write = 1;
+        state.d = STATE_FETCH;
+        
+      default:
+        state.d = STATE_FETCH;
+    }
+  }
+}

@@ -1,0 +1,45 @@
+module instruction_mem (
+    input pc[32],          // Explicit 32-bit width array input
+    output instruction[32] // Explicit 32-bit width array output
+  ) {
+
+  sig word_addr[14];       // Explicit 14-bit width array stops truncation flags!
+
+  always {
+    // Drop the bottom 2 bits to enforce standard word alignment
+    word_addr = pc[15:2]; 
+
+    case (word_addr) {
+      // === INITIALISATION (Runs once at boot) ===
+      14h0000: instruction = 32h00100093; // 0x00: addi x1, x0, 1   (Start bit at LED 0)
+
+      // === WALKING LEFT (7 Shifts: LED 0 -> 1 -> 2 -> 3 -> 4 -> 5 -> 6 -> 7) ===
+      14h0001: instruction = 32h00109093; // 0x04: slli x1, x1, 1   (Move to LED 1)
+      14h0002: instruction = 32h00109093; // 0x08: slli x1, x1, 1   (Move to LED 2)
+      14h0003: instruction = 32h00109093; // 0x0C: slli x1, x1, 1   (Move to LED 3)
+      14h0004: instruction = 32h00109093; // 0x10: slli x1, x1, 1   (Move to LED 4)
+      14h0005: instruction = 32h00109093; // 0x14: slli x1, x1, 1   (Move to LED 5)
+      14h0006: instruction = 32h00109093; // 0x18: slli x1, x1, 1   (Move to LED 6)
+      14h0007: instruction = 32h00109093; // 0x1C: slli x1, x1, 1   (Hits LED 7 - Active for exactly 1 cycle!)
+
+      // === WALKING RIGHT (6 Shifts: LED 7 -> 6 -> 5 -> 4 -> 3 -> 2 -> 1) ===
+      // Immediate turnaround! The very next cycle slides the bit right, so LED 7 never hangs.
+      14h0008: instruction = 32h0010D093; // 0x20: srli x1, x1, 1   (Move to LED 6)
+      14h0009: instruction = 32h0010D093; // 0x24: srli x1, x1, 1   (Move to LED 5)
+      14h000A: instruction = 32h0010D093; // 0x28: srli x1, x1, 1   (Move to LED 4)
+      14h000B: instruction = 32h0010D093; // 0x2C: srli x1, x1, 1   (Move to LED 3)
+      14h000C: instruction = 32h0010D093; // 0x30: srli x1, x1, 1   (Move to LED 2)
+      14h000D: instruction = 32h0010D093; // 0x34: srli x1, x1, 1   (Move to LED 1 -> LED 0 transition!)
+
+      // === THE PIPELINE JUMP HOOK ===
+      // FIXED J-TYPE SCRAMBLE: jal x0, -56 bytes (Jump back relative to 0x38 to land cleanly on 0x04)
+      14h000E: instruction = 32hFC9FF06F; // 0x38: Loops PC pointer back to the top of Left Walk!
+      
+      // THE DELAY SLOT INSTRUCTION: This fires DURING the jump's fetch latency cycle.
+      // Shifts the bit from LED 1 down to LED 0 for exactly 1 single clock cycle!
+      14h000F: instruction = 32h0010D093; // 0x3C: srli x1, x1, 1   
+
+      default: instruction = 32h00000013; // Safe fallback NOP
+    }
+  }
+}
