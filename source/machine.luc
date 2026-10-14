@@ -1,0 +1,87 @@
+// The cpu plus the clock and reset sequencer that a front panel drives: run, run fast, or stop
+// and single-step one whole instruction at a time.
+//
+// The cpu still runs on a clock derived from clk (cpu_clk, a flip-flop, so glitch-free), not on clk
+// with a clock enable: the core's fmax (~62 MHz) is under 100 MHz, so a clock enable would fail
+// timing on every path unless they were all given multicycle constraints.
+//
+// cpu_clk changes only when the half-period counter fills: every 2^SLOW_BITS clocks when running,
+// every 2^FAST_BITS when running fast, stepping or resetting. Stopping happens only where a rising
+// edge would go, and only between instructions (cpu at_fetch), so a stop or a step always leaves a
+// whole instruction done and the clock low.
+//   at_fetch is in the cpu_clk domain; it's sampled half a cpu clock after the cpu last changed.
+//   cpu_rst changes only with a falling edge, so it's never racing a rising one.
+// After rst the cpu clock runs (fast) with cpu_rst held for two rising edges, so a short reset
+// pulse is enough even when stopped.
+module machine #(
+    PROGRAM_ID = 0,                              // a Programs.Id, passed to cpu
+    SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1,  // 1 in testbenches, passed to cpu
+    SLOW_BITS = 21 : SLOW_BITS > 1,              // run: half period of 2^SLOW_BITS clocks
+    FAST_BITS = 4 : FAST_BITS > 0 && FAST_BITS < SLOW_BITS
+  ) (
+    input clk,
+    input rst,
+    input run,               // 1: run; 0: stop at the end of the current instruction
+    input fast,              // run at the fast rate
+    input step,              // one-clock pulse: when stopped, run exactly one instruction
+    input debug_sel[4],
+    output debug_pc[32],
+    output debug_reg[32],
+    output halted            // stopped between instructions, waiting for run or step
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff phase[SLOW_BITS]
+    dff half_done                  // the half period just ended (registered: the 21-input AND is slow)
+    dff cpu_clk
+    dff cpu_rst(#INIT(1))
+    dff reset_edges[2](#INIT(2))   // rising edges still to give the cpu with cpu_rst held
+    dff stepping                   // a step is in progress
+    dff moved                      // the step has given at least one rising edge
+  }
+
+  sig core_clk
+  sig resetting
+  sig stopped
+
+  .clk(core_clk) {
+    cpu core(#PROGRAM_ID(PROGRAM_ID), #SIM_RAM(SIM_RAM), .rst(cpu_rst.q));
+  }
+
+  always {
+    core_clk = cpu_clk.q
+    phase.d = phase.q + 1
+
+    resetting = reset_edges.q != 0
+    if (fast || stepping.q || resetting) half_done.d = &phase.q[FAST_BITS-1:0]; else half_done.d = &phase.q;
+
+    stopped = !cpu_clk.q && core.at_fetch && !run && !resetting && !stepping.q
+
+    if (half_done.q) {
+      if (cpu_clk.q) {
+        cpu_clk.d = 0
+        if (resetting) {
+          reset_edges.d = reset_edges.q - 1
+          if (reset_edges.q == 1) cpu_rst.d = 0;
+        }
+      } else {
+        if (run || resetting || !core.at_fetch || (stepping.q && !moved.q)) {
+          cpu_clk.d = 1
+          moved.d = 1
+        } else {
+          stepping.d = 0
+        }
+      }
+    }
+
+    if (step && stopped) {
+      stepping.d = 1
+      moved.d = 0
+    }
+
+    halted = stopped
+    core.debug_sel = debug_sel
+    debug_pc = core.debug_pc
+    debug_reg = core.debug_reg
+  }
+}

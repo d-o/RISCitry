@@ -4,7 +4,7 @@ programs.luc: every program as a constant array in `global Programs` (the board 
 the testbenches use all of them).
 
 cpu_tb.luc: one testbench per program. Each runs the program on tools/rv32sim.py and checks the
-cpu core after every instruction: the pc, and the destination register when the instruction
+cpu core after every instruction: the pc (and at_fetch), and the destination register when the instruction
 writes one (x0 included, which must stay 0). Each check comes exactly as many clocks after the
 last as this multi-cycle core should take (2, or 3 for stores, 4 for loads), so a missing or
 extra cycle is a failure. After the program halts, all 16 registers are compared.
@@ -97,6 +97,9 @@ def render_testbench(name, words, text):
         "        if (dut.debug_pc != pc)",
         '            $print("pc: got %h want %h", dut.debug_pc, pc)',
         "        $assert(dut.debug_pc == pc)",
+        "        if (!dut.at_fetch)",
+        '            $print("at_fetch: 0 at an instruction boundary")',
+        "        $assert(dut.at_fetch)",
         "    }",
         "",
         "    fun expect_reg(r[4], value[32]) {",

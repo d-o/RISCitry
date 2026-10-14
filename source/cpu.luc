@@ -12,7 +12,8 @@ module cpu #(
     input rst,
     input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
-    output debug_reg[32]     // register x[debug_sel]
+    output debug_reg[32],    // register x[debug_sel]
+    output at_fetch          // 1 between instructions (the next clock starts a new one)
   ) {
 
   .clk(clk) {
@@ -87,6 +88,7 @@ module cpu #(
     if (dec.ctrl.jalr) pc_unit.target_address = alu_unit.result; else pc_unit.target_address = pc_unit.pc + immediate_generator.immediate;
 
     debug_pc = pc_unit.pc;
+    at_fetch = control.at_fetch;
     reg_file.debug_sel = debug_sel;
     debug_reg = reg_file.debug_reg;
   }

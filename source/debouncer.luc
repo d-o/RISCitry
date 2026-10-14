@@ -1,0 +1,25 @@
+// Button synchroniser + debouncer: out goes high once in has been high for 2^BITS clocks in a row,
+// and low as soon as in is low. (Alchitry's button_conditioner does the same, but its pipeline
+// component turns into Verilog that Yosys rejects in Alchitry Labs 2.0.57; see notes/log.md.)
+module debouncer #(
+    BITS = 21 : BITS > 0     // 2^21 clocks = 21 ms at 100 MHz
+  ) (
+    input clk,
+    input in,                // raw button, active high
+    output out
+  ) {
+
+  .clk(clk) {
+    dff sync0                // two flip-flops: in is asynchronous to clk
+    dff sync1
+    dff count[BITS]
+  }
+
+  always {
+    sync0.d = in
+    sync1.d = sync0.q
+    out = &count.q
+
+    if (!sync1.q) count.d = 0; else if (!&count.q) count.d = count.q + 1;
+  }
+}

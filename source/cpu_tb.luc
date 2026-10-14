@@ -19,6 +19,9 @@ testbench cpu_larson_tb {
         if (dut.debug_pc != pc)
             $print("pc: got %h want %h", dut.debug_pc, pc)
         $assert(dut.debug_pc == pc)
+        if (!dut.at_fetch)
+            $print("at_fetch: 0 at an instruction boundary")
+        $assert(dut.at_fetch)
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -245,6 +248,9 @@ testbench cpu_alu_tb {
         if (dut.debug_pc != pc)
             $print("pc: got %h want %h", dut.debug_pc, pc)
         $assert(dut.debug_pc == pc)
+        if (!dut.at_fetch)
+            $print("at_fetch: 0 at an instruction boundary")
+        $assert(dut.at_fetch)
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -456,6 +462,9 @@ testbench cpu_branches_tb {
         if (dut.debug_pc != pc)
             $print("pc: got %h want %h", dut.debug_pc, pc)
         $assert(dut.debug_pc == pc)
+        if (!dut.at_fetch)
+            $print("at_fetch: 0 at an instruction boundary")
+        $assert(dut.at_fetch)
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -627,6 +636,9 @@ testbench cpu_jumps_tb {
         if (dut.debug_pc != pc)
             $print("pc: got %h want %h", dut.debug_pc, pc)
         $assert(dut.debug_pc == pc)
+        if (!dut.at_fetch)
+            $print("at_fetch: 0 at an instruction boundary")
+        $assert(dut.at_fetch)
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -753,6 +765,9 @@ testbench cpu_memory_tb {
         if (dut.debug_pc != pc)
             $print("pc: got %h want %h", dut.debug_pc, pc)
         $assert(dut.debug_pc == pc)
+        if (!dut.at_fetch)
+            $print("at_fetch: 0 at an instruction boundary")
+        $assert(dut.at_fetch)
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -904,6 +919,9 @@ testbench cpu_bytes_tb {
         if (dut.debug_pc != pc)
             $print("pc: got %h want %h", dut.debug_pc, pc)
         $assert(dut.debug_pc == pc)
+        if (!dut.at_fetch)
+            $print("at_fetch: 0 at an instruction boundary")
+        $assert(dut.at_fetch)
     }
 
     fun expect_reg(r[4], value[32]) {

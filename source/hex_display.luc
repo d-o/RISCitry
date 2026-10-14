@@ -1,0 +1,51 @@
+// Four-digit hex display for the Io's multiplexed 7-segment LEDs: one digit lit at a time,
+// switching every 2^DIV clocks. Outputs are active high; the Io V2 drives segments and digit
+// selects active low, so the top module inverts them.
+// seg bits: [0] a (top), [1] b, [2] c, [3] d (bottom), [4] e, [5] f, [6] g (middle), [7] decimal point.
+// Digit 0 (sel[0]) shows value[3:0].
+module hex_display #(
+    DIV = 16 : DIV >= 0
+  ) (
+    input clk,
+    input rst,
+    input value[16],
+    input dots[4],           // decimal point per digit
+    output seg[8],
+    output sel[4]
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff scan[DIV + 2]
+  }
+
+  sig digit[2]
+  sig nibble[4]
+
+  always {
+    scan.d = scan.q + 1
+    digit = scan.q[DIV+1:DIV]
+    nibble = value[digit*4+:4]
+
+    case (nibble) {
+      4h0: seg[6:0] = 7b0111111
+      4h1: seg[6:0] = 7b0000110
+      4h2: seg[6:0] = 7b1011011
+      4h3: seg[6:0] = 7b1001111
+      4h4: seg[6:0] = 7b1100110
+      4h5: seg[6:0] = 7b1101101
+      4h6: seg[6:0] = 7b1111101
+      4h7: seg[6:0] = 7b0000111
+      4h8: seg[6:0] = 7b1111111
+      4h9: seg[6:0] = 7b1101111
+      4hA: seg[6:0] = 7b1110111
+      4hB: seg[6:0] = 7b1111100   // b
+      4hC: seg[6:0] = 7b0111001
+      4hD: seg[6:0] = 7b1011110   // d
+      4hE: seg[6:0] = 7b1111001
+      default: seg[6:0] = 7b1110001   // F
+    }
+    seg[7] = dots[digit]
+
+    sel = 4b0001 << digit
+  }
+}

@@ -12,7 +12,8 @@ module control_unit (
     output pc_write,
     output pc_src[2],          // program_counter: 00 = pc + 4, 01 = pc + imm, 10 = JALR target
     output reg_write,
-    output mem_write
+    output mem_write,
+    output at_fetch            // between instructions: the last one has finished, the next not started
   ) {
 
   enum State { FETCH, EXECUTE, MEM_ACCESS, WRITEBACK }
@@ -24,6 +25,7 @@ module control_unit (
     pc_src = 2b00
     reg_write = 0
     mem_write = 0
+    at_fetch = state.q == State.FETCH
 
     case (state.q) {
       State.FETCH:
