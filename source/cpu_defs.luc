@@ -1,16 +1,28 @@
-// Control-signal encodings shared between decoder, imm_gen and the datapath.
-// tools/gen_decoder_tb.py mirrors these values; change both together.
+// Types shared between decoder, control_unit and the datapath.
+// tools/gen_decoder_tb.py mirrors the enum values and the control bit layout; change both together.
 global Cpu {
-    // decoder.imm_type: which immediate format the instruction uses
-    const IMM_I = 3d0
-    const IMM_S = 3d1
-    const IMM_B = 3d2
-    const IMM_U = 3d3
-    const IMM_J = 3d4
+    // Which immediate format the instruction uses (imm_gen)
+    enum ImmType { I, S, B, U, J }
 
-    // decoder.wb_sel: what gets written to rd
-    const WB_ALU = 2d0
-    const WB_MEM = 2d1
-    const WB_PC4 = 2d2
-    const WB_IMM = 2d3
+    // What gets written to rd
+    enum WbSel { ALU, MEM, PC4, IMM }
+
+    // Decoder output. $flatten() puts the FIRST field in the LOWEST bits, so fields are
+    // listed least-significant first; flattened layout:
+    //   [17:14] alu_op  [13] alu_src_a  [12] alu_src_b  [11:9] imm_type  [8:7] wb_sel
+    //   [6] reg_write  [5] mem_read  [4] mem_write  [3] branch  [2] jump  [1] jalr  [0] illegal
+    struct control {
+        illegal,                   // not a valid RV32E instruction; all side effects are forced off
+        jalr,                      // JALR: pc = (rs1 + imm) & ~1
+        jump,                      // JAL: pc = pc + imm
+        branch,                    // conditional branch; condition is funct3
+        mem_write,
+        mem_read,
+        reg_write,
+        wb_sel[$width(WbSel)],
+        imm_type[$width(ImmType)],
+        alu_src_b,                 // 0 = rs2, 1 = immediate
+        alu_src_a,                 // 0 = rs1, 1 = pc (AUIPC)
+        alu_op[4]                  // alu.luc encoding: {funct7[5], funct3}
+    }
 }
