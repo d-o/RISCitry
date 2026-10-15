@@ -1,10 +1,10 @@
-"""Generate source/imm_gen_tb.luc from rv32.py, so expected immediates never come from hand-encoding.
+"""Generate source/tb/imm_gen_tb.luc from rv32.py, so expected immediates never come from hand-encoding.
 
 Each immediate is encoded twice: once with every non-immediate field all ones (rd/rs1/rs2 = x31,
 funct3 = 7) to catch bits leaking in from neighbouring fields, and once with those fields zero.
 imm_type is driven the way the decoder would drive it.
 
-Usage: python3 tools/gen_imm_gen_tb.py   (rewrites source/imm_gen_tb.luc)
+Usage: python3 tools/gen_imm_gen_tb.py   (rewrites source/tb/imm_gen_tb.luc)
 """
 from pathlib import Path
 
@@ -15,7 +15,7 @@ B_IMMS = [0, 2, -2, 4094, -4096, 0x800, -0x800, 0xAAA, -0x556, -0x34]
 J_IMMS = [0, 2, -2, 0xFFFFE, -0x100000, 0x800, 0x55554, -0x2AAAC, 0x7C, -0x34]
 
 
-# Mirrors enum Cpu.ImmType in source/cpu_defs.luc.
+# Mirrors enum Cpu.ImmType in source/cpu/cpu_defs.luc.
 IMM_TYPE = {"I": 0, "S": 1, "B": 2, "U": 3, "J": 4}
 U_IMMS = [0, 1, 0x80000, 0xFFFFF, 0x12345, 0x7FFFF]
 
@@ -71,7 +71,7 @@ def render(groups):
 
 
 if __name__ == "__main__":
-    dest = Path(__file__).resolve().parent.parent / "source" / "imm_gen_tb.luc"
+    dest = Path(__file__).resolve().parent.parent / "source" / "tb" / "imm_gen_tb.luc"
     groups = vectors()
     dest.write_text(render(groups))
     print(f"wrote {dest} ({sum(len(v) for v in groups.values())} checks)")

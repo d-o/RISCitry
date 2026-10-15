@@ -1,17 +1,17 @@
-"""Generate source/decoder_tb.luc: expected control signals for every RV32I instruction,
+"""Generate source/tb/decoder_tb.luc: expected control signals for every RV32I instruction,
 written here as a table from the spec (deliberately not derived from decoder.luc), plus illegal encodings.
 
 The decoder outputs are packed into one 18-bit word in the testbench:
   [17:14] alu_op  [13] alu_src_a  [12] alu_src_b  [11:9] imm_type  [8:7] wb_sel
   [6] reg_write  [5] mem_read  [4] mem_write  [3] branch  [2] jump  [1] jalr  [0] illegal
 
-Usage: python3 tools/gen_decoder_tb.py   (rewrites source/decoder_tb.luc)
+Usage: python3 tools/gen_decoder_tb.py   (rewrites source/tb/decoder_tb.luc)
 """
 from pathlib import Path
 
 import rv32
 
-# Mirrors source/cpu_defs.luc (enum order; struct fields flatten least-significant first).
+# Mirrors source/cpu/cpu_defs.luc (enum order; struct fields flatten least-significant first).
 IMM = {"I": 0, "S": 1, "B": 2, "U": 3, "J": 4}
 WB = {"ALU": 0, "MEM": 1, "PC4": 2, "IMM": 3}
 ALU = {"add": 0b0000, "sub": 0b1000, "sll": 0b0001, "slt": 0b0010, "sltu": 0b0011,
@@ -147,6 +147,6 @@ if __name__ == "__main__":
         "illegal": illegal_vectors(),
     }
     assert sum(len(g) for g in groups.values()) == len(legal) + len(groups["illegal"]), "vector lost in grouping"
-    dest = Path(__file__).resolve().parent.parent / "source" / "decoder_tb.luc"
+    dest = Path(__file__).resolve().parent.parent / "source" / "tb" / "decoder_tb.luc"
     dest.write_text(render(groups))
     print(f"wrote {dest} ({sum(len(g) for g in groups.values())} checks)")

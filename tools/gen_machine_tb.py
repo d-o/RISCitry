@@ -1,4 +1,4 @@
-"""Generate source/machine_tb.luc: the run/step clock sequencer around the cpu.
+"""Generate source/tb/machine_tb.luc: the run/step clock sequencer around the cpu.
 
 Runs the MEMORY program (2-, 3- and 4-clock instructions) on the machine with short clock
 periods, checked against tools/rv32sim.py:
@@ -192,7 +192,7 @@ def main():
         "    }",
         "}",
     ]
-    dest = ROOT / "source" / "machine_tb.luc"
+    dest = ROOT / "source" / "tb" / "machine_tb.luc"
     dest.write_text("\n".join(out) + "\n")
     print(f"wrote {dest}")
 

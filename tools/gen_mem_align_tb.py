@@ -1,4 +1,4 @@
-"""Generate source/mem_align_tb.luc: every load width at every byte offset, every store width
+"""Generate source/tb/mem_align_tb.luc: every load width at every byte offset, every store width
 at every byte offset, with data that exposes sign-extension and lane mistakes.
 
 Expected values are computed here from the spec (little-endian, LB/LH sign-extend, LBU/LHU
@@ -88,7 +88,7 @@ def main():
                            f"4b{enable:04b}) // {name} +{offset}")
                 count += 1
     out += ["    }", "}"]
-    dest = Path(__file__).resolve().parent.parent / "source" / "mem_align_tb.luc"
+    dest = Path(__file__).resolve().parent.parent / "source" / "tb" / "mem_align_tb.luc"
     dest.write_text("\n".join(out) + "\n")
     print(f"wrote {dest} ({count} checks)")
 
