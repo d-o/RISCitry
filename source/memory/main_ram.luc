@@ -12,8 +12,11 @@
 //   model - the same behaviour in Lucid. The Alchitry simulator doesn't run Verilog, and a Lucid
 //           array can't be initialised from a short constant, so the model keeps a written flag
 //           per byte and overlays its writes on program_image (the same program, generated).
-// rdata comes from the model when SIM_MODEL = 1 (testbenches) or in the interactive sim; in
-// hardware the model's output is unused, so synthesis removes it.
+// rdata comes from the model when SIM_MODEL = 1, which every simulation must set (testbenches
+// directly; the board passes $is_sim()). In a build the model's arrays shrink to two words and
+// its output is unused, so synthesis removes it. Not $is_sim() in here: the IDE sized the arrays
+// as for a build but still read the model, so every address past 1 was out of bounds and every
+// fetch returned word 0 (2026-10-15).
 module main_ram #(
     WORDS = 2048 : WORDS > 1 && WORDS <= 16384,
     PROGRAM_ID = 0,
@@ -27,9 +30,9 @@ module main_ram #(
     input be[4]
   ) {
 
-  // The model's arrays are full size only when it's used; in a build they shrink to one word
+  // The model's arrays are full size only when it's used; in a build they shrink to two words
   // (synthesis would remove them anyway, but Yosys's check pass spent ~8 minutes on 2048 words).
-  const MODEL_WORDS = SIM_MODEL || $is_sim() ? WORDS : 2
+  const MODEL_WORDS = SIM_MODEL ? WORDS : 2
 
   .clk(clk) {
     main_ram_bram bram(#PROGRAM_ID(PROGRAM_ID), #WORDS(WORDS));
@@ -55,6 +58,6 @@ module main_ram #(
       }
     }
 
-    if (SIM_MODEL || $is_sim()) rdata = $flatten(model_read.q); else rdata = bram.rdata;
+    if (SIM_MODEL) rdata = $flatten(model_read.q); else rdata = bram.rdata;
   }
 }
