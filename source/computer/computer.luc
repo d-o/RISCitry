@@ -1,0 +1,43 @@
+// The computer: the cpu plus everything it reaches by address (instruction ROM, data RAM; later
+// an address decoder and I/O such as a UART). Everything here runs on the cpu clock.
+// machine.luc decides when that clock ticks; this module is what it clocks.
+//
+// It's a module rather than wiring inside machine so cpu_tb can test the real cpu-to-memory
+// wiring: a testbench can only connect an instance to ones declared before it, and the cpu and
+// its memories feed each other.
+//
+// No address decoding yet: the RAM sees dmem_addr[7:2], so it repeats every 256 bytes.
+module computer #(
+    PROGRAM_ID = 0,          // which program the instruction ROM holds: a Programs.Id
+    SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1   // 1 in testbenches: data RAM uses its Lucid model
+  ) (
+    input clk,
+    input rst,
+    input debug_sel[4],      // which register debug_reg shows
+    output debug_pc[32],     // address of the instruction being fetched/executed
+    output debug_reg[32],    // register x[debug_sel]
+    output debug_state[Cpu.STATE_BITS]   // the cpu's control state; FETCH = between instructions
+  ) {
+
+  .clk(clk) {
+    cpu core(.rst(rst));
+    data_ram ram(#ENTRIES(64), #SIM_MODEL(SIM_RAM));
+  }
+
+  instruction_mem rom(#PROGRAM_ID(PROGRAM_ID));
+
+  always {
+    rom.pc = core.imem_addr
+    core.imem_data = rom.instruction
+
+    ram.address = core.dmem_addr[7:2]
+    ram.write_data = core.dmem_wdata
+    ram.byte_enable = core.dmem_be
+    core.dmem_rdata = ram.read_data
+
+    core.debug_sel = debug_sel
+    debug_pc = core.debug_pc
+    debug_reg = core.debug_reg
+    debug_state = core.debug_state
+  }
+}

@@ -1,15 +1,18 @@
-// The RV32E core: everything that runs on the CPU clock. No board I/O here, so testbenches
-// can drive clk directly (testbenches only see a module's ports, and $is_sim() is 0 in them).
+// The RV32E core. It reaches memory only through its two bus ports; computer.luc wires them
+// to the instruction ROM and the data RAM.
 //
 // decoder (what the instruction needs) + control_unit (when, by FSM state) drive the datapath:
-//   inst_mem -> if_id_reg -> decoder/imm_gen; register_file -> alu / branch_unit;
-//   data_ram (byte lanes) + mem_align for loads/stores; the write-back mux picks rd's value from ctrl.wb_sel.
-module cpu #(
-    PROGRAM_ID = 0,          // which program the instruction ROM holds: a Programs.Id
-    SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1   // 1 in testbenches: data RAM uses its Lucid model
-  ) (
+//   imem -> if_id_reg -> decoder/imm_gen; register_file -> alu / branch_unit;
+//   dmem (byte lanes) + mem_align for loads/stores; the write-back mux picks rd's value from ctrl.wb_sel.
+module cpu (
     input clk,
     input rst,
+    output imem_addr[32],    // instruction fetch: byte address (the pc)
+    input imem_data[32],     // ...the instruction there, combinationally
+    output dmem_addr[32],    // data access: byte address (rs1 + imm)
+    output dmem_wdata[32],   // store data, copied into every lane it could occupy
+    output dmem_be[4],       // byte lanes to write this clock; 0 when not storing
+    input dmem_rdata[32],    // the word at the address presented on the previous clock
     input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
     output debug_reg[32],    // register x[debug_sel]
@@ -20,12 +23,9 @@ module cpu #(
     program_counter pc_unit(.rst(rst));
     register_file reg_file(.rst(rst));
     control_unit control(.rst(rst));
-
-    data_ram data_ram(#ENTRIES(64), #SIM_MODEL(SIM_RAM));
     dff if_id_reg[32](.rst(rst));   // instruction latched at the end of FETCH
   }
 
-  instruction_mem inst_mem(#PROGRAM_ID(PROGRAM_ID));
   decoder dec;
   imm_gen immediate_generator;
   alu alu_unit;
@@ -37,8 +37,8 @@ module cpu #(
 
   always {
     // --- fetch ---
-    inst_mem.pc = pc_unit.pc;
-    if_id_reg.d = inst_mem.instruction;
+    imem_addr = pc_unit.pc;
+    if_id_reg.d = imem_data;
     instruction = if_id_reg.q;
 
     // --- decode ---
@@ -66,11 +66,11 @@ module cpu #(
     align.funct3 = instruction[14:12];
     align.addr_low = alu_unit.result[1:0];
     align.store_data = reg_file.read_data2;
-    align.load_word = data_ram.read_data;
+    align.load_word = dmem_rdata;
 
-    data_ram.address = alu_unit.result[7:2];
-    data_ram.write_data = align.write_data;
-    if (control.mem_write) data_ram.byte_enable = align.byte_enable; else data_ram.byte_enable = 4b0000;
+    dmem_addr = alu_unit.result;
+    dmem_wdata = align.write_data;
+    if (control.mem_write) dmem_be = align.byte_enable; else dmem_be = 4b0000;
 
     // --- write back ---
     pc_plus_4 = pc_unit.pc + 4;  // pc is still this instruction's own address until the state machine moves on

@@ -6,7 +6,7 @@ testbench cpu_larson_tb {
     sig rst
     sig sel[4]
 
-    cpu dut(#PROGRAM_ID(Programs.Id.LARSON), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
+    computer dut(#PROGRAM_ID(Programs.Id.LARSON), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
 
     fun tick_clock() {
         clk = 1
@@ -306,7 +306,7 @@ testbench cpu_alu_tb {
     sig rst
     sig sel[4]
 
-    cpu dut(#PROGRAM_ID(Programs.Id.ALU), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
+    computer dut(#PROGRAM_ID(Programs.Id.ALU), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
 
     fun tick_clock() {
         clk = 1
@@ -585,7 +585,7 @@ testbench cpu_branches_tb {
     sig rst
     sig sel[4]
 
-    cpu dut(#PROGRAM_ID(Programs.Id.BRANCHES), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
+    computer dut(#PROGRAM_ID(Programs.Id.BRANCHES), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
 
     fun tick_clock() {
         clk = 1
@@ -812,7 +812,7 @@ testbench cpu_jumps_tb {
     sig rst
     sig sel[4]
 
-    cpu dut(#PROGRAM_ID(Programs.Id.JUMPS), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
+    computer dut(#PROGRAM_ID(Programs.Id.JUMPS), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
 
     fun tick_clock() {
         clk = 1
@@ -972,7 +972,7 @@ testbench cpu_memory_tb {
     sig rst
     sig sel[4]
 
-    cpu dut(#PROGRAM_ID(Programs.Id.MEMORY), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
+    computer dut(#PROGRAM_ID(Programs.Id.MEMORY), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
 
     fun tick_clock() {
         clk = 1
@@ -1178,7 +1178,7 @@ testbench cpu_bytes_tb {
     sig rst
     sig sel[4]
 
-    cpu dut(#PROGRAM_ID(Programs.Id.BYTES), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
+    computer dut(#PROGRAM_ID(Programs.Id.BYTES), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))
 
     fun tick_clock() {
         clk = 1

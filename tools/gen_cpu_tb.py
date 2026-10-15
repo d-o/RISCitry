@@ -4,7 +4,7 @@ programs.luc: every program as a constant array in `global Programs` (the board 
 the testbenches use all of them).
 
 cpu_tb.luc: one testbench per program. Each runs the program on tools/rv32sim.py and checks the
-cpu core: the control state after every clock, and after every instruction the pc and the
+computer (the cpu core wired to its ROM and RAM): the control state after every clock, and after every instruction the pc and the
 destination register when the instruction writes one (x0 included, which must stay 0). Each check comes exactly as many clocks after the
 last as this multi-cycle core should take (2, or 3 for stores, 4 for loads), so a missing or
 extra cycle is a failure. After the program halts, all 16 registers are compared.
@@ -87,7 +87,7 @@ def render_testbench(name, words, text):
         "    sig rst",
         "    sig sel[4]",
         "",
-        f"    cpu dut(#PROGRAM_ID(Programs.Id.{name}), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))",
+        f"    computer dut(#PROGRAM_ID(Programs.Id.{name}), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))",
         "",
         "    fun tick_clock() {",
         "        clk = 1",

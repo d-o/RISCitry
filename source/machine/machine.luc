@@ -1,9 +1,10 @@
-// The cpu plus the clock and reset sequencer that a front panel drives: run, run fast, or stop
-// and single-step, either one whole instruction or one cpu clock at a time.
+// The computer (cpu + memory) plus the clock and reset sequencer that a front panel drives: run,
+// run fast, or stop and single-step, either one whole instruction or one cpu clock at a time.
 //
 // The cpu still runs on a clock derived from clk (cpu_clk, a flip-flop, so glitch-free), not on clk
-// with a clock enable: the core's fmax (~62 MHz) is under 100 MHz, so a clock enable would fail
-// timing on every path unless they were all given multicycle constraints.
+// with a clock enable: the core's fmax (37-60 MHz, depending on the program in the ROM) is under
+// 100 MHz, so a clock enable would fail timing on every path unless they all had multicycle
+// constraints.
 //
 // cpu_clk changes only when the half-period counter fills: every 2^SLOW_BITS clocks when running,
 // every 2^FAST_BITS when running fast, stepping or resetting. Stopping happens only where a rising
@@ -17,8 +18,8 @@
 // After rst the cpu clock runs (fast) with cpu_rst held for two rising edges, so a short reset
 // pulse is enough even when stopped.
 module machine #(
-    PROGRAM_ID = 0,                              // a Programs.Id, passed to cpu
-    SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1,  // 1 in testbenches, passed to cpu
+    PROGRAM_ID = 0,                              // a Programs.Id, passed to computer
+    SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1,  // 1 in testbenches, passed to computer
     SLOW_BITS = 21 : SLOW_BITS > 1,              // run: half period of 2^SLOW_BITS clocks
     FAST_BITS = 4 : FAST_BITS > 0 && FAST_BITS < SLOW_BITS
   ) (
@@ -54,7 +55,7 @@ module machine #(
   sig stopped
 
   .clk(core_clk) {
-    cpu core(#PROGRAM_ID(PROGRAM_ID), #SIM_RAM(SIM_RAM), .rst(cpu_rst.q));
+    computer comp(#PROGRAM_ID(PROGRAM_ID), #SIM_RAM(SIM_RAM), .rst(cpu_rst.q));
   }
 
   always {
@@ -62,7 +63,7 @@ module machine #(
     phase.d = phase.q + 1
 
     resetting = reset_edges.q != 0
-    at_fetch = core.debug_state == Cpu.State.FETCH
+    at_fetch = comp.debug_state == Cpu.State.FETCH
     if (fast || resetting || (active.q && !run)) half_done.d = &phase.q[FAST_BITS-1:0]; else half_done.d = &phase.q;
 
     stopped = !cpu_clk.q && !run && !resetting && !active.q
@@ -98,9 +99,9 @@ module machine #(
     busy = active.q && !run
     in_reset = cpu_rst.q
     cpu_clock = cpu_clk.q
-    cpu_state = core.debug_state
-    core.debug_sel = debug_sel
-    debug_pc = core.debug_pc
-    debug_reg = core.debug_reg
+    cpu_state = comp.debug_state
+    comp.debug_sel = debug_sel
+    debug_pc = comp.debug_pc
+    debug_reg = comp.debug_reg
   }
 }
