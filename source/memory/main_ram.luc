@@ -1,0 +1,56 @@
+// Main memory for the unified (von Neumann) address space: code and data, 32-bit words in four
+// byte lanes, preloaded with a program.
+//   One read port and one write port with separate addresses, both on the same clock:
+//   rdata = the word at raddr on the PREVIOUS clock (synchronous read). be[i] writes lane i of
+//   wdata at waddr on the clock edge. Reading the address being written that edge returns the
+//   old value (read-before-write).
+//   Initial contents: PROGRAM_ID's program (a Programs.Id) from address 0, 0 elsewhere. There is
+//   no reset: like the block RAM, contents survive a cpu reset; only reconfiguring reloads them.
+//
+// Two implementations, fed identical inputs (the data_ram pattern):
+//   bram  - main_ram_bram.v (generated), which Yosys maps to initialised block RAM. Hardware.
+//   model - the same behaviour in Lucid. The Alchitry simulator doesn't run Verilog, and a Lucid
+//           array can't be initialised from a short constant, so the model keeps a written flag
+//           per byte and overlays its writes on program_image (the same program, generated).
+// rdata comes from the model when SIM_MODEL = 1 (testbenches) or in the interactive sim; in
+// hardware the model's output is unused, so synthesis removes it.
+module main_ram #(
+    WORDS = 2048 : WORDS > 1 && WORDS <= 16384,
+    PROGRAM_ID = 0,
+    SIM_MODEL = 0 : SIM_MODEL == 0 || SIM_MODEL == 1
+  ) (
+    input clk,
+    input raddr[$clog2(WORDS)],    // word addresses
+    output rdata[32],
+    input waddr[$clog2(WORDS)],
+    input wdata[32],
+    input be[4]
+  ) {
+
+  .clk(clk) {
+    main_ram_bram bram(#PROGRAM_ID(PROGRAM_ID), #WORDS(WORDS));
+    dff model_mem[WORDS][4][8]
+    dff model_written[WORDS][4]    // byte has been written: read model_mem, not the image
+    dff model_read[4][8]
+  }
+
+  program_image read_image(#PROGRAM_ID(PROGRAM_ID));
+
+  always {
+    bram.raddr = raddr
+    bram.waddr = waddr
+    bram.wdata = wdata
+    bram.be = be
+
+    read_image.addr = raddr
+    repeat(i, 4) {
+      if (model_written.q[raddr][i]) model_read.d[i] = model_mem.q[raddr][i]; else model_read.d[i] = read_image.word[i*8+7:i*8];
+      if (be[i]) {
+        model_mem.d[waddr][i] = wdata[i*8+7:i*8]
+        model_written.d[waddr][i] = 1
+      }
+    }
+
+    if (SIM_MODEL || $is_sim()) rdata = $flatten(model_read.q); else rdata = bram.rdata;
+  }
+}
