@@ -2,7 +2,7 @@
 
 It executes one instruction per step and knows nothing about the hardware's FSM, so a test
 can compare the core's architectural state (pc, registers) against it after every instruction.
-Deliberately strict: anything the core doesn't implement (CSRs, traps) raises, as do data
+Deliberately strict: anything the core doesn't implement (traps) raises, as do data
 accesses outside memmap.py's ranges, misaligned accesses, and fetches or loads of words that were
 neither preloaded nor written.
 
@@ -27,6 +27,14 @@ The switch register reads back `switches` (bits 7:0, the rest 0); storing to it 
 """
 import memmap
 
+# The CSRs the core implements (mirrors cpu_defs.luc / csr_file.luc): address -> mask of the bits
+# that are writable. Others read as their constant (misa) or 0.
+CSR_WRITABLE = {0x300: 0x88, 0x304: 0x888, 0x305: 0xFFFFFFFC, 0x340: 0xFFFFFFFF,
+                0x341: 0xFFFFFFFC, 0x342: 0xFFFFFFFF, 0x343: 0xFFFFFFFF}
+CSR_CONSTANT = {0x301: 0x40000010, 0x310: 0, 0x344: 0, 0xF11: 0, 0xF12: 0, 0xF13: 0, 0xF14: 0}
+MSTATUS_FIXED = 0x1800        # MPP = 3: machine mode is the only mode
+MRET, WFI = 0x30200073, 0x10500073
+
 MASK = 0xFFFFFFFF
 NOP = 0x00000013
 
@@ -36,9 +44,18 @@ def _sext(v, bits):
 
 
 def legal(w):
-    """Whether decoder.luc accepts the word (RV32E base, FENCE, ECALL, EBREAK)."""
+    """Whether decoder.luc accepts the word (RV32E base, FENCE, ECALL, EBREAK, MRET, WFI, Zicsr
+    on the implemented CSRs)."""
     op, f3, f7 = w & 0x7F, (w >> 12) & 7, w >> 25
     rd, rs1, rs2 = (w >> 7) & 31, (w >> 15) & 31, (w >> 20) & 31
+    if op == 0x73 and f3 not in (0, 4):                # Zicsr
+        csr = w >> 20
+        writes = not (f3 & 2 and rs1 == 0)
+        if csr not in CSR_WRITABLE and csr not in CSR_CONSTANT:
+            return False
+        if csr >> 10 == 3 and writes:                  # read-only address
+            return False
+        return rd < 16 and (f3 >= 4 or rs1 < 16)       # the zimm forms' rs1 field isn't a register
     uses = {0x37: "d", 0x17: "d", 0x6F: "d", 0x67: "d1", 0x63: "12", 0x03: "d1", 0x23: "12",
             0x13: "d1", 0x33: "d12", 0x0F: "", 0x73: ""}
     if op not in uses:
@@ -46,7 +63,7 @@ def legal(w):
     bad = {0x67: f3 != 0, 0x63: f3 in (2, 3), 0x03: f3 in (3, 6, 7), 0x23: f3 > 2,
            0x13: (f3 == 1 and f7 != 0) or (f3 == 5 and f7 not in (0, 0x20)),
            0x33: f7 != 0 and not (f7 == 0x20 and f3 in (0, 5)),
-           0x0F: f3 != 0, 0x73: (w >> 7) not in (0, 0x2000)}.get(op, False)
+           0x0F: f3 != 0, 0x73: w not in (0x00000073, 0x00100073, MRET, WFI)}.get(op, False)
     fields = {"d": rd, "1": rs1, "2": rs2}
     return not bad and all(fields[u] < 16 for u in uses[op])
 
@@ -61,6 +78,7 @@ class Cpu:
         self.x = [0] * 16
         self.mem = {}                 # word-aligned byte address -> word, preloaded or written
         self.uart_out = []
+        self.csr = {a: 0 for a in CSR_WRITABLE}
         size = max(words) // 4 + 1
         if size * 4 > memmap.RAM_BYTES:
             raise ValueError(f"program ({size * 4} bytes) doesn't fit in RAM ({memmap.RAM_BYTES} bytes)")
@@ -122,6 +140,11 @@ class Cpu:
             self.new_stale = (word_addr, self.mem[word_addr])   # already prefetched: old word runs
         old = self.mem.get(word_addr, 0)   # a partial store into an unwritten word: other bytes are 0
         self.mem[word_addr] = (old & ~mask) | ((value << shift) & mask)
+
+    def read_csr(self, csr):
+        if csr in CSR_CONSTANT:
+            return CSR_CONSTANT[csr]
+        return self.csr[csr] | (MSTATUS_FIXED if csr == 0x300 else 0)
 
     def fetch(self):
         """The instruction at pc (what step() will execute next)."""
@@ -190,8 +213,21 @@ class Cpu:
         elif op == 0x23 and f3 in (0, 1, 2):
             s_imm = _sext(((w >> 25) << 5) | ((w >> 7) & 31), 12)
             self._store(self.reg(rs1) + s_imm, 1 << f3, self.reg(rs2))
-        elif (op == 0x0F and f3 == 0) or w in (0x00000073, 0x00100073):
-            pass  # FENCE, ECALL, EBREAK: no-ops on this core (no traps yet)
+        elif (op == 0x0F and f3 == 0) or w in (0x00000073, 0x00100073, WFI):
+            pass  # FENCE, ECALL, EBREAK: no-ops on this core (no traps yet); WFI: a legal no-op
+        elif w == MRET:
+            mstatus = self.csr[0x300]
+            self.csr[0x300] = (mstatus & ~0x8) | ((mstatus >> 4) & 0x8) | 0x80   # MIE = MPIE, MPIE = 1
+            next_pc = self.csr[0x341]
+        elif op == 0x73:
+            csr = w >> 20
+            old = self.read_csr(csr)
+            src = rs1 if f3 & 4 else self.reg(rs1)
+            if not (f3 & 2 and rs1 == 0):
+                new = {1: src, 2: old | src, 3: old & ~src}[f3 & 3]
+                if csr in CSR_WRITABLE:
+                    self.csr[csr] = new & CSR_WRITABLE[csr]
+            self.write(rd, old)
         else:
             raise NotImplementedError(f"pc={self.pc:#x}: {w:08X} not modelled")
         self.pc = next_pc

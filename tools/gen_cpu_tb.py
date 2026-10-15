@@ -55,7 +55,10 @@ def clocks_for(word):
 
 def writes_rd(word):
     """The register the instruction writes, or None."""
-    return (word >> 7) & 31 if rv32sim.legal(word) and word & 0x7F in WRITES_RD else None
+    if not rv32sim.legal(word):
+        return None
+    zicsr = word & 0x7F == 0x73 and (word >> 12) & 7 not in (0, 4)
+    return (word >> 7) & 31 if word & 0x7F in WRITES_RD or zicsr else None
 
 
 def new_model(name, words, switches=0):

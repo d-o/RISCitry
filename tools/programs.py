@@ -309,7 +309,7 @@ ILLEGAL = [
     (".word", rv32.i_type(0x67, 1, 1, 0, 0)),       # jalr funct3 = 1 (would jump to 0)
     (".word", rv32.addi(0, 5, 1) | (16 << 7)),      # addi x16, x5, 1: RV32E has no x16
     (".word", rv32.r_type(0x33, 5, 1, 5, 6, 0x20)), # sll with funct7 = 0x20
-    (".word", rv32.i_type(0x73, 5, 1, 6, 0x300)),   # csrrw x5, mstatus, x6: no CSRs
+    (".word", rv32.encode("csrrw", 5, 6, imm=0xC00)),  # csrrw x5, cycle, x6: not implemented
     (".word", 0x0000100F),                          # fence.i: Zifencei not implemented
     ("ecall",),
     ("ebreak",),
@@ -386,6 +386,40 @@ BOARD = [
     (".string", "0123456789ABCDEF"),
 ]
 
+# Zicsr and MRET: read the constant CSRs, write/set/clear mscratch (rd gets the old value each
+# time), the WARL masks of mtvec/mstatus/mie/mepc, a write to misa ignored, then MRET: pc = mepc
+# (low bits read 0), MIE = MPIE, MPIE = 1. WFI is a no-op.
+CSR = [
+    ("csrrs", 1, 0x301, 0),                    # x1 = misa = 0x40000010 (RV32E)
+    ("csrrs", 2, 0xF14, 0),                    # x2 = mhartid = 0
+    ("addi", 3, 0, 0x123),
+    ("csrrw", 4, 0x340, 3),                    # x4 = 0 (old mscratch); mscratch = 0x123
+    ("csrrsi", 5, 0x340, 0x0C),                # x5 = 0x123; mscratch = 0x12F
+    ("csrrci", 6, 0x340, 0x03),                # x6 = 0x12F; mscratch = 0x12C
+    ("csrrs", 7, 0x340, 0),                    # x7 = 0x12C (x0 source: read only)
+    ("addi", 8, 0, -1),
+    ("csrrw", 0, 0x305, 8),                    # mtvec: direct mode only
+    ("csrrs", 9, 0x305, 0),                    # x9 = 0xFFFFFFFC
+    ("csrrw", 0, 0x304, 8),
+    ("csrrs", 10, 0x304, 0),                   # x10 = 0x888 (MSIE, MTIE, MEIE)
+    ("csrrw", 11, 0x301, 8),                   # x11 = misa; the write is ignored
+    ("csrrs", 11, 0x301, 0),                   # still 0x40000010
+    ("addi", 12, 0, "back"),
+    ("addi", 12, 12, 3),
+    ("csrrw", 0, 0x341, 12),                   # mepc = back + 3: reads back aligned
+    ("csrrs", 13, 0x341, 0),                   # x13 = back
+    ("csrrwi", 0, 0x300, 0x08),                # mstatus: MIE = 1, MPIE = 0
+    ("csrrs", 2, 0x300, 0),                    # x2 = 0x1808 (MIE set by bit 3 alone)
+    ("mret",),
+    ("addi", 14, 0, 1),                        # skipped
+    "back:",
+    ("csrrs", 14, 0x300, 0),                   # x14 = 0x1880: MPP = 3, MPIE = 1, MIE = 0
+    ("wfi",),
+    ("csrrw", 15, 0x300, 8),                   # x15 = 0x1880; mstatus = all ones ...
+    ("csrrs", 15, 0x300, 0),                   # ... reads 0x1888
+    ("halt",),
+]
+
 PROGRAMS = {
     "BOARD": BOARD,
     "LARSON": LARSON,
@@ -399,6 +433,7 @@ PROGRAMS = {
     "TABLE": TABLE,
     "SELFMOD": SELFMOD,
     "ILLEGAL": ILLEGAL,
+    "CSR": CSR,
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is

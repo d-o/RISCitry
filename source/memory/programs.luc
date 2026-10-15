@@ -2,7 +2,7 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL }
+    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL, CSR }
 
     const BOARD = {
         32h00464544,  // 0x017c: (data)
@@ -361,7 +361,7 @@ global Programs {
         32h00100073,  // 0x0040: ebreak
         32h00000073,  // 0x003c: ecall
         32h0000100F,  // 0x0038: .word 0x0000100f
-        32h300312F3,  // 0x0034: .word 0x300312f3
+        32hC00312F3,  // 0x0034: .word 0xc00312f3
         32h406292B3,  // 0x0030: .word 0x406292b3
         32h00128813,  // 0x002c: .word 0x00128813
         32h000010E7,  // 0x0028: .word 0x000010e7
@@ -375,5 +375,34 @@ global Programs {
         32h00600313,  // 0x0008: addi x6, x0, 6
         32h00500293,  // 0x0004: addi x5, x0, 5
         32h00120213  // 0x0000: addi x4, x4, 1
+    }
+    const CSR = {
+        32h0000006F,  // 0x0068: halt
+        32h300027F3,  // 0x0064: csrrs x15, 0x300
+        32h300417F3,  // 0x0060: csrrw x15, 0x300
+        32h10500073,  // 0x005c: wfi
+        32h30002773,  // 0x0058: csrrs x14, 0x300
+        32h00100713,  // 0x0054: addi x14, x0, 1
+        32h30200073,  // 0x0050: mret
+        32h30002173,  // 0x004c: csrrs x2, 0x300
+        32h30045073,  // 0x0048: csrrwi x0, 0x300
+        32h341026F3,  // 0x0044: csrrs x13, 0x341
+        32h34161073,  // 0x0040: csrrw x0, 0x341
+        32h00360613,  // 0x003c: addi x12, x12, 3
+        32h05800613,  // 0x0038: addi x12, x0, back
+        32h301025F3,  // 0x0034: csrrs x11, 0x301
+        32h301415F3,  // 0x0030: csrrw x11, 0x301
+        32h30402573,  // 0x002c: csrrs x10, 0x304
+        32h30441073,  // 0x0028: csrrw x0, 0x304
+        32h305024F3,  // 0x0024: csrrs x9, 0x305
+        32h30541073,  // 0x0020: csrrw x0, 0x305
+        32hFFF00413,  // 0x001c: addi x8, x0, -1
+        32h340023F3,  // 0x0018: csrrs x7, 0x340
+        32h3401F373,  // 0x0014: csrrci x6, 0x340
+        32h340662F3,  // 0x0010: csrrsi x5, 0x340
+        32h34019273,  // 0x000c: csrrw x4, 0x340
+        32h12300193,  // 0x0008: addi x3, x0, 0x123
+        32hF1402173,  // 0x0004: csrrs x2, 0xf14
+        32h301020F3  // 0x0000: csrrs x1, 0x301
     }
 }

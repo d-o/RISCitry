@@ -28,7 +28,10 @@ def words():
     out += [(rnd.getrandbits(25) << 7) | rnd.choice(OPCODES) for _ in range(2500)]
     out += [(rnd.getrandbits(7) << 25) | (rnd.getrandbits(4) << 20) | (rnd.getrandbits(4) << 15)
             | (rnd.getrandbits(3) << 12) | (rnd.getrandbits(4) << 7) | rnd.choice(OPCODES) for _ in range(500)]
-    out += [0, 0xFFFFFFFF, 0x73, 0x00100073, 0x00200073, 0x0000000F, 0x0000100F]
+    csrs = list(rv32sim.CSR_WRITABLE) + list(rv32sim.CSR_CONSTANT) + [0xC00, 0x7C0, 0x302, 0xFFF]
+    out += [(rnd.choice(csrs) << 20) | (rnd.getrandbits(13) << 7) | 0x73 for _ in range(1000)]  # Zicsr
+    out += [0, 0xFFFFFFFF, 0x73, 0x00100073, 0x00200073, 0x0000000F, 0x0000100F,
+            0x30200073, 0x10500073, 0x10200073, 0x30200073 | (1 << 15)]
     return out
 
 

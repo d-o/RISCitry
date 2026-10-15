@@ -1,8 +1,8 @@
 """Generate source/tb/decoder_tb.luc: expected control signals for every RV32I instruction,
 written here as a table from the spec (deliberately not derived from decoder.luc), plus illegal encodings.
 
-The decoder outputs are packed into one 18-bit word in the testbench:
-  [17:14] alu_op  [13] alu_src_a  [12] alu_src_b  [11:9] imm_type  [8:7] wb_sel
+The decoder outputs are packed into one 21-bit word in the testbench:
+  [20] mret  [19] csr_write  [18] csr  [17:14] alu_op  [13] alu_src_a  [12] alu_src_b  [11:9] imm_type  [8:7] wb_sel
   [6] reg_write  [5] mem_read  [4] mem_write  [3] branch  [2] jump  [1] jalr  [0] illegal
 
 Usage: python3 tools/gen_decoder_tb.py   (rewrites source/tb/decoder_tb.luc)
@@ -17,7 +17,7 @@ WB = {"ALU": 0, "MEM": 1, "PC4": 2, "IMM": 3}
 ALU = {"add": 0b0000, "sub": 0b1000, "sll": 0b0001, "slt": 0b0010, "sltu": 0b0011,
        "xor": 0b0100, "srl": 0b0101, "sra": 0b1101, "or": 0b0110, "and": 0b0111}
 
-# mnemonic: (alu, src_a_is_pc, src_b_is_imm, imm, wb, flags); flags from rw mr mw br j jr
+# mnemonic: (alu, src_a_is_pc, src_b_is_imm, imm, wb, flags); flags from rw mr mw br j jr csr cw mret
 SPEC = {
     "lui":   ("add", 0, 0, "U", "IMM", "rw"),
     "auipc": ("add", 1, 1, "U", "ALU", "rw"),
@@ -36,10 +36,17 @@ SPEC = {
     "fence": ("add", 0, 0, "I", "ALU", ""),
     "ecall": ("add", 0, 0, "I", "ALU", ""),
     "ebreak": ("add", 0, 0, "I", "ALU", ""),
+    "wfi": ("add", 0, 0, "I", "ALU", ""),
+    "mret": ("add", 0, 0, "I", "ALU", "mret"),
+    # Zicsr: rd gets the old value; the write is suppressed for set/clear with x0 / zimm 0
+    # (vectors below use nonzero sources, plus explicit read-only cases)
+    **{c: ("add", 0, 0, "I", "ALU", "rw csr cw") for c in ("csrrw", "csrrs", "csrrc",
+                                                         "csrrwi", "csrrsi", "csrrci")},
 }
-FLAG_BITS = {"rw": 6, "mr": 5, "mw": 4, "br": 3, "j": 2, "jr": 1}
-FULL_MASK = (1 << 18) - 1
-SIDE_EFFECTS_AND_ILLEGAL = 0b1111111  # bits 6..0
+FLAG_BITS = {"rw": 6, "mr": 5, "mw": 4, "br": 3, "j": 2, "jr": 1, "csr": 18, "cw": 19, "mret": 20}
+WIDTH = 21
+FULL_MASK = (1 << WIDTH) - 1
+SIDE_EFFECTS_AND_ILLEGAL = 0b111 << 18 | 0b1111111  # bits 20..18 and 6..0
 
 
 def packed(alu, a, b, imm, wb, flags, illegal=0):
@@ -56,9 +63,11 @@ def legal_vectors():
     for name, spec in SPEC.items():
         fmt = rv32.INSTRUCTIONS[name][0]
         imms = {"R": [0, 0], "SHIFT": [4, 31], "I": [5, -1], "S": [8, -2048], "B": [-4, 0x7C],
-                "U": [0x12345, 0xFFFFF], "J": [0x7C, -0x34]}[fmt]
-        if name in ("fence", "ecall", "ebreak"):
+                "U": [0x12345, 0xFFFFF], "J": [0x7C, -0x34], "SYS": [0, 0], "CSR": [0, 0], "CSRI": [0, 0]}[fmt]
+        if name in ("fence", "ecall", "ebreak", "wfi", "mret"):
             operand_sets = [(0, 0, 0, 0)]
+        elif fmt in ("CSR", "CSRI"):   # (rd, source, -, CSR address): mscratch and mtvec
+            operand_sets = [(1, 2, 0, 0x340), (15, 15, 0, 0x305)]
         else:
             operand_sets = [(1, 2, 3, imms[0]), (15, 15, 15, imms[1])]
         for rd, rs1, rs2, imm in operand_sets:
@@ -71,6 +80,13 @@ def legal_vectors():
                 "lui with bits 19 and 24 set (rs1/rs2 positions, unused): legal"))
     out.append((rv32.encode("jal", 1, imm=0x7FFFE), packed(*SPEC["jal"]), FULL_MASK,
                 "jal with bits 19 and 24 set: legal"))
+    read_only = ("add", 0, 0, "I", "ALU", "rw csr")      # a CSR read: no csr_write
+    out.append((rv32.encode("csrrs", 1, 0, imm=0xF14), packed(*read_only), FULL_MASK,
+                "csrr x1, mhartid (csrrs with x0: read-only CSR, no write): legal"))
+    out.append((rv32.encode("csrrci", 1, 0, imm=0x301), packed(*read_only), FULL_MASK,
+                "csrrci x1, misa, 0: no write"))
+    out.append((rv32.encode("csrrsi", 2, 31, imm=0x341), packed(*SPEC["csrrsi"]), FULL_MASK,
+                "csrrsi zimm=31: the rs1 field isn't a register, so not an RV32E violation"))
     return out
 
 
@@ -91,7 +107,15 @@ def illegal_vectors():
         (rv32.r_type(0x33, 1, 0b000, 2, 3, 0x01), "mul (M extension, the old SUB-decode bug)"),
         (rv32.r_type(0x33, 1, 0b001, 2, 3, 0x20), "sll with funct7=0x20"),
         (rv32.r_type(0x33, 1, 0b100, 2, 3, 0x20), "xor with funct7=0x20"),
-        (rv32.i_type(0x73, 1, 0b001, 2, 0x300), "csrrw (Zicsr not supported)"),
+        (rv32.encode("csrrw", 1, 2, imm=0xC00), "csrrw cycle (not implemented)"),
+        (rv32.encode("csrrs", 1, 0, imm=0x7C0), "csrr of a custom CSR (not implemented)"),
+        (rv32.encode("csrrw", 0, 2, imm=0xF11), "csrw mvendorid (read-only)"),
+        (rv32.encode("csrrsi", 0, 1, imm=0xF14), "csrsi mhartid, 1 (read-only, writes)"),
+        (rv32.i_type(0x73, 1, 0b100, 2, 0x300), "SYSTEM funct3=100"),
+        (rv32.encode("csrrw", 16, 2, imm=0x340), "RV32E: csrrw rd=x16"),
+        (rv32.encode("csrrs", 1, 17, imm=0x340), "RV32E: csrrs rs1=x17"),
+        (rv32.i_type(0x73, 0, 0b000, 0, 0x102), "sret (no S mode)"),
+        (0x30200073 | (1 << 7), "mret with rd=1"),
         (rv32.i_type(0x73, 0, 0b000, 0, 2), "SYSTEM funct3=0 imm=2 (uret, not RV32I)"),
         (rv32.i_type(0x0F, 0, 0b001, 0, 0), "fence.i (Zifencei not supported)"),
         (rv32.encode("add", 16, 1, 2), "RV32E: rd=x16"),
@@ -112,11 +136,11 @@ def render(groups):
         "// the spec table. Illegal encodings only check the illegal flag and that side effects are off.",
         "testbench decoder_tb {",
         "    sig in_inst[32]",
-        "    sig got[18]",
+        f"    sig got[{WIDTH}]",
         "",
         "    decoder dut(.instruction(in_inst))",
         "",
-        "    fun check(inst[32], expected[18], mask[18]) {",
+        f"    fun check(inst[32], expected[{WIDTH}], mask[{WIDTH}]) {{",
         "        in_inst = inst",
         "        $tick()",
         "        got = $flatten(dut.ctrl)",
@@ -127,7 +151,7 @@ def render(groups):
     ]
     for name, vecs in groups.items():
         out += ["", f"    test {name} {{", "        in_inst = 0", "        got = 0"]
-        out += [f"        $check(32h{w:08X}, 18b{e:018b}, 18b{m:018b}) // {note}" for w, e, m, note in vecs]
+        out += [f"        $check(32h{w:08X}, {WIDTH}b{e:0{WIDTH}b}, {WIDTH}b{m:0{WIDTH}b}) // {note}" for w, e, m, note in vecs]
         out.append("    }")
     out.append("}")
     return "\n".join(out) + "\n"
@@ -143,7 +167,8 @@ if __name__ == "__main__":
                                                           "slli", "srli", "srai")],
         "op": [v for v in legal if v[3].split()[0] in ("add", "sub", "sll", "slt", "sltu", "xor", "srl",
                                                       "sra", "or", "and")],
-        "system": [v for v in legal if v[3].split()[0] in ("fence", "ecall", "ebreak")],
+        "system": [v for v in legal if v[3].split()[0] in ("fence", "ecall", "ebreak", "wfi", "mret")],
+        "csr": [v for v in legal if v[3].split()[0].startswith("csr")],
         "illegal": illegal_vectors(),
     }
     assert sum(len(g) for g in groups.values()) == len(legal) + len(groups["illegal"]), "vector lost in grouping"

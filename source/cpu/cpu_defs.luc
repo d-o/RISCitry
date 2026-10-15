@@ -9,6 +9,28 @@ global Cpu {
     enum State { FETCH, EXECUTE, MEM_ACCESS, WRITEBACK }
     const STATE_BITS = $width(State)
 
+    // SYSTEM words, as instruction[31:7] (funct3, rd and rs1 all zero)
+    const MRET_HI = 25h0604000     // 0x30200073
+    const WFI_HI = 25h020A000      // 0x10500073
+
+    // The CSRs this core implements (machine mode only); any other address is illegal, and so is
+    // writing one whose address starts 2b11 (read-only). csr_file.luc holds them.
+    const CSR_MSTATUS = 12h300     // MIE [3], MPIE [7]; MPP [12:11] reads 3 (M is the only mode)
+    const CSR_MISA = 12h301        // read-only here: RV32E
+    const CSR_MIE = 12h304         // MSIE [3], MTIE [7], MEIE [11]
+    const CSR_MTVEC = 12h305       // direct mode only: bits [1:0] read 0
+    const CSR_MSTATUSH = 12h310    // all zero (little-endian, nothing to set)
+    const CSR_MSCRATCH = 12h340
+    const CSR_MEPC = 12h341        // bits [1:0] read 0 (IALIGN = 32)
+    const CSR_MCAUSE = 12h342
+    const CSR_MTVAL = 12h343
+    const CSR_MIP = 12h344         // no interrupt sources yet: reads 0, writes ignored
+    const CSR_MVENDORID = 12hF11   // the ID registers read 0
+    const CSR_MARCHID = 12hF12
+    const CSR_MIMPID = 12hF13
+    const CSR_MHARTID = 12hF14
+    const MISA_VALUE = 32h40000010 // MXL = 1 (32-bit), extension E
+
     // What gets written to rd
     enum WbSel { ALU, MEM, PC4, IMM }
 
@@ -16,6 +38,7 @@ global Cpu {
     // listed least-significant first; flattened layout:
     //   [17:14] alu_op  [13] alu_src_a  [12] alu_src_b  [11:9] imm_type  [8:7] wb_sel
     //   [6] reg_write  [5] mem_read  [4] mem_write  [3] branch  [2] jump  [1] jalr  [0] illegal
+    //   [20] mret  [19] csr_write  [18] csr   (added at the top so the older fields keep their bits)
     struct control {
         illegal,                   // not a valid RV32E instruction; all side effects are forced off
         jalr,                      // JALR: pc = (rs1 + imm) & ~1
@@ -28,6 +51,9 @@ global Cpu {
         imm_type[$width(ImmType)],
         alu_src_b,                 // 0 = rs2, 1 = immediate
         alu_src_a,                 // 0 = rs1, 1 = pc (AUIPC)
-        alu_op[4]                  // alu.luc encoding: {funct7[5], funct3}
+        alu_op[4],                 // alu.luc encoding: {funct7[5], funct3}
+        csr,                       // Zicsr: rd gets the CSR's old value (address = instruction[31:20])
+        csr_write,                 // ...and the CSR is written (not csrrs/csrrc with x0 or zimm 0)
+        mret                       // MRET: pc = mepc, mstatus.MIE = MPIE, MPIE = 1
     }
 }

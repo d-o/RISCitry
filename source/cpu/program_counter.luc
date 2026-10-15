@@ -2,8 +2,9 @@ module program_counter (
     input clk,                  // Clock signal
     input rst,                  // Reset signal
     input pc_write,             // 1 = update PC, 0 = stall PC
-    input pc_src[2],            // 00 = PC+4, 01 = Branch/JAL target, 10 = JALR target
+    input pc_src[2],            // 00 = PC+4, 01 = Branch/JAL target, 10 = JALR target, 11 = vector
     input target_address[32],   // Address from ALU/Immediate generator
+    input vector[32],           // pc_src 11: MRET's return address (mepc)
     output pc[32],              // Current PC
     output next_pc[32]          // The value pc takes on the next clock (fetch address when pc_write)
   ) {
@@ -24,6 +25,7 @@ module program_counter (
       2b00: selected_pc = pc_reg.q + 4;                    // Normal execution
       2b01: selected_pc = target_address;                  // JAL or taken Branch
       2b10: selected_pc = target_address & 32hFFFFFFFE;    // JALR (spec requires clearing LSB)
+      2b11: selected_pc = vector;                          // MRET
       default: selected_pc = pc_reg.q + 4;
     }
 

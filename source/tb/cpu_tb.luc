@@ -2916,7 +2916,7 @@ testbench cpu_illegal_tb {
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
         $expect_pc(32h00000034)
-        // 0x0034: .word 0x300312f3
+        // 0x0034: .word 0xc00312f3
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
@@ -3042,5 +3042,259 @@ testbench cpu_illegal_tb {
         $expect_reg(4d13, 32h00000000)
         $expect_reg(4d14, 32h00000000)
         $expect_reg(4d15, 32h00000000)
+    }
+}
+
+testbench cpu_csr_tb {
+    sig clk
+    sig rst
+    sig sel[4]
+    sig switches[8]
+
+    computer dut(#PROGRAM_ID(Programs.Id.CSR), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
+                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .debug_sel(sel))
+
+    fun tick_clock() {
+        clk = 1
+        $silent_tick()
+        clk = 0
+        $tick()
+    }
+
+    fun expect_pc(pc[32]) {
+        if (dut.debug_pc != pc)
+            $print("pc: got %h want %h", dut.debug_pc, pc)
+        $assert(dut.debug_pc == pc)
+        $assert(dut.uart_tx)       // idle high unless the program prints
+    }
+
+    fun expect_state(state[Cpu.STATE_BITS]) {
+        if (dut.debug_state != state)
+            $print("state: got %d want %d", dut.debug_state, state)
+        $assert(dut.debug_state == state)
+    }
+
+    fun expect_reg(r[4], value[32]) {
+        sel = r
+        $silent_tick()
+        if (dut.debug_reg != value)
+            $print("x%d: got %h want %h", r, dut.debug_reg, value)
+        $assert(dut.debug_reg == value)
+    }
+
+    test run {
+        clk = 0
+        sel = 0
+        switches = 8h00
+        rst = 1
+        $tick_clock()
+        $tick_clock()
+        rst = 0
+        $expect_pc(32h00000000)
+        // 0x0000: csrrs x1, 0x301
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000004)
+        $expect_reg(4d1, 32h40000010)
+        // 0x0004: csrrs x2, 0xf14
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000008)
+        $expect_reg(4d2, 32h00000000)
+        // 0x0008: addi x3, x0, 0x123
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000000C)
+        $expect_reg(4d3, 32h00000123)
+        // 0x000c: csrrw x4, 0x340
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000010)
+        $expect_reg(4d4, 32h00000000)
+        // 0x0010: csrrsi x5, 0x340
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000014)
+        $expect_reg(4d5, 32h00000123)
+        // 0x0014: csrrci x6, 0x340
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000018)
+        $expect_reg(4d6, 32h0000012F)
+        // 0x0018: csrrs x7, 0x340
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000001C)
+        $expect_reg(4d7, 32h0000012C)
+        // 0x001c: addi x8, x0, -1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000020)
+        $expect_reg(4d8, 32hFFFFFFFF)
+        // 0x0020: csrrw x0, 0x305
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000024)
+        $expect_reg(4d0, 32h00000000)
+        // 0x0024: csrrs x9, 0x305
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000028)
+        $expect_reg(4d9, 32hFFFFFFFC)
+        // 0x0028: csrrw x0, 0x304
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000002C)
+        $expect_reg(4d0, 32h00000000)
+        // 0x002c: csrrs x10, 0x304
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000030)
+        $expect_reg(4d10, 32h00000888)
+        // 0x0030: csrrw x11, 0x301
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000034)
+        $expect_reg(4d11, 32h40000010)
+        // 0x0034: csrrs x11, 0x301
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000038)
+        $expect_reg(4d11, 32h40000010)
+        // 0x0038: addi x12, x0, back
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000003C)
+        $expect_reg(4d12, 32h00000058)
+        // 0x003c: addi x12, x12, 3
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000040)
+        $expect_reg(4d12, 32h0000005B)
+        // 0x0040: csrrw x0, 0x341
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000044)
+        $expect_reg(4d0, 32h00000000)
+        // 0x0044: csrrs x13, 0x341
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000048)
+        $expect_reg(4d13, 32h00000058)
+        // 0x0048: csrrwi x0, 0x300
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        $expect_reg(4d0, 32h00000000)
+        // 0x004c: csrrs x2, 0x300
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d2, 32h00001808)
+        // 0x0050: mret
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        // 0x0058: csrrs x14, 0x300
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000005C)
+        $expect_reg(4d14, 32h00001880)
+        // 0x005c: wfi
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000060)
+        // 0x0060: csrrw x15, 0x300
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000064)
+        $expect_reg(4d15, 32h00001880)
+        // 0x0064: csrrs x15, 0x300
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        $expect_reg(4d15, 32h00001888)
+        // 0x0068: halt
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        $expect_reg(4d0, 32h00000000)
+        // 0x0068: halt
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        $expect_reg(4d0, 32h00000000)
+        // final register file
+        $expect_reg(4d0, 32h00000000)
+        $expect_reg(4d1, 32h40000010)
+        $expect_reg(4d2, 32h00001808)
+        $expect_reg(4d3, 32h00000123)
+        $expect_reg(4d4, 32h00000000)
+        $expect_reg(4d5, 32h00000123)
+        $expect_reg(4d6, 32h0000012F)
+        $expect_reg(4d7, 32h0000012C)
+        $expect_reg(4d8, 32hFFFFFFFF)
+        $expect_reg(4d9, 32hFFFFFFFC)
+        $expect_reg(4d10, 32h00000888)
+        $expect_reg(4d11, 32h40000010)
+        $expect_reg(4d12, 32h0000005B)
+        $expect_reg(4d13, 32h00000058)
+        $expect_reg(4d14, 32h00001880)
+        $expect_reg(4d15, 32h00001888)
     }
 }

@@ -1,0 +1,78 @@
+// Machine-mode CSRs (Zicsr). The decoder has already rejected unimplemented addresses and writes
+// to read-only ones, so this only holds the registers, reads the addressed one and applies a write.
+// A CSR instruction reads the old value (for rd) and writes the new one on the same edge, in
+// EXECUTE. Write semantics per the spec: write, set (old | src) or clear (old & ~src); bits a
+// CSR doesn't implement read 0 and ignore writes (WARL).
+module csr_file (
+    input clk,
+    input rst,
+    input addr[12],          // the CSR address, instruction[31:20]
+    input op[2],             // funct3[1:0]: 01 write, 10 set, 11 clear
+    input src[32],           // rs1's value, or the zero-extended zimm
+    input write,             // write the addressed CSR on this edge (gated by control_unit)
+    input mret,              // MRET's pc-writing edge: MIE = MPIE, MPIE = 1
+    output read_data[32],    // the addressed CSR
+    output mepc[32]          // MRET's return address
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff mstatus_mie          // global interrupt enable; 0 after reset, as the spec requires
+    dff mstatus_mpie         // MIE before the last trap
+    dff mie_msie             // mie: software, timer, external interrupt enables
+    dff mie_mtie
+    dff mie_meie
+    dff mtvec_base[30]       // mtvec[31:2]; MODE = 0 (direct)
+    dff mscratch[32]
+    dff mepc_word[30]        // mepc[31:2]
+    dff mcause[32]
+    dff mtval[32]
+  }
+
+  sig value[32]              // the addressed CSR's current value
+  sig new_value[32]
+
+  always {
+    case (addr) {
+      Cpu.CSR_MSTATUS: value = c{19b0, 2b11, 3b0, mstatus_mpie.q, 3b0, mstatus_mie.q, 3b0}
+      Cpu.CSR_MISA:    value = Cpu.MISA_VALUE
+      Cpu.CSR_MIE:     value = c{20b0, mie_meie.q, 3b0, mie_mtie.q, 3b0, mie_msie.q, 3b0}
+      Cpu.CSR_MTVEC:   value = c{mtvec_base.q, 2b00}
+      Cpu.CSR_MSCRATCH: value = mscratch.q
+      Cpu.CSR_MEPC:    value = c{mepc_word.q, 2b00}
+      Cpu.CSR_MCAUSE:  value = mcause.q
+      Cpu.CSR_MTVAL:   value = mtval.q
+      default:         value = 0        // mstatush, mip, the ID registers
+    }
+    read_data = value
+    mepc = c{mepc_word.q, 2b00}
+
+    case (op) {
+      2b10:    new_value = value | src
+      2b11:    new_value = value & ~src
+      default: new_value = src
+    }
+
+    if (write) {
+      case (addr) {
+        Cpu.CSR_MSTATUS:
+          mstatus_mie.d = new_value[3]
+          mstatus_mpie.d = new_value[7]
+        Cpu.CSR_MIE:
+          mie_msie.d = new_value[3]
+          mie_mtie.d = new_value[7]
+          mie_meie.d = new_value[11]
+        Cpu.CSR_MTVEC:    mtvec_base.d = new_value[31:2]
+        Cpu.CSR_MSCRATCH: mscratch.d = new_value
+        Cpu.CSR_MEPC:     mepc_word.d = new_value[31:2]
+        Cpu.CSR_MCAUSE:   mcause.d = new_value
+        Cpu.CSR_MTVAL:    mtval.d = new_value
+        default:          mscratch.d = mscratch.q   // misa, mstatush, mip: writes ignored
+      }
+    }
+
+    if (mret) {
+      mstatus_mie.d = mstatus_mpie.q
+      mstatus_mpie.d = 1
+    }
+  }
+}

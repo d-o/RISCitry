@@ -113,6 +113,14 @@ INSTRUCTIONS = {
     "or":    ("R", 0x33, 0b110, 0x00), "and":  ("R", 0x33, 0b111, 0x00),
     "fence": ("I", 0x0F, 0b000, None),
     "ecall": ("I", 0x73, 0b000, None), "ebreak": ("I", 0x73, 0b000, None),
+    # Zicsr: csrrw rd, csr, rs1 (CSR) and csrrwi rd, csr, zimm (CSRI); the last field is the CSR
+    # address for both, the zimm sits in the rs1 field.
+    "csrrw": ("CSR", 0x73, 0b001, None), "csrrs": ("CSR", 0x73, 0b010, None),
+    "csrrc": ("CSR", 0x73, 0b011, None),
+    "csrrwi": ("CSRI", 0x73, 0b101, None), "csrrsi": ("CSRI", 0x73, 0b110, None),
+    "csrrci": ("CSRI", 0x73, 0b111, None),
+    # Privileged, fixed words (funct12 in the last field): no operands.
+    "mret": ("SYS", 0x73, 0b000, 0x302), "wfi": ("SYS", 0x73, 0b000, 0x105),
 }
 
 
@@ -123,6 +131,13 @@ def encode(mnemonic, rd=0, rs1=0, rs2=0, imm=0):
         imm = 1
     if fmt == "R":
         return r_type(op, rd, f3, rs1, rs2, f7)
+    if fmt in ("CSR", "CSRI"):           # imm = CSR address; rs1 = register or zimm
+        if not 0 <= imm < 4096 or not 0 <= rs1 < 32:
+            raise ValueError(f"{mnemonic}: CSR address {imm} or source {rs1} out of range")
+        rs1 = _check_reg(rs1) if fmt == "CSR" else rs1
+        return (imm << 20) | (rs1 << 15) | (f3 << 12) | (_check_reg(rd) << 7) | op
+    if fmt == "SYS":
+        return (f7 << 20) | op
     if fmt == "SHIFT":
         if not 0 <= imm < 32:
             raise ValueError(f"shift amount {imm} must be 0..31")
@@ -179,6 +194,11 @@ def _self_test():
         0x123452B7: encode("lui", 5, imm=0x12345),     # lui t0, 0x12345
         0x0000A503: encode("lw", 10, 1, imm=0),        # lw a0, 0(ra)
         0x00A12223: encode("sw", 0, 2, 10, imm=4),     # sw a0, 4(sp)
+        0x30529073: encode("csrrw", 0, 5, imm=0x305),  # csrw mtvec, t0
+        0x34102573: encode("csrrs", 10, 0, imm=0x341), # csrr a0, mepc
+        0x30046073: encode("csrrsi", 0, 8, imm=0x300), # csrsi mstatus, 8
+        0x30200073: encode("mret"),
+        0x10500073: encode("wfi"),
     })
     for want, got in known.items():
         assert want == got, f"expected {want:08X}, encoder gave {got:08X}"

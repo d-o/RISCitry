@@ -19,6 +19,7 @@ Operand order follows assembly syntax:
     R:   op rd, rs1, rs2         I/SHIFT: op rd, rs1, imm      loads: op rd, rs1, imm (= imm(rs1))
     S:   op rs2, rs1, imm  (sw rs2, imm(rs1))                   B: op rs1, rs2, target
     U:   op rd, imm20             J: op rd, target              fence/ecall/ebreak: no operands
+    CSR: op rd, csr, rs1          CSRI: op rd, csr, zimm         mret/wfi: no operands
 """
 import rv32
 
@@ -125,6 +126,11 @@ def assemble_with_listing(program):
             if fmt in ("R",):
                 rd, rs1, rs2 = ops
                 word = rv32.encode(name, rd, rs1, rs2)
+            elif fmt in ("CSR", "CSRI"):
+                rd, csr, src = ops
+                word = rv32.encode(name, rd, src, imm=csr)
+            elif fmt == "SYS":
+                word = rv32.encode(name)
             elif fmt in ("I", "SHIFT"):
                 if name in ("fence", "ecall", "ebreak"):
                     word = rv32.encode(name)

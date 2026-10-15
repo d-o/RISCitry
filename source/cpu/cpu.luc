@@ -34,6 +34,7 @@ module cpu (
     program_counter pc_unit(.rst(rst));
     register_file reg_file(.rst(rst));
     control_unit control(.rst(rst));
+    csr_file csrs(.rst(rst));
     dff if_id_reg[32](.rst(rst));   // instruction latched at the end of FETCH
   }
 
@@ -95,11 +96,20 @@ module cpu (
       Cpu.WbSel.IMM: reg_file.write_data = immediate_generator.immediate;
       default:       reg_file.write_data = alu_unit.result;
     }
+    if (dec.ctrl.csr) reg_file.write_data = csrs.read_data;
+
+    // --- CSRs (Zicsr): the old value goes to rd, the new one is written on the same edge ---
+    csrs.addr = instruction[31:20];
+    csrs.op = instruction[13:12];
+    if (instruction[14]) csrs.src = c{27b0, instruction[19:15]}; else csrs.src = reg_file.read_data1;
+    csrs.write = control.csr_write;
+    csrs.mret = control.mret;
 
     // --- next pc ---
     pc_unit.pc_write = control.pc_write;
     pc_unit.pc_src = control.pc_src;
     if (dec.ctrl.jalr) pc_unit.target_address = alu_unit.result; else pc_unit.target_address = pc_unit.pc + immediate_generator.immediate;
+    pc_unit.vector = csrs.mepc;
 
     debug_pc = pc_unit.pc;
     debug_state = control.current_state;
