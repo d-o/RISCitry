@@ -26,6 +26,9 @@ testbench board_tb {
         if (dut.led != 8b00100001)
             $print("led: got %b want 00100001", dut.led)
         $assert(dut.led == 8b00100001)
+        // reset, then stopped before the first instruction: x1 (shown on io_led) is still 0, UART idle
+        $assert(dut.io_led == {8h00, 8h00, 8h00})
+        $assert(dut.usb_tx)
         // the dot: digit 0 selected (active low) shows segment 7 lit (active low)
         repeat(i, 4) {
             if (dut.io_select == 4b1110) $assert(dut.io_segment[7] == 0);
