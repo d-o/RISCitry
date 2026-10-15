@@ -50,6 +50,9 @@ module machine #(
     dff reset_edges[2](#INIT(2))   // rising edges still to give the cpu with cpu_rst held
     dff active                     // clocking towards a stop point (a step, or the end of a run)
     dff moved                      // ...and has given at least one rising edge
+    dff was_stopped                // stopped, one clock late: gates step (stopped straight into
+                                   // active's enable missed 100 MHz, 2026-10-16); a step pulse
+                                   // can't come twice in two clocks, so the lag is harmless
   }
 
   sig core_clk
@@ -74,6 +77,7 @@ module machine #(
     if (fast || resetting || (active.q && !run)) half_done.d = &phase.q[FAST_BITS-1:0]; else half_done.d = &phase.q;
 
     stopped = !cpu_clk.q && !run && !resetting && !active.q
+    was_stopped.d = stopped
 
     if (half_done.q) {
       if (cpu_clk.q) {
@@ -97,7 +101,7 @@ module machine #(
       active.d = 1
       moved.d = 1
     }
-    if (step && stopped) {
+    if (step && was_stopped.q) {
       active.d = 1
       moved.d = 0
     }

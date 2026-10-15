@@ -12,16 +12,17 @@ module debouncer #(
   .clk(clk) {
     dff sync0                // two flip-flops: in is asynchronous to clk
     dff sync1
-    dff count[BITS]
-    dff stable               // registered: a 21-input AND straight into the step logic missed 100 MHz
+    dff count[BITS+1]        // counts up to 2^BITS and stops: the top bit is out, so neither the
+                             // output nor the counter's enable needs a 21-input AND (one straight
+                             // into the step logic missed 100 MHz; a registered one still fed
+                             // the counter's enable and missed it again, 2026-10-16)
   }
 
   always {
     sync0.d = in
     sync1.d = sync0.q
-    stable.d = &count.q
-    out = stable.q
+    out = count.q[BITS]
 
-    if (!sync1.q) count.d = 0; else if (!&count.q) count.d = count.q + 1;
+    if (!sync1.q) count.d = 0; else if (!count.q[BITS]) count.d = count.q + 1;
   }
 }
