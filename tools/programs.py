@@ -291,12 +291,28 @@ SELFMOD = [
     (".word", rv32.addi(10, 0, 2)),
 ]
 
-# Illegal encodings act as NOPs: nothing written, no store, no jump or branch. ECALL, EBREAK and
-# FENCE are legal no-ops. Then it jumps to the UART: devices answer loads only, so fetches there
-# read 0 (illegal, a NOP) and the core walks on through I/O space without sending anything.
+# A trap handler for the programs below: records mcause (x13), mtval (x12) and mstatus (x15),
+# counts traps (x14), and returns past the trapping instruction (mepc + 4).
+TRAP_HANDLER = [
+    "handler:",
+    ("csrrs", 13, 0x342, 0),
+    ("csrrs", 12, 0x343, 0),
+    ("csrrs", 15, 0x300, 0),                   # inside the handler: MIE = 0, MPIE = the old MIE
+    ("addi", 14, 14, 1),
+    ("csrrs", 11, 0x341, 0),
+    ("addi", 11, 11, 4),
+    ("csrrw", 0, 0x341, 11),
+    ("mret",),
+]
+
+# Illegal encodings trap (cause 2, mtval = the word) and do nothing else: nothing written, no
+# store, no jump or branch. FENCE and WFI are legal no-ops. Then it jumps to the UART: devices
+# answer loads only, so every fetch there reads 0 and traps as illegal (mepc = the I/O address).
 ILLEGAL = [
     ("addi", 4, 4, 1),                              # counts runs of word 0: a fetch from I/O
                                                     # that aliased onto RAM would run it again
+    ("addi", 3, 0, "handler"),
+    ("csrrw", 0, 0x305, 3),                         # mtvec = handler
     ("addi", 5, 0, 5),
     ("addi", 6, 0, 6),
     ("sw", 6, 0, DATA),
@@ -310,13 +326,48 @@ ILLEGAL = [
     (".word", rv32.addi(0, 5, 1) | (16 << 7)),      # addi x16, x5, 1: RV32E has no x16
     (".word", rv32.r_type(0x33, 5, 1, 5, 6, 0x20)), # sll with funct7 = 0x20
     (".word", rv32.encode("csrrw", 5, 6, imm=0xC00)),  # csrrw x5, cycle, x6: not implemented
+    (".word", rv32.encode("csrrw", 5, 6, imm=0xF11)),  # csrrw x5, mvendorid, x6: read-only
     (".word", 0x0000100F),                          # fence.i: Zifencei not implemented
-    ("ecall",),
-    ("ebreak",),
     ("fence",),
+    ("wfi",),
     ("lw", 7, 0, DATA),                             # still 6: the sd didn't store
     ("lui", 2, memmap.UART_BASE >> 12),
-    ("jalr", 1, 2, 0),                              # run from the UART
+    ("jalr", 1, 2, 0),                              # run from the UART: a trap per word
+    *TRAP_HANDLER,
+]
+
+# The other synchronous traps. ECALL (cause 11) and EBREAK (3) with mtval 0; MIE = 1 before the
+# first, so the handler sees MPIE = 1, MIE = 0 and MRET restores MIE. Misaligned loads (4) and
+# stores (6) with mtval = the address: no register written, memory unchanged; an aligned halfword
+# is fine. A JALR to an address with bit 1 set traps (0, mtval = target) without writing rd; one
+# with only bit 0 set doesn't (bit 0 is cleared). A taken branch to a misaligned target traps; a
+# branch that isn't taken doesn't, whatever its target.
+TRAPS = [
+    ("addi", 3, 0, "handler"),
+    ("csrrw", 0, 0x305, 3),
+    ("csrrsi", 0, 0x300, 0x08),                # MIE = 1
+    ("ecall",),
+    ("csrrs", 2, 0x300, 0),                    # x2 = 0x1888: MRET put MIE back
+    ("ebreak",),
+    ("addi", 5, 0, 0x55),
+    ("sw", 5, 0, DATA),
+    ("lw", 6, 0, DATA + 2),                    # misaligned word: x6 stays 0
+    ("lh", 6, 0, DATA + 1),                    # misaligned halfword
+    ("lhu", 7, 0, DATA + 2),                   # aligned halfword: x7 = 0
+    ("sw", 3, 0, DATA + 1),                    # misaligned stores: memory unchanged
+    ("sh", 3, 0, DATA + 3),
+    ("lw", 8, 0, DATA),                        # still 0x55
+    ("addi", 9, 0, "land"),
+    ("addi", 9, 9, 2),
+    ("jalr", 1, 9, 0),                         # target land + 2: traps, x1 stays 0
+    ("addi", 9, 9, -1),
+    ("jalr", 1, 9, 0),                         # land + 1: bit 0 cleared, lands on land
+    ("addi", 10, 0, 99),                       # skipped
+    "land:",
+    (".word", rv32.b_type(0x63, 0, 0, 0, 6)),  # beq x0, x0, +6: taken, misaligned: traps
+    (".word", rv32.b_type(0x63, 1, 0, 0, 6)),  # bne x0, x0, +6: not taken: no trap
+    ("halt",),
+    *TRAP_HANDLER,
 ]
 
 # What the board boots. A stub at 0 reads the switch register (the middle DIP bank) once after
@@ -434,16 +485,17 @@ PROGRAMS = {
     "SELFMOD": SELFMOD,
     "ILLEGAL": ILLEGAL,
     "CSR": CSR,
+    "TRAPS": TRAPS,
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
 # checked by its first PRINT_BYTES bytes instead.
-RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 30}
+RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160}
 PRINT_BYTES = 100              # the banner and the first three numbered lines
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1]}
-# Programs that run illegal instructions on purpose (rv32sim otherwise raises on them).
-ILLEGAL_AS_NOP = {"ILLEGAL"}
+# Programs that trap on purpose (rv32sim raises on a trap anywhere else).
+EXPECTS_TRAPS = {"ILLEGAL", "TRAPS"}
 
 # The program the board runs (instantiated by the top module).
 BOARD_PROGRAM = "BOARD"

@@ -37,6 +37,8 @@ module decoder (
     ctrl.csr = 0
     ctrl.csr_write = 0
     ctrl.mret = 0
+    ctrl.ecall = 0
+    ctrl.ebreak = 0
     bad = 0
     csr_writes = 0
     uses_rd = 0
@@ -141,10 +143,14 @@ module decoder (
 
       7h73: // SYSTEM
         if (funct3 == 3b000) {
-          // ECALL/EBREAK: no-ops (no traps yet); WFI: a no-op is a legal WFI; MRET
+          // ECALL/EBREAK trap (trap_unit); MRET; WFI: a no-op is a legal WFI
           if (instruction[31:7] == Cpu.MRET_HI) {
             ctrl.mret = 1
-          } else if (instruction[31:7] != 25h0 && instruction[31:7] != 25h2000 && instruction[31:7] != Cpu.WFI_HI) {
+          } else if (instruction[31:7] == 25h0) {
+            ctrl.ecall = 1
+          } else if (instruction[31:7] == 25h2000) {
+            ctrl.ebreak = 1
+          } else if (instruction[31:7] != Cpu.WFI_HI) {
             bad = 1
           }
         } else if (funct3 == 3b100) {
@@ -174,6 +180,8 @@ module decoder (
       ctrl.csr = 0
       ctrl.csr_write = 0
       ctrl.mret = 0
+      ctrl.ecall = 0
+      ctrl.ebreak = 0
       ctrl.reg_write = 0
       ctrl.mem_read = 0
       ctrl.mem_write = 0

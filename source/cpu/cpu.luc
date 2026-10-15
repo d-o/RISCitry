@@ -42,10 +42,12 @@ module cpu (
   imm_gen immediate_generator;
   alu alu_unit;
   branch_unit branch;
+  trap_unit traps;
   mem_align align;
 
   sig instruction[32];
   sig pc_plus_4[32];
+  sig target[32];            // branch/JAL target (pc + imm) or JALR's rs1 + imm (bit 0 not yet cleared)
 
   always {
     // --- fetch: the instruction arrives in FETCH; hold it for the rest of the instruction ---
@@ -56,6 +58,7 @@ module cpu (
     dec.instruction = instruction;
     control.ctrl = dec.ctrl;
     control.branch_taken = branch.taken;
+    control.trap = traps.trap;
 
     immediate_generator.instruction = instruction;
     immediate_generator.imm_type = dec.ctrl.imm_type;
@@ -108,8 +111,25 @@ module cpu (
     // --- next pc ---
     pc_unit.pc_write = control.pc_write;
     pc_unit.pc_src = control.pc_src;
-    if (dec.ctrl.jalr) pc_unit.target_address = alu_unit.result; else pc_unit.target_address = pc_unit.pc + immediate_generator.immediate;
-    pc_unit.vector = csrs.mepc;
+    if (dec.ctrl.jalr) target = alu_unit.result; else target = pc_unit.pc + immediate_generator.immediate;
+    pc_unit.target_address = target;
+    if (control.mret) pc_unit.vector = csrs.mepc; else pc_unit.vector = csrs.mtvec;
+
+    // --- traps: decided in EXECUTE (trap_unit), recorded by csr_file on the edge control takes it ---
+    traps.ctrl = dec.ctrl;
+    traps.funct3 = instruction[14:12];
+    traps.addr_low = alu_unit.result[1:0];
+    traps.target_bit1 = target[1];
+    traps.branch_taken = branch.taken;
+    csrs.trap = control.take_trap;
+    csrs.trap_pc = pc_unit.pc;
+    csrs.trap_cause = traps.cause;
+    case (traps.tval_sel) {
+      Cpu.TvalSel.INSTRUCTION: csrs.trap_value = instruction;
+      Cpu.TvalSel.ADDRESS:     csrs.trap_value = alu_unit.result;
+      Cpu.TvalSel.TARGET:      csrs.trap_value = c{target[31:1], 1b0};
+      default:                 csrs.trap_value = 0;
+    }
 
     debug_pc = pc_unit.pc;
     debug_state = control.current_state;

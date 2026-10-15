@@ -44,25 +44,25 @@ TB_UART_BAUD = 1
 UART_CLOCKS_PER_BYTE = 10 * TB_UART_CLK_FREQ // TB_UART_BAUD   # start + 8 data + stop
 
 
-def clocks_for(word):
-    """Clocks this core spends on an instruction: FETCH + EXECUTE, plus memory states. An
-    illegal instruction is a NOP (2), even with a load or store opcode."""
+def clocks_for(word, trapped=False):
+    """Clocks this core spends on an instruction: FETCH + EXECUTE, plus memory states. One that
+    traps (rv32sim's model.trapped after the step) is taken in EXECUTE: 2, even a load or store."""
     op = word & 0x7F
-    if not rv32sim.legal(word):
+    if trapped or not rv32sim.legal(word):
         return 2
     return 4 if op == 0x03 else 3 if op == 0x23 else 2
 
 
-def writes_rd(word):
-    """The register the instruction writes, or None."""
-    if not rv32sim.legal(word):
+def writes_rd(word, trapped=False):
+    """The register the instruction writes, or None (a trapping instruction writes nothing)."""
+    if trapped or not rv32sim.legal(word):
         return None
     zicsr = word & 0x7F == 0x73 and (word >> 12) & 7 not in (0, 4)
     return (word >> 7) & 31 if word & 0x7F in WRITES_RD or zicsr else None
 
 
 def new_model(name, words, switches=0):
-    return rv32sim.Cpu(words, illegal_nop=name in programs.ILLEGAL_AS_NOP, switches=switches)
+    return rv32sim.Cpu(words, traps_ok=name in programs.EXPECTS_TRAPS, switches=switches)
 
 
 def cases():
@@ -144,11 +144,13 @@ def header(name, sw, extra_sigs=()):
         "                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),",
         "                 .debug_sel(sel))",
         "",
+        "    // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)",
+        "    // for its waveform view, and across the suite that exhausts its memory",
         "    fun tick_clock() {",
         "        clk = 1",
         "        $silent_tick()",
         "        clk = 0",
-        "        $tick()",
+        "        $silent_tick()",
         "    }",
         "",
         "    fun expect_pc(pc[32]) {",
@@ -198,18 +200,6 @@ def render_uart_testbench(name, words, text, sw, forever=False):
     shown = "".join(chr(b) if 32 <= b < 127 else f"\\x{b:02x}" for b in out)
     lines = header(name, sw, ["    sig received[8]", f"    sig expected[{n}][8]"])
     at = next(i for i, l in enumerate(lines) if ".debug_sel(sel))" in l) + 1
-    fun = lines.index("    fun tick_clock() {")
-    lines[fun:fun] = [
-        "    // a clock without a waveform step: the simulator keeps every $tick's state (the RAM model",
-        "    // included), and a few thousand of them exhaust its memory",
-        "    fun silent_clock() {",
-        "        clk = 1",
-        "        $silent_tick()",
-        "        clk = 0",
-        "        $silent_tick()",
-        "    }",
-        "",
-    ]
     lines.insert(at, f"    uart_rx rx(#CLK_FREQ({TB_UART_CLK_FREQ}), #BAUD({TB_UART_BAUD}), "
                      ".clk(clk), .rst(rst), .rx(dut.uart_tx))")
     lines += [
@@ -233,7 +223,7 @@ def render_uart_testbench(name, words, text, sw, forever=False):
           [f"        // run until halted at {halt_pc:#06x} with all {n} bytes received (at most {max_clocks} clocks)",
            f"        repeat(i, {max_clocks}) {{",
            f"            if (received != {n} || dut.debug_pc != 32h{halt_pc:08X} || dut.debug_state != Cpu.State.FETCH) {{"]),
-        "                $silent_clock()",
+        "                $tick_clock()",
         "                if (rx.new_data) {",
         f"                    $assert(received < {n})",
         "                    if (rx.data != expected[received])",
@@ -275,10 +265,10 @@ def render_testbench(name, words, text, sw):
         model.step()
         steps += 1
         lines.append(f"        // {pc:#06x}: {text.get(pc, 'nop')}")
-        for state in STATES[clocks_for(word)]:
+        for state in STATES[clocks_for(word, model.trapped)]:
             lines += ["        $tick_clock()", f"        $expect_state(Cpu.State.{state})"]
         lines.append(f"        $expect_pc(32h{model.pc:08X})")
-        rd = writes_rd(word)
+        rd = writes_rd(word, model.trapped)
         if rd is not None:
             lines.append(f"        $expect_reg(4d{rd}, 32h{model.x[rd]:08X})")
         if name in programs.RUNS_FOREVER:

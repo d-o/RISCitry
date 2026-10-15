@@ -2,7 +2,7 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL, CSR }
+    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS }
 
     const BOARD = {
         32h00464544,  // 0x017c: (data)
@@ -354,26 +354,36 @@ global Programs {
         32h04002303  // 0x0000: lw x6, new1(x0)
     }
     const ILLEGAL = {
-        32h000100E7,  // 0x0050: jalr x1, x2, 0
-        32h80000137,  // 0x004c: lui x2, 0x80000
-        32h40002383,  // 0x0048: lw x7, 0x400(x0)
-        32h0000000F,  // 0x0044: fence
-        32h00100073,  // 0x0040: ebreak
-        32h00000073,  // 0x003c: ecall
-        32h0000100F,  // 0x0038: .word 0x0000100f
-        32hC00312F3,  // 0x0034: .word 0xc00312f3
-        32h406292B3,  // 0x0030: .word 0x406292b3
-        32h00128813,  // 0x002c: .word 0x00128813
-        32h000010E7,  // 0x0028: .word 0x000010e7
-        32hFE62ACE3,  // 0x0024: .word 0xfe62ace3
-        32h40503023,  // 0x0020: .word 0x40503023
-        32h40003283,  // 0x001c: .word 0x40003283
-        32h40129293,  // 0x0018: .word 0x40129293
-        32hFFFFFFFF,  // 0x0014: .word 0xffffffff
-        32h00000000,  // 0x0010: .word 0x00000000
-        32h40602023,  // 0x000c: sw x6, 0x400(x0)
-        32h00600313,  // 0x0008: addi x6, x0, 6
-        32h00500293,  // 0x0004: addi x5, x0, 5
+        32h30200073,  // 0x0078: mret
+        32h34159073,  // 0x0074: csrrw x0, 0x341
+        32h00458593,  // 0x0070: addi x11, x11, 4
+        32h341025F3,  // 0x006c: csrrs x11, 0x341
+        32h00170713,  // 0x0068: addi x14, x14, 1
+        32h300027F3,  // 0x0064: csrrs x15, 0x300
+        32h34302673,  // 0x0060: csrrs x12, 0x343
+        32h342026F3,  // 0x005c: csrrs x13, 0x342
+        32h000100E7,  // 0x0058: jalr x1, x2, 0
+        32h80000137,  // 0x0054: lui x2, 0x80000
+        32h40002383,  // 0x0050: lw x7, 0x400(x0)
+        32h10500073,  // 0x004c: wfi
+        32h0000000F,  // 0x0048: fence
+        32h0000100F,  // 0x0044: .word 0x0000100f
+        32hF11312F3,  // 0x0040: .word 0xf11312f3
+        32hC00312F3,  // 0x003c: .word 0xc00312f3
+        32h406292B3,  // 0x0038: .word 0x406292b3
+        32h00128813,  // 0x0034: .word 0x00128813
+        32h000010E7,  // 0x0030: .word 0x000010e7
+        32hFE62ACE3,  // 0x002c: .word 0xfe62ace3
+        32h40503023,  // 0x0028: .word 0x40503023
+        32h40003283,  // 0x0024: .word 0x40003283
+        32h40129293,  // 0x0020: .word 0x40129293
+        32hFFFFFFFF,  // 0x001c: .word 0xffffffff
+        32h00000000,  // 0x0018: .word 0x00000000
+        32h40602023,  // 0x0014: sw x6, 0x400(x0)
+        32h00600313,  // 0x0010: addi x6, x0, 6
+        32h00500293,  // 0x000c: addi x5, x0, 5
+        32h30519073,  // 0x0008: csrrw x0, 0x305
+        32h05C00193,  // 0x0004: addi x3, x0, handler
         32h00120213  // 0x0000: addi x4, x4, 1
     }
     const CSR = {
@@ -404,5 +414,38 @@ global Programs {
         32h12300193,  // 0x0008: addi x3, x0, 0x123
         32hF1402173,  // 0x0004: csrrs x2, 0xf14
         32h301020F3  // 0x0000: csrrs x1, 0x301
+    }
+    const TRAPS = {
+        32h30200073,  // 0x0078: mret
+        32h34159073,  // 0x0074: csrrw x0, 0x341
+        32h00458593,  // 0x0070: addi x11, x11, 4
+        32h341025F3,  // 0x006c: csrrs x11, 0x341
+        32h00170713,  // 0x0068: addi x14, x14, 1
+        32h300027F3,  // 0x0064: csrrs x15, 0x300
+        32h34302673,  // 0x0060: csrrs x12, 0x343
+        32h342026F3,  // 0x005c: csrrs x13, 0x342
+        32h0000006F,  // 0x0058: halt
+        32h00001363,  // 0x0054: .word 0x00001363
+        32h00000363,  // 0x0050: .word 0x00000363
+        32h06300513,  // 0x004c: addi x10, x0, 99
+        32h000480E7,  // 0x0048: jalr x1, x9, 0
+        32hFFF48493,  // 0x0044: addi x9, x9, -1
+        32h000480E7,  // 0x0040: jalr x1, x9, 0
+        32h00248493,  // 0x003c: addi x9, x9, 2
+        32h05000493,  // 0x0038: addi x9, x0, land
+        32h40002403,  // 0x0034: lw x8, 0x400(x0)
+        32h403011A3,  // 0x0030: sh x3, 0x403(x0)
+        32h403020A3,  // 0x002c: sw x3, 0x401(x0)
+        32h40205383,  // 0x0028: lhu x7, 0x402(x0)
+        32h40101303,  // 0x0024: lh x6, 0x401(x0)
+        32h40202303,  // 0x0020: lw x6, 0x402(x0)
+        32h40502023,  // 0x001c: sw x5, 0x400(x0)
+        32h05500293,  // 0x0018: addi x5, x0, 85
+        32h00100073,  // 0x0014: ebreak
+        32h30002173,  // 0x0010: csrrs x2, 0x300
+        32h00000073,  // 0x000c: ecall
+        32h30046073,  // 0x0008: csrrsi x0, 0x300
+        32h30519073,  // 0x0004: csrrw x0, 0x305
+        32h05C00193  // 0x0000: addi x3, x0, handler
     }
 }

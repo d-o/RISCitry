@@ -11,8 +11,13 @@ module csr_file (
     input src[32],           // rs1's value, or the zero-extended zimm
     input write,             // write the addressed CSR on this edge (gated by control_unit)
     input mret,              // MRET's pc-writing edge: MIE = MPIE, MPIE = 1
+    input trap,              // a trap is taken on this edge: record it, MPIE = MIE, MIE = 0
+    input trap_pc[32],       // the trapping instruction's address (mepc)
+    input trap_cause[4],     // mcause's exception code (interrupt bit 0)
+    input trap_value[32],    // mtval
     output read_data[32],    // the addressed CSR
-    output mepc[32]          // MRET's return address
+    output mepc[32],         // MRET's return address
+    output mtvec[32]         // the trap handler's address
   ) {
 
   .clk(clk), .rst(rst) {
@@ -45,6 +50,7 @@ module csr_file (
     }
     read_data = value
     mepc = c{mepc_word.q, 2b00}
+    mtvec = c{mtvec_base.q, 2b00}
 
     case (op) {
       2b10:    new_value = value | src
@@ -73,6 +79,14 @@ module csr_file (
     if (mret) {
       mstatus_mie.d = mstatus_mpie.q
       mstatus_mpie.d = 1
+    }
+
+    if (trap) {
+      mepc_word.d = trap_pc[31:2]
+      mcause.d = c{28b0, trap_cause}
+      mtval.d = trap_value
+      mstatus_mpie.d = mstatus_mie.q
+      mstatus_mie.d = 0
     }
   }
 }

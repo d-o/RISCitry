@@ -36,7 +36,7 @@ VERILOG = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "source"
 STATE = {"FETCH": 0, "EXECUTE": 1, "MEM_ACCESS": 2, "WRITEBACK": 3}   # control_unit's enum order
 BIT = gen_cpu_tb.TB_UART_CLK_FREQ // gen_cpu_tb.TB_UART_BAUD
 SIGNALS = ["cycle", "debug_pc", "debug_state", "debug_reg", "uart_tx"]
-KEEPS_WRITING = {"LARSON", "BOARD"}    # run forever changing registers: no final register check
+KEEPS_WRITING = {"LARSON", "BOARD", "ILLEGAL"}    # run forever changing registers: no final register check
 
 HARNESS = f"""
 module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
@@ -133,7 +133,7 @@ def expected_trace(name, words, sw):
         word = model.fetch()
         model.step()
         steps += 1
-        states = gen_cpu_tb.STATES[gen_cpu_tb.clocks_for(word)]
+        states = gen_cpu_tb.STATES[gen_cpu_tb.clocks_for(word, model.trapped)]
         trace += [(s, None) for s in states[:-1]] + [(states[-1], model.pc)]
         if name in programs.RUNS_FOREVER:
             if steps == programs.RUNS_FOREVER[name]:

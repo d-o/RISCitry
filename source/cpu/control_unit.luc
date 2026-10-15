@@ -5,19 +5,24 @@
 //   FETCH -> EXECUTE -> MEM_ACCESS -> WRITEBACK -> FETCH (loads: the RAM read takes a cycle)
 // The cycle that writes pc also fetches: cpu.luc puts the next pc on the read port then, so the
 // instruction is there in FETCH. A load's address goes on the read port in MEM_ACCESS (mem_read).
-// Illegal instructions arrive with every side effect already off, so they act as a NOP.
+// A trap (trap_unit: illegal, ECALL, EBREAK, misaligned target/access) is taken in EXECUTE instead
+// of anything the instruction would do: pc = mtvec (pc_src 11), csr_file records the cause, and
+// the next instruction fetched is the handler's first. A trapping load/store never reaches
+// MEM_ACCESS, so it neither reads nor writes memory.
 module control_unit (
     input clk,
     input rst,
     input ctrl<Cpu.control>,
     input branch_taken,
+    input trap,                // trap_unit: this instruction traps
     output pc_write,
-    output pc_src[2],          // program_counter: 00 = pc + 4, 01 = pc + imm, 10 = JALR target, 11 = vector (MRET: mepc)
+    output pc_src[2],          // program_counter: 00 = pc + 4, 01 = pc + imm, 10 = JALR target, 11 = vector (mtvec, or mepc for MRET)
     output reg_write,
     output mem_write,
     output mem_read,           // a load's address is on the read port this clock
     output csr_write,          // a CSR instruction writes its CSR on this edge
     output mret,               // MRET takes effect on this edge (pc = mepc, MIE = MPIE)
+    output take_trap,          // a trap is taken on this edge (pc = mtvec; csr_file records it)
     output current_state[Cpu.STATE_BITS]   // a Cpu.State; FETCH = between instructions
   ) {
 
@@ -31,6 +36,7 @@ module control_unit (
     mem_read = 0
     csr_write = 0
     mret = 0
+    take_trap = 0
     current_state = state.q
 
     case (state.q) {
@@ -38,7 +44,12 @@ module control_unit (
         state.d = Cpu.State.EXECUTE
 
       Cpu.State.EXECUTE:
-        if (ctrl.mem_read || ctrl.mem_write) {
+        if (trap) {
+          take_trap = 1
+          pc_write = 1
+          pc_src = 2b11
+          state.d = Cpu.State.FETCH
+        } else if (ctrl.mem_read || ctrl.mem_write) {
           state.d = Cpu.State.MEM_ACCESS
         } else {
           reg_write = ctrl.reg_write

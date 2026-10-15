@@ -1,0 +1,50 @@
+// Synchronous exceptions: decides in EXECUTE whether this instruction traps instead of doing
+// anything, and why. Combinational. control_unit takes the trap (pc = mtvec, no other side
+// effects); csr_file records mepc, mcause and mtval. At most one cause applies: an illegal
+// instruction arrives with every other ctrl field already off.
+//   illegal instruction  mtval = the instruction
+//   ECALL / EBREAK       mtval = 0
+//   misaligned target    a taken branch, JAL or JALR whose target has bit 1 set (IALIGN = 32;
+//                        JALR's bit 0 is cleared, not a fault); mtval = the target
+//   misaligned load/store  halfword at an odd address, word not on a multiple of 4; mtval = address
+module trap_unit (
+    input ctrl<Cpu.control>,
+    input funct3[3],         // access size for loads/stores: [1:0] = 0 byte, 1 halfword, 2 word
+    input addr_low[2],       // the load/store address's low bits
+    input target_bit1,       // bit 1 of the branch/jump target
+    input branch_taken,
+    output trap,
+    output cause[4],
+    output tval_sel[Cpu.TVAL_SEL_BITS]
+  ) {
+
+  sig misaligned_access
+  sig misaligned_target
+
+  always {
+    misaligned_access = (funct3[1:0] == 2b01 && addr_low[0]) || (funct3[1:0] == 2b10 && addr_low != 2b00)
+    misaligned_target = target_bit1 && (ctrl.jump || ctrl.jalr || (ctrl.branch && branch_taken))
+
+    trap = 1
+    cause = Cpu.CAUSE_ILLEGAL
+    tval_sel = Cpu.TvalSel.ZERO
+    if (ctrl.illegal) {
+      tval_sel = Cpu.TvalSel.INSTRUCTION
+    } else if (ctrl.ecall) {
+      cause = Cpu.CAUSE_ECALL_M
+    } else if (ctrl.ebreak) {
+      cause = Cpu.CAUSE_BREAKPOINT
+    } else if (misaligned_target) {
+      cause = Cpu.CAUSE_FETCH_MISALIGNED
+      tval_sel = Cpu.TvalSel.TARGET
+    } else if (ctrl.mem_read && misaligned_access) {
+      cause = Cpu.CAUSE_LOAD_MISALIGNED
+      tval_sel = Cpu.TvalSel.ADDRESS
+    } else if (ctrl.mem_write && misaligned_access) {
+      cause = Cpu.CAUSE_STORE_MISALIGNED
+      tval_sel = Cpu.TvalSel.ADDRESS
+    } else {
+      trap = 0
+    }
+  }
+}

@@ -38,7 +38,8 @@ global Cpu {
     // listed least-significant first; flattened layout:
     //   [17:14] alu_op  [13] alu_src_a  [12] alu_src_b  [11:9] imm_type  [8:7] wb_sel
     //   [6] reg_write  [5] mem_read  [4] mem_write  [3] branch  [2] jump  [1] jalr  [0] illegal
-    //   [20] mret  [19] csr_write  [18] csr   (added at the top so the older fields keep their bits)
+    //   [22] ebreak  [21] ecall  [20] mret  [19] csr_write  [18] csr   (added at the top so the older
+    //   fields keep their bits)
     struct control {
         illegal,                   // not a valid RV32E instruction; all side effects are forced off
         jalr,                      // JALR: pc = (rs1 + imm) & ~1
@@ -54,6 +55,20 @@ global Cpu {
         alu_op[4],                 // alu.luc encoding: {funct7[5], funct3}
         csr,                       // Zicsr: rd gets the CSR's old value (address = instruction[31:20])
         csr_write,                 // ...and the CSR is written (not csrrs/csrrc with x0 or zimm 0)
-        mret                       // MRET: pc = mepc, mstatus.MIE = MPIE, MPIE = 1
+        mret,                      // MRET: pc = mepc, mstatus.MIE = MPIE, MPIE = 1
+        ecall,                     // ECALL: environment call trap (cause 11)
+        ebreak                     // EBREAK: breakpoint trap (cause 3)
     }
+
+    // mcause exception codes (trap_unit.luc)
+    const CAUSE_FETCH_MISALIGNED = 4d0    // a taken branch or jump to an address with bit 1 set
+    const CAUSE_ILLEGAL = 4d2
+    const CAUSE_BREAKPOINT = 4d3
+    const CAUSE_LOAD_MISALIGNED = 4d4
+    const CAUSE_STORE_MISALIGNED = 4d6
+    const CAUSE_ECALL_M = 4d11
+
+    // What mtval gets on a trap
+    enum TvalSel { ZERO, INSTRUCTION, ADDRESS, TARGET }
+    const TVAL_SEL_BITS = $width(TvalSel)
 }

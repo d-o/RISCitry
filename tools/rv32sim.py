@@ -2,7 +2,7 @@
 
 It executes one instruction per step and knows nothing about the hardware's FSM, so a test
 can compare the core's architectural state (pc, registers) against it after every instruction.
-Deliberately strict: anything the core doesn't implement (traps) raises, as do data
+Deliberately strict: data
 accesses outside memmap.py's ranges, misaligned accesses, and fetches or loads of words that were
 neither preloaded nor written.
 
@@ -15,9 +15,12 @@ one, and a store's last cycle writes on that same edge with read-before-write. S
 very next instruction doesn't affect it: the old word runs once (legal RISC-V without FENCE.I),
 and the new one runs when that address is fetched again.
 
-Illegal instructions (legal() mirrors decoder.luc) raise by default, so a typo in a test program
-can't hide. With illegal_nop=True the model does what the core does: an illegal instruction is a
-NOP, and a fetch from outside RAM reads 0 (the computer only answers loads from devices).
+Traps, as the core takes them: illegal instruction (legal() mirrors decoder.luc; mtval = the
+word), ECALL, EBREAK (mtval 0), a taken branch or jump to a target with bit 1 set (mtval = target),
+a misaligned load or store (mtval = address). mepc = the instruction, MPIE = MIE, MIE = 0, pc =
+mtvec; the instruction has no other effect. A fetch from outside RAM reads 0 (the computer only
+answers loads from devices), so it traps as illegal. Any trap raises unless traps_ok (the program
+expects traps), so a typo in a test program can't hide; step() leaves the trap in self.trapped.
 
 The UART has no timing here: STATUS always reads 0 (not busy), and each store to TXDATA that
 writes byte lane 0 appends that byte to uart_out. The hardware's polling loops therefore run a
@@ -34,6 +37,13 @@ CSR_WRITABLE = {0x300: 0x88, 0x304: 0x888, 0x305: 0xFFFFFFFC, 0x340: 0xFFFFFFFF,
 CSR_CONSTANT = {0x301: 0x40000010, 0x310: 0, 0x344: 0, 0xF11: 0, 0xF12: 0, 0xF13: 0, 0xF14: 0}
 MSTATUS_FIXED = 0x1800        # MPP = 3: machine mode is the only mode
 MRET, WFI = 0x30200073, 0x10500073
+
+
+class Trap(Exception):
+    """A synchronous exception: the instruction does nothing but this (raised inside step())."""
+    def __init__(self, cause, tval):
+        super().__init__(f"trap cause {cause}, mtval {tval:#x}")
+        self.cause, self.tval = cause, tval
 
 MASK = 0xFFFFFFFF
 NOP = 0x00000013
@@ -69,9 +79,11 @@ def legal(w):
 
 
 class Cpu:
-    def __init__(self, words, illegal_nop=False, switches=0):
-        """words: {byte address: instruction or data word} as assembled."""
-        self.illegal_nop = illegal_nop
+    def __init__(self, words, traps_ok=False, switches=0):
+        """words: {byte address: instruction or data word} as assembled. traps_ok: the program
+        expects traps (take them as the core does); otherwise any trap raises."""
+        self.traps_ok = traps_ok
+        self.trapped = None           # the last step's Trap, or None
         self.switches = switches & 0xFF
         self.stale = None             # (address, word): the next fetch's prefetched old word
         self.pc = 0
@@ -100,7 +112,7 @@ class Cpu:
         """(word address, bit shift) for a little-endian access of `size` bytes."""
         addr &= MASK
         if addr % size:
-            raise ValueError(f"pc={self.pc:#x}: misaligned {size}-byte access at {addr:#x} (not supported)")
+            raise ValueError(f"pc={self.pc:#x}: misaligned {size}-byte access at {addr:#x} (step() traps first)")
         return addr & ~3, 8 * (addr & 3)
 
     def _region(self, addr):
@@ -151,8 +163,8 @@ class Cpu:
         if self.stale and self.stale[0] == self.pc:
             return self.stale[1]
         in_ram = memmap.RAM_BASE <= self.pc < memmap.RAM_BASE + memmap.RAM_BYTES
-        if self.illegal_nop and not in_ram:
-            return 0                  # devices and unmapped space answer fetches with 0
+        if self.traps_ok and not in_ram:
+            return 0                  # devices and unmapped space answer fetches with 0 (illegal)
         if self.pc % 4 or not in_ram:
             raise ValueError(f"fetch from {self.pc:#x}: not an aligned RAM address")
         if self.pc not in self.mem:
@@ -162,12 +174,25 @@ class Cpu:
     def step(self):
         w = self.fetch()
         self.new_stale = None
-        if not legal(w):
-            if not self.illegal_nop:
-                raise NotImplementedError(f"pc={self.pc:#x}: {w:08X} is illegal on this core")
-            self.pc = (self.pc + 4) & MASK                     # the core treats it as a NOP
+        self.trapped = None
+        try:
+            self._execute(w)
+        except Trap as trap:
+            if not self.traps_ok:
+                raise ValueError(f"pc={self.pc:#x}: {w:08X} traps ({trap}) in a program that "
+                                 "doesn't expect traps") from None
+            self.trapped = trap
+            mstatus = self.csr[0x300]
+            self.csr[0x300] = (mstatus & ~0x88) | ((mstatus & 0x8) << 4)   # MPIE = MIE, MIE = 0
+            self.csr[0x341] = self.pc
+            self.csr[0x342] = trap.cause
+            self.csr[0x343] = trap.tval & MASK
+            self.pc = self.csr[0x305]
             self.stale = None
-            return
+
+    def _execute(self, w):
+        if not legal(w):
+            raise Trap(2, w)
         op, rd, f3 = w & 0x7F, (w >> 7) & 31, (w >> 12) & 7
         rs1, rs2, f7 = (w >> 15) & 31, (w >> 20) & 31, w >> 25
         i_imm = _sext(w >> 20, 12)
@@ -190,10 +215,15 @@ class Cpu:
         elif op == 0x6F:
             imm = _sext((((w >> 31) & 1) << 20) | (((w >> 12) & 0xFF) << 12)
                         | (((w >> 20) & 1) << 11) | (((w >> 21) & 0x3FF) << 1), 21)
+            target = (self.pc + imm) & MASK
+            if target & 2:
+                raise Trap(0, target)
             self.write(rd, next_pc)
-            next_pc = (self.pc + imm) & MASK
+            next_pc = target
         elif op == 0x67:
             target = (self.reg(rs1) + i_imm) & MASK & ~1
+            if target & 2:
+                raise Trap(0, target)
             self.write(rd, next_pc)
             next_pc = target
         elif op == 0x63:
@@ -204,17 +234,29 @@ class Cpu:
                      5: _sext(a, 32) >= _sext(b, 32), 6: a < b, 7: a >= b}[f3]
             if taken:
                 next_pc = (self.pc + imm) & MASK
+                if next_pc & 2:
+                    raise Trap(0, next_pc)
         elif op == 0x03 and f3 in (0, 1, 2, 4, 5):
             size = 1 << (f3 & 3)
-            value = self._load(self.reg(rs1) + i_imm, size)
+            addr = (self.reg(rs1) + i_imm) & MASK
+            if addr % size:
+                raise Trap(4, addr)
+            value = self._load(addr, size)
             if f3 < 4:                       # LB/LH/LW sign-extend; LBU/LHU zero-extend
                 value = _sext(value, 8 * size)
             self.write(rd, value)
         elif op == 0x23 and f3 in (0, 1, 2):
             s_imm = _sext(((w >> 25) << 5) | ((w >> 7) & 31), 12)
-            self._store(self.reg(rs1) + s_imm, 1 << f3, self.reg(rs2))
-        elif (op == 0x0F and f3 == 0) or w in (0x00000073, 0x00100073, WFI):
-            pass  # FENCE, ECALL, EBREAK: no-ops on this core (no traps yet); WFI: a legal no-op
+            addr = (self.reg(rs1) + s_imm) & MASK
+            if addr % (1 << f3):
+                raise Trap(6, addr)
+            self._store(addr, 1 << f3, self.reg(rs2))
+        elif w == 0x00000073:
+            raise Trap(11, 0)                # ECALL from machine mode
+        elif w == 0x00100073:
+            raise Trap(3, 0)                 # EBREAK (mtval 0: the spec allows it)
+        elif (op == 0x0F and f3 == 0) or w == WFI:
+            pass  # FENCE: a no-op on this in-order core; WFI: a legal no-op
         elif w == MRET:
             mstatus = self.csr[0x300]
             self.csr[0x300] = (mstatus & ~0x8) | ((mstatus >> 4) & 0x8) | 0x80   # MIE = MPIE, MPIE = 1
