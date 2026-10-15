@@ -1,4 +1,4 @@
-// The computer: the cpu plus everything it reaches by address (main RAM, UART).
+// The computer: the cpu plus everything it reaches by address (main RAM, UART, switches).
 // The bus side of everything here runs on the cpu clock; machine.luc decides when that ticks.
 // The UART's serializer also needs a steady clock for its baud rate: io_clk.
 //
@@ -25,6 +25,7 @@ module computer #(
     input io_clk,            // free-running clock for the UART's baud rate
     input io_rst,
     output uart_tx,
+    input switches[8],       // read-only switch register (already synchronised)
     input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
     output debug_reg[32],    // register x[debug_sel]
@@ -45,6 +46,7 @@ module computer #(
   sig ram_wsel             // the write port's address is in the RAM
   sig uart_rsel
   sig uart_wsel
+  sig switches_rsel
 
   always {
     // --- address decode: reads by the read port, stores by the write port ---
@@ -52,6 +54,7 @@ module computer #(
     ram_wsel = (core.bus_waddr >> MemMap.RAM_ADDR_BITS) == (MemMap.RAM_BASE >> MemMap.RAM_ADDR_BITS)
     uart_rsel = core.bus_load && (core.bus_raddr >> MemMap.UART_ADDR_BITS) == (MemMap.UART_BASE >> MemMap.UART_ADDR_BITS)
     uart_wsel = (core.bus_waddr >> MemMap.UART_ADDR_BITS) == (MemMap.UART_BASE >> MemMap.UART_ADDR_BITS)
+    switches_rsel = core.bus_load && (core.bus_raddr >> MemMap.SWITCHES_ADDR_BITS) == (MemMap.SWITCHES_BASE >> MemMap.SWITCHES_ADDR_BITS)
 
     // --- RAM: word addresses ---
     ram.raddr = core.bus_raddr[MemMap.RAM_ADDR_BITS-1:2]
@@ -70,6 +73,7 @@ module computer #(
     read_ram.d = ram_rsel
     io_read.d = 0
     if (uart_rsel && core.bus_raddr[2]) io_read.d = c{31b0, uart0.busy};
+    if (switches_rsel) io_read.d = c{24b0, switches};
     if (read_ram.q) core.bus_rdata = ram.rdata; else core.bus_rdata = io_read.q;
 
     core.debug_sel = debug_sel

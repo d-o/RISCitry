@@ -14,7 +14,8 @@ io_clk = clk with the testbenches' UART timing. Then:
   - lockstep programs: control state and pc after every clock against rv32sim, at this core's
     clock counts (2, store 3, load 4), and the final register file;
   - programs that print: run to halt, decode uart_tx here (8 clocks per bit), compare the bytes
-    and the final register file.
+    and the final register file; one that never halts: its first programs.PRINT_BYTES bytes.
+A program that reads the switch register runs once per setting in programs.SWITCHES.
 
 Usage: python3 tools/xsim_computer.py [VERILOG_DIR]
   Default build/source, after `alchitry build` (it refuses stale Verilog). Another directory
@@ -35,10 +36,10 @@ VERILOG = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "source"
 STATE = {"FETCH": 0, "EXECUTE": 1, "MEM_ACCESS": 2, "WRITEBACK": 3}   # control_unit's enum order
 BIT = gen_cpu_tb.TB_UART_CLK_FREQ // gen_cpu_tb.TB_UART_BAUD
 SIGNALS = ["cycle", "debug_pc", "debug_state", "debug_reg", "uart_tx"]
-KEEPS_WRITING = {"LARSON"}    # runs forever changing registers: no final register check
+KEEPS_WRITING = {"LARSON", "BOARD"}    # run forever changing registers: no final register check
 
 HARNESS = f"""
-module xsim_top #(parameter PROGRAM_ID = 0) (
+module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
     input clk,
     output [15:0] cycle_out,
     output [31:0] debug_pc,
@@ -51,7 +52,8 @@ module xsim_top #(parameter PROGRAM_ID = 0) (
   assign cycle_out = cycle;
   computer #(.PROGRAM_ID(PROGRAM_ID), .SIM_RAM(0), .UART_CLK_FREQ({gen_cpu_tb.TB_UART_CLK_FREQ}),
              .UART_BAUD({gen_cpu_tb.TB_UART_BAUD})) dut (
-    .clk(clk), .rst(cycle < 2), .io_clk(clk), .io_rst(cycle < 2), .debug_sel(cycle[3:0]),
+    .clk(clk), .rst(cycle < 2), .io_clk(clk), .io_rst(cycle < 2), .switches(SWITCHES[7:0]),
+    .debug_sel(cycle[3:0]),
     .uart_tx(uart_tx), .debug_pc(debug_pc), .debug_reg(debug_reg), .debug_state(debug_state));
 endmodule
 """
@@ -63,7 +65,7 @@ def check_fresh():
         sys.exit("build/source is older than source/: run `alchitry build` first")
 
 
-def run(pid, clocks):
+def run(pid, sw, clocks):
     """Simulate; return one dict of SIGNALS per clock, sampled just after each rising edge."""
     with tempfile.TemporaryDirectory() as tmp:
         harness = Path(tmp) / "xsim_top.v"
@@ -71,7 +73,7 @@ def run(pid, clocks):
         vcd = Path(tmp) / "out.vcd"
         files = " ".join(str(p) for p in sorted(VERILOG.glob("*.v"))) + f" {harness}"
         r = subprocess.run([YOSYS, "-q", "-p",
-                            f"read_verilog -sv {files}; chparam -set PROGRAM_ID {pid} xsim_top; "
+                            f"read_verilog -sv {files}; chparam -set PROGRAM_ID {pid} -set SWITCHES {sw} xsim_top; "
                             f"hierarchy -top xsim_top; proc; flatten; opt_clean; "
                             f"sim -clock clk -n {clocks} -vcd {vcd}"],
                            capture_output=True, text=True)
@@ -122,9 +124,9 @@ def parse_vcd(text):
     return samples
 
 
-def expected_trace(name, words):
+def expected_trace(name, words, sw):
     """[(state, pc or None)] per clock from the release of reset, and the model at the end."""
-    model = gen_cpu_tb.new_model(name, words)
+    model = gen_cpu_tb.new_model(name, words, sw)
     trace = [("FETCH", 0)]
     steps, halted_for = 0, 0
     while True:
@@ -152,9 +154,9 @@ def final_regs(samples, model):
     return errors
 
 
-def check_lockstep(pid, name, words):
-    trace, model = expected_trace(name, words)
-    samples = run(pid, len(trace) + 1 + 16)[1:]     # [0] is after the first edge, still in reset
+def check_lockstep(pid, name, words, sw):
+    trace, model = expected_trace(name, words, sw)
+    samples = run(pid, sw, len(trace) + 1 + 16)[1:]     # [0] is after the first edge, still in reset
     errors = []
     for i, (state, pc) in enumerate(trace):
         s = samples[i]
@@ -170,11 +172,15 @@ def check_lockstep(pid, name, words):
     return errors, f"{len(trace)} clocks"
 
 
-def check_uart(pid, name, words):
-    model = gen_cpu_tb.run_to_halt(name, words)
-    want = model.uart_out
+def check_uart(pid, name, words, sw, forever=False):
+    if forever:
+        n = programs.PRINT_BYTES
+        want = gen_cpu_tb.run_to_bytes(name, words, sw, n).uart_out[:n]
+    else:
+        model = gen_cpu_tb.run_to_halt(name, words, sw)
+        want = model.uart_out
     clocks = len(want) * gen_cpu_tb.UART_CLOCKS_PER_BYTE * 3 + 1000
-    samples = run(pid, clocks)
+    samples = run(pid, sw, clocks)
     got, i = [], 0
     line = [s["uart_tx"] for s in samples]
     while i < len(line) - 10 * BIT:          # start bit: sample each bit in its middle
@@ -187,6 +193,9 @@ def check_uart(pid, name, words):
                     return [f"byte {len(got) - 1}: no stop bit"], ""
                 i = mid + 9 * BIT
         i += 1
+    if forever:
+        got = got[:len(want)]
+        return ([] if got == want else [f"bytes: got {bytes(got)!r} want {bytes(want)!r}"]), f"{len(got)} bytes"
     errors = [] if got == want else [f"bytes: got {bytes(got)!r} want {bytes(want)!r}"]
     end = [s for s in samples if s["debug_pc"] == model.pc and s["debug_state"] == 0]
     if not end:
@@ -200,11 +209,16 @@ def main():
     if len(sys.argv) == 1:
         check_fresh()
     failures = 0
-    for pid, (name, prog) in enumerate(programs.PROGRAMS.items()):
-        words = asm.assemble(prog)
-        prints = name not in programs.RUNS_FOREVER and gen_cpu_tb.run_to_halt(name, words).uart_out
-        errors, size = (check_uart if prints else check_lockstep)(pid, name, words)
-        print(f"{name}: {'OK' if not errors else 'FAIL'} ({size})")
+    ids = list(programs.PROGRAMS)
+    for name, sw in gen_cpu_tb.cases():
+        words = asm.assemble(programs.PROGRAMS[name])
+        k = gen_cpu_tb.kind(name, words, sw)
+        if k == "lockstep":
+            errors, size = check_lockstep(ids.index(name), name, words, sw)
+        else:
+            errors, size = check_uart(ids.index(name), name, words, sw, forever=k == "uart_forever")
+        label = name + (f" sw={sw}" if name in programs.SWITCHES else "")
+        print(f"{label}: {'OK' if not errors else 'FAIL'} ({size})")
         for e in errors[:5]:
             print(f"    {e}")
         failures += bool(errors)

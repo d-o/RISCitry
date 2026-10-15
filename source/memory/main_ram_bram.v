@@ -35,7 +35,105 @@ module main_ram_bram #(
     for (i = 0; i < WORDS; i = i + 1) begin
       lane0[i] = 8'h00; lane1[i] = 8'h00; lane2[i] = 8'h00; lane3[i] = 8'h00;
     end
-    if (PROGRAM_ID == 0) begin   // LARSON
+    if (PROGRAM_ID == 0) begin   // BOARD
+      lane0[0] = 8'h37; lane1[0] = 8'h11; lane2[0] = 8'h00; lane3[0] = 8'h80;
+      lane0[1] = 8'h83; lane1[1] = 8'h21; lane2[1] = 8'h01; lane3[1] = 8'h00;
+      lane0[2] = 8'h93; lane1[2] = 8'hF1; lane2[2] = 8'h31; lane3[2] = 8'h00;
+      lane0[3] = 8'h93; lane1[3] = 8'h91; lane2[3] = 8'h21; lane3[3] = 8'h00;
+      lane0[4] = 8'h03; lane1[4] = 8'hA2; lane2[4] = 8'h81; lane3[4] = 8'h01;
+      lane0[5] = 8'h67; lane1[5] = 8'h00; lane2[5] = 8'h02; lane3[5] = 8'h00;
+      lane0[6] = 8'h7C; lane1[6] = 8'h00; lane2[6] = 8'h00; lane3[6] = 8'h00;
+      lane0[7] = 8'h80; lane1[7] = 8'h00; lane2[7] = 8'h00; lane3[7] = 8'h00;
+      lane0[8] = 8'h7C; lane1[8] = 8'h00; lane2[8] = 8'h00; lane3[8] = 8'h00;
+      lane0[9] = 8'h7C; lane1[9] = 8'h00; lane2[9] = 8'h00; lane3[9] = 8'h00;
+      lane0[10] = 8'h13; lane1[10] = 8'h00; lane2[10] = 8'h00; lane3[10] = 8'h00;
+      lane0[11] = 8'h13; lane1[11] = 8'h00; lane2[11] = 8'h00; lane3[11] = 8'h00;
+      lane0[12] = 8'h13; lane1[12] = 8'h00; lane2[12] = 8'h00; lane3[12] = 8'h00;
+      lane0[13] = 8'h13; lane1[13] = 8'h00; lane2[13] = 8'h00; lane3[13] = 8'h00;
+      lane0[14] = 8'h13; lane1[14] = 8'h00; lane2[14] = 8'h00; lane3[14] = 8'h00;
+      lane0[15] = 8'h13; lane1[15] = 8'h00; lane2[15] = 8'h00; lane3[15] = 8'h00;
+      lane0[16] = 8'h13; lane1[16] = 8'h00; lane2[16] = 8'h00; lane3[16] = 8'h00;
+      lane0[17] = 8'h13; lane1[17] = 8'h00; lane2[17] = 8'h00; lane3[17] = 8'h00;
+      lane0[18] = 8'h93; lane1[18] = 8'hD0; lane2[18] = 8'h10; lane3[18] = 8'h00;
+      lane0[19] = 8'h93; lane1[19] = 8'hD0; lane2[19] = 8'h10; lane3[19] = 8'h00;
+      lane0[20] = 8'h93; lane1[20] = 8'hD0; lane2[20] = 8'h10; lane3[20] = 8'h00;
+      lane0[21] = 8'h93; lane1[21] = 8'hD0; lane2[21] = 8'h10; lane3[21] = 8'h00;
+      lane0[22] = 8'h93; lane1[22] = 8'hD0; lane2[22] = 8'h10; lane3[22] = 8'h00;
+      lane0[23] = 8'h93; lane1[23] = 8'hD0; lane2[23] = 8'h10; lane3[23] = 8'h00;
+      lane0[24] = 8'h93; lane1[24] = 8'hD0; lane2[24] = 8'h10; lane3[24] = 8'h00;
+      lane0[25] = 8'h93; lane1[25] = 8'h90; lane2[25] = 8'h10; lane3[25] = 8'h00;
+      lane0[26] = 8'h93; lane1[26] = 8'h90; lane2[26] = 8'h10; lane3[26] = 8'h00;
+      lane0[27] = 8'h93; lane1[27] = 8'h90; lane2[27] = 8'h10; lane3[27] = 8'h00;
+      lane0[28] = 8'h93; lane1[28] = 8'h90; lane2[28] = 8'h10; lane3[28] = 8'h00;
+      lane0[29] = 8'h93; lane1[29] = 8'h90; lane2[29] = 8'h10; lane3[29] = 8'h00;
+      lane0[30] = 8'h93; lane1[30] = 8'h90; lane2[30] = 8'h10; lane3[30] = 8'h00;
+      lane0[31] = 8'hEF; lane1[31] = 8'hF0; lane2[31] = 8'hDF; lane3[31] = 8'hFC;
+      lane0[32] = 8'h37; lane1[32] = 8'h01; lane2[32] = 8'h00; lane3[32] = 8'h80;
+      lane0[33] = 8'h93; lane1[33] = 8'h01; lane2[33] = 8'h00; lane3[33] = 8'h13;
+      lane0[34] = 8'h6F; lane1[34] = 8'h03; lane2[34] = 8'hC0; lane3[34] = 8'h05;
+      lane0[35] = 8'h93; lane1[35] = 8'h00; lane2[35] = 8'h10; lane3[35] = 8'h00;
+      lane0[36] = 8'h13; lane1[36] = 8'h04; lane2[36] = 8'h14; lane3[36] = 8'h00;
+      lane0[37] = 8'h93; lane1[37] = 8'h01; lane2[37] = 8'h50; lane3[37] = 8'h16;
+      lane0[38] = 8'h6F; lane1[38] = 8'h03; lane2[38] = 8'hC0; lane3[38] = 8'h04;
+      lane0[39] = 8'h6F; lane1[39] = 8'h03; lane2[39] = 8'h00; lane3[39] = 8'h06;
+      lane0[40] = 8'h93; lane1[40] = 8'h01; lane2[40] = 8'hC0; lane3[40] = 8'h16;
+      lane0[41] = 8'h6F; lane1[41] = 8'h03; lane2[41] = 8'h00; lane3[41] = 8'h04;
+      lane0[42] = 8'h93; lane1[42] = 8'h90; lane2[42] = 8'h10; lane3[42] = 8'h00;
+      lane0[43] = 8'h93; lane1[43] = 8'h90; lane2[43] = 8'h10; lane3[43] = 8'h00;
+      lane0[44] = 8'h93; lane1[44] = 8'h90; lane2[44] = 8'h10; lane3[44] = 8'h00;
+      lane0[45] = 8'h93; lane1[45] = 8'h90; lane2[45] = 8'h10; lane3[45] = 8'h00;
+      lane0[46] = 8'h93; lane1[46] = 8'h90; lane2[46] = 8'h10; lane3[46] = 8'h00;
+      lane0[47] = 8'h93; lane1[47] = 8'h90; lane2[47] = 8'h10; lane3[47] = 8'h00;
+      lane0[48] = 8'h93; lane1[48] = 8'h90; lane2[48] = 8'h10; lane3[48] = 8'h00;
+      lane0[49] = 8'h93; lane1[49] = 8'hD0; lane2[49] = 8'h10; lane3[49] = 8'h00;
+      lane0[50] = 8'h93; lane1[50] = 8'hD0; lane2[50] = 8'h10; lane3[50] = 8'h00;
+      lane0[51] = 8'h93; lane1[51] = 8'hD0; lane2[51] = 8'h10; lane3[51] = 8'h00;
+      lane0[52] = 8'h93; lane1[52] = 8'hD0; lane2[52] = 8'h10; lane3[52] = 8'h00;
+      lane0[53] = 8'h93; lane1[53] = 8'hD0; lane2[53] = 8'h10; lane3[53] = 8'h00;
+      lane0[54] = 8'h93; lane1[54] = 8'hD0; lane2[54] = 8'h10; lane3[54] = 8'h00;
+      lane0[55] = 8'h93; lane1[55] = 8'hD0; lane2[55] = 8'h10; lane3[55] = 8'h00;
+      lane0[56] = 8'h6F; lane1[56] = 8'hF0; lane2[56] = 8'h1F; lane3[56] = 8'hFB;
+      lane0[57] = 8'h03; lane1[57] = 8'hC5; lane2[57] = 8'h01; lane3[57] = 8'h00;
+      lane0[58] = 8'h63; lane1[58] = 8'h08; lane2[58] = 8'h05; lane3[58] = 8'h00;
+      lane0[59] = 8'hEF; lane1[59] = 8'h02; lane2[59] = 8'h40; lane3[59] = 8'h03;
+      lane0[60] = 8'h93; lane1[60] = 8'h81; lane2[60] = 8'h11; lane3[60] = 8'h00;
+      lane0[61] = 8'h6F; lane1[61] = 8'hF0; lane2[61] = 8'h1F; lane3[61] = 8'hFF;
+      lane0[62] = 8'h67; lane1[62] = 8'h00; lane2[62] = 8'h03; lane3[62] = 8'h00;
+      lane0[63] = 8'h13; lane1[63] = 8'h02; lane2[63] = 8'h80; lane3[63] = 8'h00;
+      lane0[64] = 8'h93; lane1[64] = 8'h04; lane2[64] = 8'h04; lane3[64] = 8'h00;
+      lane0[65] = 8'h13; lane1[65] = 8'hD5; lane2[65] = 8'hC4; lane3[65] = 8'h01;
+      lane0[66] = 8'h03; lane1[66] = 8'h45; lane2[66] = 8'hF5; lane3[66] = 8'h16;
+      lane0[67] = 8'hEF; lane1[67] = 8'h02; lane2[67] = 8'h40; lane3[67] = 8'h01;
+      lane0[68] = 8'h93; lane1[68] = 8'h94; lane2[68] = 8'h44; lane3[68] = 8'h00;
+      lane0[69] = 8'h13; lane1[69] = 8'h02; lane2[69] = 8'hF2; lane3[69] = 8'hFF;
+      lane0[70] = 8'hE3; lane1[70] = 8'h16; lane2[70] = 8'h02; lane3[70] = 8'hFE;
+      lane0[71] = 8'h67; lane1[71] = 8'h00; lane2[71] = 8'h03; lane3[71] = 8'h00;
+      lane0[72] = 8'h83; lane1[72] = 8'h23; lane2[72] = 8'h41; lane3[72] = 8'h00;
+      lane0[73] = 8'hE3; lane1[73] = 8'h9E; lane2[73] = 8'h03; lane3[73] = 8'hFE;
+      lane0[74] = 8'h23; lane1[74] = 8'h00; lane2[74] = 8'hA1; lane3[74] = 8'h00;
+      lane0[75] = 8'h67; lane1[75] = 8'h80; lane2[75] = 8'h02; lane3[75] = 8'h00;
+      lane0[76] = 8'h0D; lane1[76] = 8'h0A; lane2[76] = 8'h48; lane3[76] = 8'h65;
+      lane0[77] = 8'h6C; lane1[77] = 8'h6C; lane2[77] = 8'h6F; lane3[77] = 8'h20;
+      lane0[78] = 8'h66; lane1[78] = 8'h72; lane2[78] = 8'h6F; lane3[78] = 8'h6D;
+      lane0[79] = 8'h20; lane1[79] = 8'h61; lane2[79] = 8'h6E; lane3[79] = 8'h20;
+      lane0[80] = 8'h52; lane1[80] = 8'h56; lane2[80] = 8'h33; lane3[80] = 8'h32;
+      lane0[81] = 8'h45; lane1[81] = 8'h20; lane2[81] = 8'h73; lane3[81] = 8'h6F;
+      lane0[82] = 8'h66; lane1[82] = 8'h74; lane2[82] = 8'h20; lane3[82] = 8'h63;
+      lane0[83] = 8'h6F; lane1[83] = 8'h72; lane2[83] = 8'h65; lane3[83] = 8'h20;
+      lane0[84] = 8'h6F; lane1[84] = 8'h6E; lane2[84] = 8'h20; lane3[84] = 8'h74;
+      lane0[85] = 8'h68; lane1[85] = 8'h65; lane2[85] = 8'h20; lane3[85] = 8'h41;
+      lane0[86] = 8'h6C; lane1[86] = 8'h63; lane2[86] = 8'h68; lane3[86] = 8'h69;
+      lane0[87] = 8'h74; lane1[87] = 8'h72; lane2[87] = 8'h79; lane3[87] = 8'h20;
+      lane0[88] = 8'h43; lane1[88] = 8'h75; lane2[88] = 8'h0D; lane3[88] = 8'h0A;
+      lane0[89] = 8'h00; lane1[89] = 8'h73; lane2[89] = 8'h77; lane3[89] = 8'h65;
+      lane0[90] = 8'h65; lane1[90] = 8'h70; lane2[90] = 8'h20; lane3[90] = 8'h00;
+      lane0[91] = 8'h0D; lane1[91] = 8'h0A; lane2[91] = 8'h00; lane3[91] = 8'h30;
+      lane0[92] = 8'h31; lane1[92] = 8'h32; lane2[92] = 8'h33; lane3[92] = 8'h34;
+      lane0[93] = 8'h35; lane1[93] = 8'h36; lane2[93] = 8'h37; lane3[93] = 8'h38;
+      lane0[94] = 8'h39; lane1[94] = 8'h41; lane2[94] = 8'h42; lane3[94] = 8'h43;
+      lane0[95] = 8'h44; lane1[95] = 8'h45; lane2[95] = 8'h46; lane3[95] = 8'h00;
+    end
+    if (PROGRAM_ID == 1) begin   // LARSON
       lane0[0] = 8'h6F; lane1[0] = 8'h00; lane2[0] = 8'hC0; lane3[0] = 8'h07;
       lane0[1] = 8'h13; lane1[1] = 8'h00; lane2[1] = 8'h00; lane3[1] = 8'h00;
       lane0[2] = 8'h13; lane1[2] = 8'h00; lane2[2] = 8'h00; lane3[2] = 8'h00;
@@ -69,7 +167,7 @@ module main_ram_bram #(
       lane0[30] = 8'h93; lane1[30] = 8'h90; lane2[30] = 8'h10; lane3[30] = 8'h00;
       lane0[31] = 8'hEF; lane1[31] = 8'hF0; lane2[31] = 8'hDF; lane3[31] = 8'hFC;
     end
-    if (PROGRAM_ID == 1) begin   // ALU
+    if (PROGRAM_ID == 2) begin   // ALU
       lane0[0] = 8'h37; lane1[0] = 8'h51; lane2[0] = 8'h34; lane3[0] = 8'h12;
       lane0[1] = 8'h13; lane1[1] = 8'h01; lane2[1] = 8'h81; lane3[1] = 8'h67;
       lane0[2] = 8'h93; lane1[2] = 8'h01; lane2[2] = 8'hF0; lane3[2] = 8'hFF;
@@ -101,7 +199,7 @@ module main_ram_bram #(
       lane0[28] = 8'hB3; lane1[28] = 8'h00; lane2[28] = 8'h00; lane3[28] = 8'h00;
       lane0[29] = 8'h6F; lane1[29] = 8'h00; lane2[29] = 8'h00; lane3[29] = 8'h00;
     end
-    if (PROGRAM_ID == 2) begin   // BRANCHES
+    if (PROGRAM_ID == 3) begin   // BRANCHES
       lane0[0] = 8'h13; lane1[0] = 8'h01; lane2[0] = 8'hF0; lane3[0] = 8'hFF;
       lane0[1] = 8'h93; lane1[1] = 8'h01; lane2[1] = 8'h10; lane3[1] = 8'h00;
       lane0[2] = 8'h63; lane1[2] = 8'h84; lane2[2] = 8'h31; lane3[2] = 8'h00;
@@ -124,7 +222,7 @@ module main_ram_bram #(
       lane0[19] = 8'hE3; lane1[19] = 8'h1C; lane2[19] = 8'h02; lane3[19] = 8'hFE;
       lane0[20] = 8'h6F; lane1[20] = 8'h00; lane2[20] = 8'h00; lane3[20] = 8'h00;
     end
-    if (PROGRAM_ID == 3) begin   // JUMPS
+    if (PROGRAM_ID == 4) begin   // JUMPS
       lane0[0] = 8'h17; lane1[0] = 8'h01; lane2[0] = 8'h00; lane3[0] = 8'h00;
       lane0[1] = 8'h97; lane1[1] = 8'h11; lane2[1] = 8'h00; lane3[1] = 8'h00;
       lane0[2] = 8'hEF; lane1[2] = 8'h00; lane2[2] = 8'hC0; lane3[2] = 8'h02;
@@ -141,7 +239,7 @@ module main_ram_bram #(
       lane0[13] = 8'h93; lane1[13] = 8'h02; lane2[13] = 8'h50; lane3[13] = 8'h00;
       lane0[14] = 8'h67; lane1[14] = 8'h80; lane2[14] = 8'h00; lane3[14] = 8'h00;
     end
-    if (PROGRAM_ID == 4) begin   // MEMORY
+    if (PROGRAM_ID == 5) begin   // MEMORY
       lane0[0] = 8'h13; lane1[0] = 8'h01; lane2[0] = 8'h00; lane3[0] = 8'h40;
       lane0[1] = 8'hB7; lane1[1] = 8'hC1; lane2[1] = 8'hAD; lane3[1] = 8'hDE;
       lane0[2] = 8'h93; lane1[2] = 8'h81; lane2[2] = 8'hF1; lane3[2] = 8'hEE;
@@ -160,7 +258,7 @@ module main_ram_bram #(
       lane0[15] = 8'h03; lane1[15] = 8'hA5; lane2[15] = 8'hC5; lane3[15] = 8'hFF;
       lane0[16] = 8'h6F; lane1[16] = 8'h00; lane2[16] = 8'h00; lane3[16] = 8'h00;
     end
-    if (PROGRAM_ID == 5) begin   // BYTES
+    if (PROGRAM_ID == 6) begin   // BYTES
       lane0[0] = 8'h13; lane1[0] = 8'h01; lane2[0] = 8'h00; lane3[0] = 8'h48;
       lane0[1] = 8'hB7; lane1[1] = 8'h81; lane2[1] = 8'h81; lane3[1] = 8'h80;
       lane0[2] = 8'h93; lane1[2] = 8'h81; lane2[2] = 8'h11; lane3[2] = 8'hF0;
@@ -193,7 +291,7 @@ module main_ram_bram #(
       lane0[29] = 8'h03; lane1[29] = 8'h44; lane2[29] = 8'h91; lane3[29] = 8'h00;
       lane0[30] = 8'h6F; lane1[30] = 8'h00; lane2[30] = 8'h00; lane3[30] = 8'h00;
     end
-    if (PROGRAM_ID == 6) begin   // UART
+    if (PROGRAM_ID == 7) begin   // UART
       lane0[0] = 8'h13; lane1[0] = 8'h06; lane2[0] = 8'hA0; lane3[0] = 8'h05;
       lane0[1] = 8'h37; lane1[1] = 8'h01; lane2[1] = 8'h00; lane3[1] = 8'h80;
       lane0[2] = 8'h13; lane1[2] = 8'h05; lane2[2] = 8'h80; lane3[2] = 8'h04;
@@ -221,7 +319,7 @@ module main_ram_bram #(
       lane0[24] = 8'h23; lane1[24] = 8'h00; lane2[24] = 8'hA1; lane3[24] = 8'h00;
       lane0[25] = 8'h67; lane1[25] = 8'h80; lane2[25] = 8'h00; lane3[25] = 8'h00;
     end
-    if (PROGRAM_ID == 7) begin   // STRING
+    if (PROGRAM_ID == 8) begin   // STRING
       lane0[0] = 8'h37; lane1[0] = 8'h01; lane2[0] = 8'h00; lane3[0] = 8'h80;
       lane0[1] = 8'h93; lane1[1] = 8'h01; lane2[1] = 8'h80; lane3[1] = 8'h02;
       lane0[2] = 8'h03; lane1[2] = 8'hC5; lane2[2] = 8'h01; lane3[2] = 8'h00;
@@ -237,7 +335,7 @@ module main_ram_bram #(
       lane0[12] = 8'h6F; lane1[12] = 8'h6D; lane2[12] = 8'h20; lane3[12] = 8'h52;
       lane0[13] = 8'h41; lane1[13] = 8'h4D; lane2[13] = 8'h21; lane3[13] = 8'h0A;
     end
-    if (PROGRAM_ID == 8) begin   // TABLE
+    if (PROGRAM_ID == 9) begin   // TABLE
       lane0[0] = 8'h93; lane1[0] = 8'h01; lane2[0] = 8'hC0; lane3[0] = 8'h04;
       lane0[1] = 8'h13; lane1[1] = 8'h02; lane2[1] = 8'h40; lane3[1] = 8'h00;
       lane0[2] = 8'h93; lane1[2] = 8'h02; lane2[2] = 8'h00; lane3[2] = 8'h00;
@@ -265,7 +363,7 @@ module main_ram_bram #(
       lane0[24] = 8'h3C; lane1[24] = 8'h00; lane2[24] = 8'h00; lane3[24] = 8'h00;
       lane0[25] = 8'h44; lane1[25] = 8'h00; lane2[25] = 8'h00; lane3[25] = 8'h00;
     end
-    if (PROGRAM_ID == 9) begin   // SELFMOD
+    if (PROGRAM_ID == 10) begin   // SELFMOD
       lane0[0] = 8'h03; lane1[0] = 8'h23; lane2[0] = 8'h00; lane3[0] = 8'h04;
       lane0[1] = 8'h23; lane1[1] = 8'h26; lane2[1] = 8'h60; lane3[1] = 8'h00;
       lane0[2] = 8'h13; lane1[2] = 8'h00; lane2[2] = 8'h00; lane3[2] = 8'h00;
@@ -285,7 +383,7 @@ module main_ram_bram #(
       lane0[16] = 8'h93; lane1[16] = 8'h03; lane2[16] = 8'hB0; lane3[16] = 8'h00;
       lane0[17] = 8'h13; lane1[17] = 8'h05; lane2[17] = 8'h20; lane3[17] = 8'h00;
     end
-    if (PROGRAM_ID == 10) begin   // ILLEGAL
+    if (PROGRAM_ID == 11) begin   // ILLEGAL
       lane0[0] = 8'h13; lane1[0] = 8'h02; lane2[0] = 8'h12; lane3[0] = 8'h00;
       lane0[1] = 8'h93; lane1[1] = 8'h02; lane2[1] = 8'h50; lane3[1] = 8'h00;
       lane0[2] = 8'h13; lane1[2] = 8'h03; lane2[2] = 8'h60; lane3[2] = 8'h00;

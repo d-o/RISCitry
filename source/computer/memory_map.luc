@@ -6,4 +6,6 @@ global MemMap {
     const RAM_WORDS = 2048
     const UART_BASE = 32h80000000    // TXDATA at +0, STATUS at +4
     const UART_ADDR_BITS = 3
+    const SWITCHES_BASE = 32h80001000    // bits 7:0 = switches
+    const SWITCHES_ADDR_BITS = 2
 }

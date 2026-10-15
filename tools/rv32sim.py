@@ -22,6 +22,8 @@ NOP, and a fetch from outside RAM reads 0 (the computer only answers loads from 
 The UART has no timing here: STATUS always reads 0 (not busy), and each store to TXDATA that
 writes byte lane 0 appends that byte to uart_out. The hardware's polling loops therefore run a
 different number of times, so UART programs are checked by their output and final state.
+
+The switch register reads back `switches` (bits 7:0, the rest 0); storing to it raises.
 """
 import memmap
 
@@ -50,9 +52,10 @@ def legal(w):
 
 
 class Cpu:
-    def __init__(self, words, illegal_nop=False):
+    def __init__(self, words, illegal_nop=False, switches=0):
         """words: {byte address: instruction or data word} as assembled."""
         self.illegal_nop = illegal_nop
+        self.switches = switches & 0xFF
         self.stale = None             # (address, word): the next fetch's prefetched old word
         self.pc = 0
         self.x = [0] * 16
@@ -88,6 +91,8 @@ class Cpu:
             return "ram"
         if memmap.UART_BASE <= addr < memmap.UART_BASE + memmap.UART_BYTES:
             return "uart"
+        if memmap.SWITCHES_BASE <= addr < memmap.SWITCHES_BASE + memmap.SWITCHES_BYTES:
+            return "switches"
         raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} is unmapped")
 
     def _load(self, addr, size):
@@ -96,6 +101,8 @@ class Cpu:
             if word_addr != memmap.UART_STATUS:
                 raise ValueError(f"pc={self.pc:#x}: load from UART {addr:#x}: only STATUS is readable")
             return 0                                 # never busy: no timing in this model
+        if self._region(addr) == "switches":
+            return (self.switches >> shift) & ((1 << (8 * size)) - 1)
         if word_addr not in self.mem:
             raise ValueError(f"pc={self.pc:#x}: load from {word_addr:#x}: neither program nor stored")
         return (self.mem[word_addr] >> shift) & ((1 << (8 * size)) - 1)
@@ -108,6 +115,8 @@ class Cpu:
             if shift == 0:                           # only byte lane 0 sends
                 self.uart_out.append(value & 0xFF)
             return
+        if self._region(addr) == "switches":
+            raise ValueError(f"pc={self.pc:#x}: store to the switch register {addr:#x} (read-only)")
         mask = ((1 << (8 * size)) - 1) << shift
         if word_addr == (self.pc + 4) & MASK and word_addr in self.mem:
             self.new_stale = (word_addr, self.mem[word_addr])   # already prefetched: old word runs

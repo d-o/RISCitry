@@ -9,10 +9,11 @@ testbench machine_tb {
     sig clock_step
     sig step
     sig sel[4]
+    sig switches[8]
 
     machine dut(#PROGRAM_ID(Programs.Id.MEMORY), #SIM_RAM(1), #SLOW_BITS(3), #FAST_BITS(1),
                 .clk(clk), .rst(rst), .run(run), .fast(fast), .clock_step(clock_step), .step(step),
-                .debug_sel(sel))
+                .switches(switches), .debug_sel(sel))
 
     fun tick_clock() {
         clk = 1
@@ -62,6 +63,7 @@ testbench machine_tb {
         clock_step = 0
         step = 0
         sel = 0
+        switches = 0
         $tick_clock()
         $tick_clock()
         $assert(dut.in_reset)

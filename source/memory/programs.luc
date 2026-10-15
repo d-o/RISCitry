@@ -2,8 +2,106 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL }
+    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL }
 
+    const BOARD = {
+        32h00464544,  // 0x017c: (data)
+        32h43424139,  // 0x0178: (data)
+        32h38373635,  // 0x0174: (data)
+        32h34333231,  // 0x0170: (data)
+        32h30000A0D,  // 0x016c: .string '\r\n'
+        32h00207065,  // 0x0168: (data)
+        32h65777300,  // 0x0164: .string 'sweep '
+        32h0A0D7543,  // 0x0160: (data)
+        32h20797274,  // 0x015c: (data)
+        32h6968636C,  // 0x0158: (data)
+        32h41206568,  // 0x0154: (data)
+        32h74206E6F,  // 0x0150: (data)
+        32h2065726F,  // 0x014c: (data)
+        32h63207466,  // 0x0148: (data)
+        32h6F732045,  // 0x0144: (data)
+        32h32335652,  // 0x0140: (data)
+        32h206E6120,  // 0x013c: (data)
+        32h6D6F7266,  // 0x0138: (data)
+        32h206F6C6C,  // 0x0134: (data)
+        32h65480A0D,  // 0x0130: .string '\r\nHello from an RV32E soft core on the Alchitry Cu\r\n'
+        32h00028067,  // 0x012c: jalr x0, x5, 0
+        32h00A10023,  // 0x0128: sb x10, 0(x2)
+        32hFE039EE3,  // 0x0124: bne x7, x0, putc
+        32h00412383,  // 0x0120: lw x7, 4(x2)
+        32h00030067,  // 0x011c: jalr x0, x6, 0
+        32hFE0216E3,  // 0x0118: bne x4, x0, hex_next
+        32hFFF20213,  // 0x0114: addi x4, x4, -1
+        32h00449493,  // 0x0110: slli x9, x9, 4
+        32h014002EF,  // 0x010c: jal x5, putc
+        32h16F54503,  // 0x0108: lbu x10, digits(x10)
+        32h01C4D513,  // 0x0104: srli x10, x9, 28
+        32h00040493,  // 0x0100: addi x9, x8, 0
+        32h00800213,  // 0x00fc: addi x4, x0, 8
+        32h00030067,  // 0x00f8: jalr x0, x6, 0
+        32hFF1FF06F,  // 0x00f4: jal x0, puts
+        32h00118193,  // 0x00f0: addi x3, x3, 1
+        32h034002EF,  // 0x00ec: jal x5, putc
+        32h00050863,  // 0x00e8: beq x10, x0, puts_end
+        32h0001C503,  // 0x00e4: lbu x10, 0(x3)
+        32hFB1FF06F,  // 0x00e0: jal x0, sweep
+        32h0010D093,  // 0x00dc: srli x1, x1, 1
+        32h0010D093,  // 0x00d8: srli x1, x1, 1
+        32h0010D093,  // 0x00d4: srli x1, x1, 1
+        32h0010D093,  // 0x00d0: srli x1, x1, 1
+        32h0010D093,  // 0x00cc: srli x1, x1, 1
+        32h0010D093,  // 0x00c8: srli x1, x1, 1
+        32h0010D093,  // 0x00c4: srli x1, x1, 1
+        32h00109093,  // 0x00c0: slli x1, x1, 1
+        32h00109093,  // 0x00bc: slli x1, x1, 1
+        32h00109093,  // 0x00b8: slli x1, x1, 1
+        32h00109093,  // 0x00b4: slli x1, x1, 1
+        32h00109093,  // 0x00b0: slli x1, x1, 1
+        32h00109093,  // 0x00ac: slli x1, x1, 1
+        32h00109093,  // 0x00a8: slli x1, x1, 1
+        32h0400036F,  // 0x00a4: jal x6, puts
+        32h16C00193,  // 0x00a0: addi x3, x0, crlf
+        32h0600036F,  // 0x009c: jal x6, hex
+        32h04C0036F,  // 0x0098: jal x6, puts
+        32h16500193,  // 0x0094: addi x3, x0, sweep_msg
+        32h00140413,  // 0x0090: addi x8, x8, 1
+        32h00100093,  // 0x008c: addi x1, x0, 1
+        32h05C0036F,  // 0x0088: jal x6, puts
+        32h13000193,  // 0x0084: addi x3, x0, banner
+        32h80000137,  // 0x0080: lui x2, 0x80000
+        32hFCDFF0EF,  // 0x007c: jal x1, right
+        32h00109093,  // 0x0078: slli x1, x1, 1
+        32h00109093,  // 0x0074: slli x1, x1, 1
+        32h00109093,  // 0x0070: slli x1, x1, 1
+        32h00109093,  // 0x006c: slli x1, x1, 1
+        32h00109093,  // 0x0068: slli x1, x1, 1
+        32h00109093,  // 0x0064: slli x1, x1, 1
+        32h0010D093,  // 0x0060: srli x1, x1, 1
+        32h0010D093,  // 0x005c: srli x1, x1, 1
+        32h0010D093,  // 0x0058: srli x1, x1, 1
+        32h0010D093,  // 0x0054: srli x1, x1, 1
+        32h0010D093,  // 0x0050: srli x1, x1, 1
+        32h0010D093,  // 0x004c: srli x1, x1, 1
+        32h0010D093,  // 0x0048: srli x1, x1, 1
+        32h00000013,  // 0x0044: (nop)
+        32h00000013,  // 0x0040: (nop)
+        32h00000013,  // 0x003c: (nop)
+        32h00000013,  // 0x0038: (nop)
+        32h00000013,  // 0x0034: (nop)
+        32h00000013,  // 0x0030: (nop)
+        32h00000013,  // 0x002c: (nop)
+        32h00000013,  // 0x0028: (nop)
+        32h0000007C,  // 0x0024: (data)
+        32h0000007C,  // 0x0020: (data)
+        32h00000080,  // 0x001c: (data)
+        32h0000007C,  // 0x0018: .word turn, hello, turn, turn
+        32h00020067,  // 0x0014: jalr x0, x4, 0
+        32h0181A203,  // 0x0010: lw x4, menu(x3)
+        32h00219193,  // 0x000c: slli x3, x3, 2
+        32h0031F193,  // 0x0008: andi x3, x3, 3
+        32h00012183,  // 0x0004: lw x3, 0(x2)
+        32h80001137  // 0x0000: lui x2, 0x80001
+    }
     const LARSON = {
         32hFCDFF0EF,  // 0x007c: jal x1, right
         32h00109093,  // 0x0078: slli x1, x1, 1

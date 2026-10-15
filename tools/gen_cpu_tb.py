@@ -14,7 +14,11 @@ extra cycle is a failure. After the program halts, all 16 registers are compared
 Programs that print to the UART poll its STATUS register, and rv32sim has no UART timing, so the
 loop counts differ and lockstep checking is impossible. Their testbench instead runs the computer
 until it has halted and every expected byte has arrived, decodes the serial line with Alchitry's
-uart_rx, compares the bytes with rv32sim's output, then compares all 16 registers.
+uart_rx, compares the bytes with rv32sim's output, then compares all 16 registers. One that prints
+and never halts (the board's demo) is checked by its first programs.PRINT_BYTES bytes only.
+
+A program that reads the switch register gets one testbench per setting in programs.SWITCHES
+(cpu_<name>_sw<value>_tb).
 
 Usage: python3 tools/gen_cpu_tb.py
 """
@@ -28,6 +32,7 @@ import rv32sim
 
 ROOT = Path(__file__).resolve().parent.parent
 MAX_STEPS = 200            # a test program that doesn't reach halt by then is a bug
+MAX_PRINT_STEPS = 20000    # ... or a forever-printing one that hasn't printed PRINT_BYTES
 # control_unit's state after each clock of an instruction, by the instruction's clock count
 STATES = {2: ["EXECUTE", "FETCH"], 3: ["EXECUTE", "MEM_ACCESS", "FETCH"],
           4: ["EXECUTE", "MEM_ACCESS", "WRITEBACK", "FETCH"]}
@@ -53,8 +58,39 @@ def writes_rd(word):
     return (word >> 7) & 31 if rv32sim.legal(word) and word & 0x7F in WRITES_RD else None
 
 
-def new_model(name, words):
-    return rv32sim.Cpu(words, illegal_nop=name in programs.ILLEGAL_AS_NOP)
+def new_model(name, words, switches=0):
+    return rv32sim.Cpu(words, illegal_nop=name in programs.ILLEGAL_AS_NOP, switches=switches)
+
+
+def cases():
+    """(program name, switch setting) for every testbench."""
+    for name in programs.PROGRAMS:
+        for sw in programs.SWITCHES.get(name, [0]):
+            yield name, sw
+
+
+def case_name(name, sw):
+    return name.lower() + (f"_sw{sw}" if name in programs.SWITCHES else "")
+
+
+def kind(name, words, sw):
+    """"lockstep", "uart" (prints, then halts) or "uart_forever" (prints, never halts)."""
+    if name in programs.RUNS_FOREVER:
+        model = new_model(name, words, sw)
+        for _ in range(programs.RUNS_FOREVER[name]):
+            model.step()
+        return "uart_forever" if model.uart_out else "lockstep"
+    return "uart" if run_to_halt(name, words, sw).uart_out else "lockstep"
+
+
+def run_to_bytes(name, words, sw, n):
+    """Run rv32sim until the program has printed n bytes; return the model."""
+    model = new_model(name, words, sw)
+    for _ in range(MAX_PRINT_STEPS):
+        model.step()
+        if len(model.uart_out) >= n:
+            return model
+    raise RuntimeError(f"{name}: fewer than {n} bytes after {MAX_PRINT_STEPS} instructions")
 
 
 def render_programs(assembled):
@@ -77,9 +113,9 @@ def render_programs(assembled):
     return "\n".join(out) + "\n"
 
 
-def run_to_halt(name, words):
+def run_to_halt(name, words, sw=0):
     """Run rv32sim until the program's halt has executed twice; return the model."""
-    model = new_model(name, words)
+    model = new_model(name, words, sw)
     halted_for = 0
     for _ in range(MAX_STEPS):
         word = model.fetch()
@@ -91,17 +127,19 @@ def run_to_halt(name, words):
     raise RuntimeError(f"no halt after {MAX_STEPS} instructions")
 
 
-def header(name, extra_sigs=()):
+def header(name, sw, extra_sigs=()):
     return [
-        f"testbench cpu_{name.lower()}_tb {{",
+        f"testbench cpu_{case_name(name, sw)}_tb {{",
         "    sig clk",
         "    sig rst",
         "    sig sel[4]",
+        "    sig switches[8]",
         *extra_sigs,
         "",
         f"    computer dut(#PROGRAM_ID(Programs.Id.{name}), #SIM_RAM(1), "
         f"#UART_CLK_FREQ({TB_UART_CLK_FREQ}), #UART_BAUD({TB_UART_BAUD}),",
-        "                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .debug_sel(sel))",
+        "                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),",
+        "                 .debug_sel(sel))",
         "",
         "    fun tick_clock() {",
         "        clk = 1",
@@ -142,23 +180,40 @@ RESET = [
 ]
 
 
-def render_uart_testbench(name, words, text):
-    """Free-run until halted with every byte received; check bytes, then registers."""
-    model = run_to_halt(name, words)
-    out = model.uart_out
-    halt_pc = model.pc
+def render_uart_testbench(name, words, text, sw, forever=False):
+    """Free-run until halted with every byte received; check bytes, then registers. forever: run
+    until the first PRINT_BYTES bytes have arrived and check those only."""
+    if forever:
+        out = run_to_bytes(name, words, sw, programs.PRINT_BYTES).uart_out[:programs.PRINT_BYTES]
+    else:
+        model = run_to_halt(name, words, sw)
+        out = model.uart_out
+        halt_pc = model.pc
     n = len(out)
     max_clocks = n * UART_CLOCKS_PER_BYTE * 3 + 1000
     expected = ", ".join(f"8h{b:02X}" for b in reversed(out))   # last element is index 0
     shown = "".join(chr(b) if 32 <= b < 127 else f"\\x{b:02x}" for b in out)
-    lines = header(name, ["    sig received[8]", f"    sig expected[{n}][8]"])
+    lines = header(name, sw, ["    sig received[8]", f"    sig expected[{n}][8]"])
     at = next(i for i, l in enumerate(lines) if ".debug_sel(sel))" in l) + 1
+    fun = lines.index("    fun tick_clock() {")
+    lines[fun:fun] = [
+        "    // a clock without a waveform step: the simulator keeps every $tick's state (the RAM model",
+        "    // included), and a few thousand of them exhaust its memory",
+        "    fun silent_clock() {",
+        "        clk = 1",
+        "        $silent_tick()",
+        "        clk = 0",
+        "        $silent_tick()",
+        "    }",
+        "",
+    ]
     lines.insert(at, f"    uart_rx rx(#CLK_FREQ({TB_UART_CLK_FREQ}), #BAUD({TB_UART_BAUD}), "
                      ".clk(clk), .rst(rst), .rx(dut.uart_tx))")
     lines += [
         "    test run {",
         "        clk = 0",
         "        sel = 0",
+        f"        switches = 8h{sw:02X}",
         "        rst = 1",
         "        received = 0",
         f"        expected = {{{expected}}}   // \"{shown}\"",
@@ -169,10 +224,13 @@ def render_uart_testbench(name, words, text):
         "            $tick_clock()",
         "        }",
         *RESET,
-        f"        // run until halted at {halt_pc:#06x} with all {n} bytes received (at most {max_clocks} clocks)",
-        f"        repeat(i, {max_clocks}) {{",
-        f"            if (received != {n} || dut.debug_pc != 32h{halt_pc:08X} || dut.debug_state != Cpu.State.FETCH) {{",
-        "                $tick_clock()",
+        *([f"        // run until the first {n} bytes have been received (at most {max_clocks} clocks)",
+           f"        repeat(i, {max_clocks}) {{",
+           f"            if (received != {n}) {{"] if forever else
+          [f"        // run until halted at {halt_pc:#06x} with all {n} bytes received (at most {max_clocks} clocks)",
+           f"        repeat(i, {max_clocks}) {{",
+           f"            if (received != {n} || dut.debug_pc != 32h{halt_pc:08X} || dut.debug_state != Cpu.State.FETCH) {{"]),
+        "                $silent_clock()",
         "                if (rx.new_data) {",
         f"                    $assert(received < {n})",
         "                    if (rx.data != expected[received])",
@@ -185,22 +243,25 @@ def render_uart_testbench(name, words, text):
         f"        if (received != {n})",
         f'            $print("received %d of {n} bytes", received)',
         f"        $assert(received == {n})",
-        f"        $expect_pc(32h{halt_pc:08X})",
-        "        $expect_state(Cpu.State.FETCH)",
-        "        // final register file",
-        *[f"        $expect_reg(4d{r}, 32h{model.x[r]:08X})" for r in range(16)],
-        "    }",
-        "}",
     ]
+    if not forever:
+        lines += [
+            f"        $expect_pc(32h{halt_pc:08X})",
+            "        $expect_state(Cpu.State.FETCH)",
+            "        // final register file",
+            *[f"        $expect_reg(4d{r}, 32h{model.x[r]:08X})" for r in range(16)],
+        ]
+    lines += ["    }", "}"]
     return lines, f"{n} bytes"
 
 
-def render_testbench(name, words, text):
-    model = new_model(name, words)
-    lines = header(name) + [
+def render_testbench(name, words, text, sw):
+    model = new_model(name, words, sw)
+    lines = header(name, sw) + [
         "    test run {",
         "        clk = 0",
         "        sel = 0",
+        f"        switches = 8h{sw:02X}",
         "        rst = 1",
         *RESET,
     ]
@@ -242,11 +303,15 @@ def main():
     out = ["// GENERATED by tools/gen_cpu_tb.py from tools/programs.py, checked against tools/rv32sim.py.",
            "// Do not edit; rerun the script after changing a program."]
     summary = []
-    for name, (words, text) in assembled.items():
-        prints = name not in programs.RUNS_FOREVER and run_to_halt(name, words).uart_out
-        tb, size = (render_uart_testbench if prints else render_testbench)(name, words, text)
+    for name, sw in cases():
+        words, text = assembled[name]
+        k = kind(name, words, sw)
+        if k == "lockstep":
+            tb, size = render_testbench(name, words, text, sw)
+        else:
+            tb, size = render_uart_testbench(name, words, text, sw, forever=k == "uart_forever")
         out += [""] + tb
-        summary.append(f"{name.lower()}: {size}")
+        summary.append(f"{case_name(name, sw)}: {size}")
     (ROOT / "source" / "tb" / "cpu_tb.luc").write_text("\n".join(out) + "\n")
     print("wrote programs.luc, memory_map.luc and cpu_tb.luc (" + ", ".join(summary) + ")")
 

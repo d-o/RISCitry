@@ -1,4 +1,5 @@
-"""Programs for the core: the board demo (Larson) and one test program per instruction group.
+"""Programs for the core: the board's image (a boot menu: Larson, a printing demo) and one test
+program per instruction group.
 
 Each test program ends in `halt` (jal x0, 0), except those in RUNS_FOREVER. gen_cpu_tb.py runs
 every program on rv32sim and checks the hardware against it after each instruction (programs
@@ -318,7 +319,75 @@ ILLEGAL = [
     ("jalr", 1, 2, 0),                              # run from the UART
 ]
 
+# What the board boots. A stub at 0 reads the switch register (the middle DIP bank) once after
+# reset and jumps through a table: bits 1:0 pick the program, so change the DIPs and press reset.
+#   0  Larson scanner on x1 (at its original addresses: its turnaround jal links 0x80 = LED 7)
+#   1  hello: a banner on the serial port, then a Larson sweep on x1 and a numbered line per sweep
+#   2, 3  Larson (spare)
+# The serial port is the Cu's USB (FTDI) at 1 Mbaud, 8N1. Registers: x1 LEDs, x2 device base,
+# x3 string pointer / menu index, x4 menu target / digit count, x5 putc's link, x6 puts/hex's
+# link, x7 STATUS, x8 sweep count, x9 hex shift register, x10 the character.
+BOARD = [
+    ("lui", 2, memmap.SWITCHES_BASE >> 12),
+    ("lw", 3, 2, memmap.SWITCHES_BASE & 0xFFF),
+    ("andi", 3, 3, 3),
+    ("slli", 3, 3, 2),
+    ("lw", 4, 3, "menu"),                      # menu + 4 * choice
+    ("jalr", 0, 4, 0),
+    "menu:",
+    (".word", "turn", "hello", "turn", "turn"),
+    *LARSON[2:],                               # .org 0x48, right/left/turn as on the old ROM
+    "hello:",
+    ("lui", 2, memmap.UART_BASE >> 12),
+    ("addi", 3, 0, "banner"),
+    ("jal", 6, "puts"),
+    ("addi", 1, 0, 1),
+    "sweep:",
+    ("addi", 8, 8, 1),
+    ("addi", 3, 0, "sweep_msg"),
+    ("jal", 6, "puts"),
+    ("jal", 6, "hex"),
+    ("addi", 3, 0, "crlf"),
+    ("jal", 6, "puts"),
+    *[("slli", 1, 1, 1)] * 7,
+    *[("srli", 1, 1, 1)] * 7,
+    ("jal", 0, "sweep"),
+    "puts:",                                   # print the .string at x3; returns through x6
+    ("lbu", 10, 3, 0),
+    ("beq", 10, 0, "puts_end"),
+    ("jal", 5, "putc"),
+    ("addi", 3, 3, 1),
+    ("jal", 0, "puts"),
+    "puts_end:",
+    ("jalr", 0, 6, 0),
+    "hex:",                                    # print x8 as 8 hex digits; returns through x6
+    ("addi", 4, 0, 8),
+    ("addi", 9, 8, 0),
+    "hex_next:",
+    ("srli", 10, 9, 28),
+    ("lbu", 10, 10, "digits"),
+    ("jal", 5, "putc"),
+    ("slli", 9, 9, 4),
+    ("addi", 4, 4, -1),
+    ("bne", 4, 0, "hex_next"),
+    ("jalr", 0, 6, 0),
+    "putc:",                                   # send x10 once STATUS says not busy; returns through x5
+    ("lw", 7, 2, memmap.UART_STATUS - memmap.UART_BASE),
+    ("bne", 7, 0, "putc"),
+    ("sb", 10, 2, memmap.UART_TXDATA - memmap.UART_BASE),
+    ("jalr", 0, 5, 0),
+    "banner:",
+    (".string", "\r\nHello from an RV32E soft core on the Alchitry Cu\r\n"),
+    "sweep_msg:",
+    (".string", "sweep "),
+    "crlf:",
+    (".string", "\r\n"),
+    "digits:",
+    (".string", "0123456789ABCDEF"),
+]
+
 PROGRAMS = {
+    "BOARD": BOARD,
     "LARSON": LARSON,
     "ALU": ALU,
     "BRANCHES": BRANCHES,
@@ -332,10 +401,14 @@ PROGRAMS = {
     "ILLEGAL": ILLEGAL,
 }
 
-# Programs that never halt, and how many instructions to check.
-RUNS_FOREVER = {"LARSON": 34, "ILLEGAL": 30}
+# Programs that never halt, and how many instructions to check (lockstep). One that prints is
+# checked by its first PRINT_BYTES bytes instead.
+RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 30}
+PRINT_BYTES = 100              # the banner and the first three numbered lines
+# Programs that read the switch register: one testbench per setting.
+SWITCHES = {"BOARD": [0, 1]}
 # Programs that run illegal instructions on purpose (rv32sim otherwise raises on them).
 ILLEGAL_AS_NOP = {"ILLEGAL"}
 
 # The program the board runs (instantiated by the top module).
-BOARD_PROGRAM = "LARSON"
+BOARD_PROGRAM = "BOARD"
