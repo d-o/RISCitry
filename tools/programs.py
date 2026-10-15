@@ -1,10 +1,12 @@
 """Programs for the core: the board demo (Larson) and one test program per instruction group.
 
-Each test program ends in `halt` (jal x0, 0). gen_cpu_tb.py runs every program on rv32sim and
-checks the hardware against it after each instruction (UART programs: by their serial output and
-final state instead, since polling makes their timing differ). Registers are x0-x15 only (RV32E).
+Each test program ends in `halt` (jal x0, 0), except those in RUNS_FOREVER. gen_cpu_tb.py runs
+every program on rv32sim and checks the hardware against it after each instruction (programs
+that print: by their serial output and final state instead, since polling makes their timing
+differ). Registers are x0-x15 only (RV32E). Code and data share the RAM (see memmap.py).
 """
 import memmap
+import rv32
 
 # Board demo. Kept at its original addresses so the ROM words are unchanged.
 # The turnaround jal x1 links pc + 4 = 0x80 (LED 7), so the jump itself is a display step.
@@ -206,6 +208,116 @@ UART = [
     ("jalr", 0, 1, 0),
 ]
 
+# Code and data share the RAM: print a .string that lives right after the code, walking it with
+# lbu (loads from the same memory the instructions come from). Expected output: the string.
+STRING = [
+    ("lui", 2, memmap.UART_BASE >> 12),        # x2 = UART base
+    ("addi", 3, 0, "msg"),                     # x3 -> message (a label is its address)
+    "next:",
+    ("lbu", 10, 3, 0),
+    ("beq", 10, 0, "done"),                    # the .string's terminating 0
+    "wait:",
+    ("lw", 5, 2, memmap.UART_STATUS - memmap.UART_BASE),
+    ("bne", 5, 0, "wait"),
+    ("sb", 10, 2, memmap.UART_TXDATA - memmap.UART_BASE),
+    ("addi", 3, 3, 1),
+    ("jal", 0, "next"),
+    "done:",
+    ("halt",),
+    "msg:",
+    (".string", "Hello from RAM!\n"),
+]
+
+# Tables in the program image: sum .words with lw, read .bytes with sign and zero extension, and
+# jump through a table of code addresses (lw then jalr).
+TABLE = [
+    ("addi", 3, 0, "words"),                   # x3 -> word table
+    ("addi", 4, 0, 4),                         # 4 entries
+    ("addi", 5, 0, 0),                         # sum
+    "sum:",
+    ("lw", 6, 3, 0),
+    ("add", 5, 5, 6),
+    ("addi", 3, 3, 4),
+    ("addi", 4, 4, -1),
+    ("bne", 4, 0, "sum"),                      # x5 = 0x80001111
+    ("addi", 9, 0, "bytes"),
+    ("lb", 7, 9, 0),                           # 0xFE -> 0xFFFFFFFE
+    ("lbu", 8, 9, 1),                          # 0x80
+    ("lh", 11, 9, 2),                          # 0x1234
+    ("addi", 13, 0, "jumps"),
+    ("lw", 12, 13, 4),                         # address of "two"
+    ("jalr", 1, 12, 0),
+    "one:",
+    ("addi", 14, 0, 1),                        # skipped
+    ("halt",),
+    "two:",
+    ("addi", 14, 0, 2),
+    ("halt",),
+    "words:",
+    (".word", 1, 0x10, 0x100, 0x80001000),
+    "bytes:",
+    (".byte", 0xFE, 0x80, 0x34, 0x12),
+    "jumps:",
+    (".word", "one", "two"),
+]
+
+# Self-modifying code. A store over an instruction two ahead takes effect before it's fetched.
+# A store over the very next instruction doesn't: the core prefetched it on the store's last
+# edge (read-before-write), so the old word runs once and the new one on the second pass (legal
+# without FENCE.I; see rv32sim's docstring). The final loads read the new words back as data.
+SELFMOD = [
+    ("lw", 6, 0, "new1"),
+    ("sw", 6, 0, "t1"),
+    ("addi", 0, 0, 0),                         # gap: t1 isn't fetched yet when the store lands
+    "t1:",
+    ("addi", 7, 0, 1),                         # replaced: runs as addi x7, x0, 11
+    ("addi", 8, 0, 0),                         # pass counter
+    ("addi", 9, 0, 0),                         # sum of x10 over both passes
+    ("lw", 6, 0, "new2"),
+    ("sw", 6, 0, "t2"),                        # over the next instruction, already prefetched
+    "t2:",
+    ("addi", 10, 0, 1),                        # pass 1: the old word (1); pass 2: the new (2)
+    ("add", 9, 9, 10),
+    ("addi", 8, 8, 1),
+    ("addi", 11, 0, 2),
+    ("blt", 8, 11, "t2"),                      # x9 = 3 with prefetch (4 without)
+    ("lw", 12, 0, "t1"),                       # the code now holds the new words
+    ("lw", 13, 0, "t2"),
+    ("halt",),
+    "new1:",
+    (".word", rv32.addi(7, 0, 11)),
+    "new2:",
+    (".word", rv32.addi(10, 0, 2)),
+]
+
+# Illegal encodings act as NOPs: nothing written, no store, no jump or branch. ECALL, EBREAK and
+# FENCE are legal no-ops. Then it jumps to the UART: devices answer loads only, so fetches there
+# read 0 (illegal, a NOP) and the core walks on through I/O space without sending anything.
+ILLEGAL = [
+    ("addi", 4, 4, 1),                              # counts runs of word 0: a fetch from I/O
+                                                    # that aliased onto RAM would run it again
+    ("addi", 5, 0, 5),
+    ("addi", 6, 0, 6),
+    ("sw", 6, 0, DATA),
+    (".word", 0x00000000),                          # all zeros
+    (".word", 0xFFFFFFFF),                          # all ones
+    (".word", rv32.i_type(0x13, 5, 1, 5, 0x401)),   # slli x5, x5, 1 with funct7 = 0x20
+    (".word", rv32.i_type(0x03, 5, 3, 0, DATA)),    # ld x5, DATA(x0): RV64 only
+    (".word", rv32.s_type(0x23, 3, 0, 5, DATA)),    # sd x5, DATA(x0): RV64 only, mustn't store
+    (".word", rv32.b_type(0x63, 2, 5, 6, -8)),      # branch funct3 = 2 (loops back if taken)
+    (".word", rv32.i_type(0x67, 1, 1, 0, 0)),       # jalr funct3 = 1 (would jump to 0)
+    (".word", rv32.addi(0, 5, 1) | (16 << 7)),      # addi x16, x5, 1: RV32E has no x16
+    (".word", rv32.r_type(0x33, 5, 1, 5, 6, 0x20)), # sll with funct7 = 0x20
+    (".word", rv32.i_type(0x73, 5, 1, 6, 0x300)),   # csrrw x5, mstatus, x6: no CSRs
+    (".word", 0x0000100F),                          # fence.i: Zifencei not implemented
+    ("ecall",),
+    ("ebreak",),
+    ("fence",),
+    ("lw", 7, 0, DATA),                             # still 6: the sd didn't store
+    ("lui", 2, memmap.UART_BASE >> 12),
+    ("jalr", 1, 2, 0),                              # run from the UART
+]
+
 PROGRAMS = {
     "LARSON": LARSON,
     "ALU": ALU,
@@ -214,7 +326,16 @@ PROGRAMS = {
     "MEMORY": MEMORY,
     "BYTES": BYTES,
     "UART": UART,
+    "STRING": STRING,
+    "TABLE": TABLE,
+    "SELFMOD": SELFMOD,
+    "ILLEGAL": ILLEGAL,
 }
+
+# Programs that never halt, and how many instructions to check.
+RUNS_FOREVER = {"LARSON": 34, "ILLEGAL": 30}
+# Programs that run illegal instructions on purpose (rv32sim otherwise raises on them).
+ILLEGAL_AS_NOP = {"ILLEGAL"}
 
 # The program the board runs (instantiated by the top module).
 BOARD_PROGRAM = "LARSON"

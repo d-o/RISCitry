@@ -20,7 +20,7 @@ from pathlib import Path
 import asm
 import programs
 import rv32sim
-from gen_cpu_tb import STATES, WRITES_RD, clocks_for
+from gen_cpu_tb import STATES, clocks_for, writes_rd
 
 ROOT = Path(__file__).resolve().parent.parent
 PROGRAM = "MEMORY"
@@ -114,8 +114,8 @@ def main():
         return pc, word
 
     def expect_rd(word):
-        if word & 0x7F in WRITES_RD:
-            rd = (word >> 7) & 31
+        rd = writes_rd(word)
+        if rd is not None:
             out.append(f"        $expect_reg(4d{rd}, 32h{model.x[rd]:08X})")
 
     def clock_steps(count):

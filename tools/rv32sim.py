@@ -8,9 +8,16 @@ neither preloaded nor written.
 
 One address space (von Neumann, like the hardware's main_ram): the program image is preloaded
 into RAM from address 0 (gaps as nops, as assembled), instructions are fetched from that same
-memory, so loads can read code and stores can change it. The model fetches each instruction when
-it executes it; the core prefetches the next one at the end of the current one, which only
-differs when an instruction stores over the very next one (not modelled, so not tested here).
+memory, so loads can read code and stores can change it.
+
+Prefetch, modelled exactly: the core reads the next instruction on the edge that ends the current
+one, and a store's last cycle writes on that same edge with read-before-write. So a store over the
+very next instruction doesn't affect it: the old word runs once (legal RISC-V without FENCE.I),
+and the new one runs when that address is fetched again.
+
+Illegal instructions (legal() mirrors decoder.luc) raise by default, so a typo in a test program
+can't hide. With illegal_nop=True the model does what the core does: an illegal instruction is a
+NOP, and a fetch from outside RAM reads 0 (the computer only answers loads from devices).
 
 The UART has no timing here: STATUS always reads 0 (not busy), and each store to TXDATA that
 writes byte lane 0 appends that byte to uart_out. The hardware's polling loops therefore run a
@@ -26,9 +33,27 @@ def _sext(v, bits):
     return v - (1 << bits) if v & (1 << (bits - 1)) else v
 
 
+def legal(w):
+    """Whether decoder.luc accepts the word (RV32E base, FENCE, ECALL, EBREAK)."""
+    op, f3, f7 = w & 0x7F, (w >> 12) & 7, w >> 25
+    rd, rs1, rs2 = (w >> 7) & 31, (w >> 15) & 31, (w >> 20) & 31
+    uses = {0x37: "d", 0x17: "d", 0x6F: "d", 0x67: "d1", 0x63: "12", 0x03: "d1", 0x23: "12",
+            0x13: "d1", 0x33: "d12", 0x0F: "", 0x73: ""}
+    if op not in uses:
+        return False
+    bad = {0x67: f3 != 0, 0x63: f3 in (2, 3), 0x03: f3 in (3, 6, 7), 0x23: f3 > 2,
+           0x13: (f3 == 1 and f7 != 0) or (f3 == 5 and f7 not in (0, 0x20)),
+           0x33: f7 != 0 and not (f7 == 0x20 and f3 in (0, 5)),
+           0x0F: f3 != 0, 0x73: (w >> 7) not in (0, 0x2000)}.get(op, False)
+    fields = {"d": rd, "1": rs1, "2": rs2}
+    return not bad and all(fields[u] < 16 for u in uses[op])
+
+
 class Cpu:
-    def __init__(self, words):
+    def __init__(self, words, illegal_nop=False):
         """words: {byte address: instruction or data word} as assembled."""
+        self.illegal_nop = illegal_nop
+        self.stale = None             # (address, word): the next fetch's prefetched old word
         self.pc = 0
         self.x = [0] * 16
         self.mem = {}                 # word-aligned byte address -> word, preloaded or written
@@ -84,12 +109,19 @@ class Cpu:
                 self.uart_out.append(value & 0xFF)
             return
         mask = ((1 << (8 * size)) - 1) << shift
+        if word_addr == (self.pc + 4) & MASK and word_addr in self.mem:
+            self.new_stale = (word_addr, self.mem[word_addr])   # already prefetched: old word runs
         old = self.mem.get(word_addr, 0)   # a partial store into an unwritten word: other bytes are 0
         self.mem[word_addr] = (old & ~mask) | ((value << shift) & mask)
 
     def fetch(self):
         """The instruction at pc (what step() will execute next)."""
-        if self.pc % 4 or self._region(self.pc) != "ram":
+        if self.stale and self.stale[0] == self.pc:
+            return self.stale[1]
+        in_ram = memmap.RAM_BASE <= self.pc < memmap.RAM_BASE + memmap.RAM_BYTES
+        if self.illegal_nop and not in_ram:
+            return 0                  # devices and unmapped space answer fetches with 0
+        if self.pc % 4 or not in_ram:
             raise ValueError(f"fetch from {self.pc:#x}: not an aligned RAM address")
         if self.pc not in self.mem:
             raise ValueError(f"fetch from {self.pc:#x}: never written (RAM past the program reads 0)")
@@ -97,6 +129,13 @@ class Cpu:
 
     def step(self):
         w = self.fetch()
+        self.new_stale = None
+        if not legal(w):
+            if not self.illegal_nop:
+                raise NotImplementedError(f"pc={self.pc:#x}: {w:08X} is illegal on this core")
+            self.pc = (self.pc + 4) & MASK                     # the core treats it as a NOP
+            self.stale = None
+            return
         op, rd, f3 = w & 0x7F, (w >> 7) & 31, (w >> 12) & 7
         rs1, rs2, f7 = (w >> 15) & 31, (w >> 20) & 31, w >> 25
         i_imm = _sext(w >> 20, 12)
@@ -147,3 +186,4 @@ class Cpu:
         else:
             raise NotImplementedError(f"pc={self.pc:#x}: {w:08X} not modelled")
         self.pc = next_pc
+        self.stale = self.new_stale

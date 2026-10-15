@@ -28,7 +28,6 @@ from pathlib import Path
 import asm
 import gen_cpu_tb
 import programs
-import rv32sim
 
 ROOT = Path(__file__).resolve().parent.parent
 YOSYS = "/usr/lib/alchitry/alchitry-labs/lib/app/tools/oss-cad-suite/bin/yosys"
@@ -36,6 +35,7 @@ VERILOG = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "source"
 STATE = {"FETCH": 0, "EXECUTE": 1, "MEM_ACCESS": 2, "WRITEBACK": 3}   # control_unit's enum order
 BIT = gen_cpu_tb.TB_UART_CLK_FREQ // gen_cpu_tb.TB_UART_BAUD
 SIGNALS = ["cycle", "debug_pc", "debug_state", "debug_reg", "uart_tx"]
+KEEPS_WRITING = {"LARSON"}    # runs forever changing registers: no final register check
 
 HARNESS = f"""
 module xsim_top #(parameter PROGRAM_ID = 0) (
@@ -124,7 +124,7 @@ def parse_vcd(text):
 
 def expected_trace(name, words):
     """[(state, pc or None)] per clock from the release of reset, and the model at the end."""
-    model = rv32sim.Cpu(words)
+    model = gen_cpu_tb.new_model(name, words)
     trace = [("FETCH", 0)]
     steps, halted_for = 0, 0
     while True:
@@ -133,8 +133,8 @@ def expected_trace(name, words):
         steps += 1
         states = gen_cpu_tb.STATES[gen_cpu_tb.clocks_for(word)]
         trace += [(s, None) for s in states[:-1]] + [(states[-1], model.pc)]
-        if name == "LARSON":
-            if steps == gen_cpu_tb.LARSON_STEPS:
+        if name in programs.RUNS_FOREVER:
+            if steps == programs.RUNS_FOREVER[name]:
                 return trace, model
         elif word == asm.HALT:
             halted_for += 1
@@ -165,13 +165,13 @@ def check_lockstep(pid, name, words):
         if s["uart_tx"] != 1:
             errors.append(f"clock {i}: uart_tx low in a program that doesn't print")
             break
-    if name != "LARSON":     # halted: pc and registers stay put while debug_sel walks them
+    if name not in KEEPS_WRITING:   # registers stay put while debug_sel walks them
         errors += final_regs(samples[len(trace):], model)
     return errors, f"{len(trace)} clocks"
 
 
 def check_uart(pid, name, words):
-    model = gen_cpu_tb.run_to_halt(words)
+    model = gen_cpu_tb.run_to_halt(name, words)
     want = model.uart_out
     clocks = len(want) * gen_cpu_tb.UART_CLOCKS_PER_BYTE * 3 + 1000
     samples = run(pid, clocks)
@@ -202,7 +202,7 @@ def main():
     failures = 0
     for pid, (name, prog) in enumerate(programs.PROGRAMS.items()):
         words = asm.assemble(prog)
-        prints = name != "LARSON" and gen_cpu_tb.run_to_halt(words).uart_out
+        prints = name not in programs.RUNS_FOREVER and gen_cpu_tb.run_to_halt(name, words).uart_out
         errors, size = (check_uart if prints else check_lockstep)(pid, name, words)
         print(f"{name}: {'OK' if not errors else 'FAIL'} ({size})")
         for e in errors[:5]:

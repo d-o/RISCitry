@@ -41,7 +41,9 @@ def lane_inits(pid, words):
         if not cell["type"].startswith("$mem"):
             continue
         name = cell["parameters"]["MEMID"].lstrip("\\")
-        bits = cell["parameters"]["INIT"][::-1].replace("x", "0")   # LSB first: word 0 first
+        bits = cell["parameters"]["INIT"][::-1]                     # LSB first: word 0 first
+        if "x" in bits[:words * 8]:
+            raise RuntimeError(f"PROGRAM_ID {pid}: {name} has undefined (x) initial bits")
         lanes[int(name[-1])] = [int(bits[i * 8:(i + 1) * 8][::-1] or "0", 2) for i in range(words)]
     return lanes
 

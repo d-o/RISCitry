@@ -27,7 +27,6 @@ import programs
 import rv32sim
 
 ROOT = Path(__file__).resolve().parent.parent
-LARSON_STEPS = 34          # boot + two full sweeps; Larson never halts
 MAX_STEPS = 200            # a test program that doesn't reach halt by then is a bug
 # control_unit's state after each clock of an instruction, by the instruction's clock count
 STATES = {2: ["EXECUTE", "FETCH"], 3: ["EXECUTE", "MEM_ACCESS", "FETCH"],
@@ -41,9 +40,21 @@ UART_CLOCKS_PER_BYTE = 10 * TB_UART_CLK_FREQ // TB_UART_BAUD   # start + 8 data 
 
 
 def clocks_for(word):
-    """Clocks this core spends on an instruction: FETCH + EXECUTE, plus memory states."""
+    """Clocks this core spends on an instruction: FETCH + EXECUTE, plus memory states. An
+    illegal instruction is a NOP (2), even with a load or store opcode."""
     op = word & 0x7F
+    if not rv32sim.legal(word):
+        return 2
     return 4 if op == 0x03 else 3 if op == 0x23 else 2
+
+
+def writes_rd(word):
+    """The register the instruction writes, or None."""
+    return (word >> 7) & 31 if rv32sim.legal(word) and word & 0x7F in WRITES_RD else None
+
+
+def new_model(name, words):
+    return rv32sim.Cpu(words, illegal_nop=name in programs.ILLEGAL_AS_NOP)
 
 
 def render_programs(assembled):
@@ -66,9 +77,9 @@ def render_programs(assembled):
     return "\n".join(out) + "\n"
 
 
-def run_to_halt(words):
+def run_to_halt(name, words):
     """Run rv32sim until the program's halt has executed twice; return the model."""
-    model = rv32sim.Cpu(words)
+    model = new_model(name, words)
     halted_for = 0
     for _ in range(MAX_STEPS):
         word = model.fetch()
@@ -133,7 +144,7 @@ RESET = [
 
 def render_uart_testbench(name, words, text):
     """Free-run until halted with every byte received; check bytes, then registers."""
-    model = run_to_halt(words)
+    model = run_to_halt(name, words)
     out = model.uart_out
     halt_pc = model.pc
     n = len(out)
@@ -185,7 +196,7 @@ def render_uart_testbench(name, words, text):
 
 
 def render_testbench(name, words, text):
-    model = rv32sim.Cpu(words)
+    model = new_model(name, words)
     lines = header(name) + [
         "    test run {",
         "        clk = 0",
@@ -203,11 +214,11 @@ def render_testbench(name, words, text):
         for state in STATES[clocks_for(word)]:
             lines += ["        $tick_clock()", f"        $expect_state(Cpu.State.{state})"]
         lines.append(f"        $expect_pc(32h{model.pc:08X})")
-        if word & 0x7F in WRITES_RD:
-            rd = (word >> 7) & 31
+        rd = writes_rd(word)
+        if rd is not None:
             lines.append(f"        $expect_reg(4d{rd}, 32h{model.x[rd]:08X})")
-        if name == "LARSON":
-            if steps == LARSON_STEPS:
+        if name in programs.RUNS_FOREVER:
+            if steps == programs.RUNS_FOREVER[name]:
                 break
         elif word == asm.HALT:
             halted_for += 1
@@ -232,7 +243,7 @@ def main():
            "// Do not edit; rerun the script after changing a program."]
     summary = []
     for name, (words, text) in assembled.items():
-        prints = name != "LARSON" and run_to_halt(words).uart_out
+        prints = name not in programs.RUNS_FOREVER and run_to_halt(name, words).uart_out
         tb, size = (render_uart_testbench if prints else render_testbench)(name, words, text)
         out += [""] + tb
         summary.append(f"{name.lower()}: {size}")

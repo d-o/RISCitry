@@ -2,7 +2,7 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART }
+    enum Id { LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL }
 
     const LARSON = {
         32hFCDFF0EF,  // 0x007c: jal x1, right
@@ -189,5 +189,93 @@ global Programs {
         32h04800513,  // 0x0008: addi x10, x0, 72
         32h80000137,  // 0x0004: lui x2, 0x80000
         32h05A00613  // 0x0000: addi x12, x0, 90
+    }
+    const STRING = {
+        32h00000000,  // 0x0038: (data)
+        32h0A214D41,  // 0x0034: (data)
+        32h52206D6F,  // 0x0030: (data)
+        32h7266206F,  // 0x002c: (data)
+        32h6C6C6548,  // 0x0028: .string 'Hello from RAM!\n'
+        32h0000006F,  // 0x0024: halt
+        32hFE9FF06F,  // 0x0020: jal x0, next
+        32h00118193,  // 0x001c: addi x3, x3, 1
+        32h00A10023,  // 0x0018: sb x10, 0(x2)
+        32hFE029EE3,  // 0x0014: bne x5, x0, wait
+        32h00412283,  // 0x0010: lw x5, 4(x2)
+        32h00050C63,  // 0x000c: beq x10, x0, done
+        32h0001C503,  // 0x0008: lbu x10, 0(x3)
+        32h02800193,  // 0x0004: addi x3, x0, msg
+        32h80000137  // 0x0000: lui x2, 0x80000
+    }
+    const TABLE = {
+        32h00000044,  // 0x0064: (data)
+        32h0000003C,  // 0x0060: .word one, two
+        32h123480FE,  // 0x005c: .byte 0xfe, 0x80, 0x34, 0x12
+        32h80001000,  // 0x0058: (data)
+        32h00000100,  // 0x0054: (data)
+        32h00000010,  // 0x0050: (data)
+        32h00000001,  // 0x004c: .word 0x00000001, 0x00000010, 0x00000100, 0x80001000
+        32h0000006F,  // 0x0048: halt
+        32h00200713,  // 0x0044: addi x14, x0, 2
+        32h0000006F,  // 0x0040: halt
+        32h00100713,  // 0x003c: addi x14, x0, 1
+        32h000600E7,  // 0x0038: jalr x1, x12, 0
+        32h0046A603,  // 0x0034: lw x12, 4(x13)
+        32h06000693,  // 0x0030: addi x13, x0, jumps
+        32h00249583,  // 0x002c: lh x11, 2(x9)
+        32h0014C403,  // 0x0028: lbu x8, 1(x9)
+        32h00048383,  // 0x0024: lb x7, 0(x9)
+        32h05C00493,  // 0x0020: addi x9, x0, bytes
+        32hFE0218E3,  // 0x001c: bne x4, x0, sum
+        32hFFF20213,  // 0x0018: addi x4, x4, -1
+        32h00418193,  // 0x0014: addi x3, x3, 4
+        32h006282B3,  // 0x0010: add x5, x5, x6
+        32h0001A303,  // 0x000c: lw x6, 0(x3)
+        32h00000293,  // 0x0008: addi x5, x0, 0
+        32h00400213,  // 0x0004: addi x4, x0, 4
+        32h04C00193  // 0x0000: addi x3, x0, words
+    }
+    const SELFMOD = {
+        32h00200513,  // 0x0044: .word 0x00200513
+        32h00B00393,  // 0x0040: .word 0x00b00393
+        32h0000006F,  // 0x003c: halt
+        32h02002683,  // 0x0038: lw x13, t2(x0)
+        32h00C02603,  // 0x0034: lw x12, t1(x0)
+        32hFEB448E3,  // 0x0030: blt x8, x11, t2
+        32h00200593,  // 0x002c: addi x11, x0, 2
+        32h00140413,  // 0x0028: addi x8, x8, 1
+        32h00A484B3,  // 0x0024: add x9, x9, x10
+        32h00100513,  // 0x0020: addi x10, x0, 1
+        32h02602023,  // 0x001c: sw x6, t2(x0)
+        32h04402303,  // 0x0018: lw x6, new2(x0)
+        32h00000493,  // 0x0014: addi x9, x0, 0
+        32h00000413,  // 0x0010: addi x8, x0, 0
+        32h00100393,  // 0x000c: addi x7, x0, 1
+        32h00000013,  // 0x0008: addi x0, x0, 0
+        32h00602623,  // 0x0004: sw x6, t1(x0)
+        32h04002303  // 0x0000: lw x6, new1(x0)
+    }
+    const ILLEGAL = {
+        32h000100E7,  // 0x0050: jalr x1, x2, 0
+        32h80000137,  // 0x004c: lui x2, 0x80000
+        32h40002383,  // 0x0048: lw x7, 0x400(x0)
+        32h0000000F,  // 0x0044: fence
+        32h00100073,  // 0x0040: ebreak
+        32h00000073,  // 0x003c: ecall
+        32h0000100F,  // 0x0038: .word 0x0000100f
+        32h300312F3,  // 0x0034: .word 0x300312f3
+        32h406292B3,  // 0x0030: .word 0x406292b3
+        32h00128813,  // 0x002c: .word 0x00128813
+        32h000010E7,  // 0x0028: .word 0x000010e7
+        32hFE62ACE3,  // 0x0024: .word 0xfe62ace3
+        32h40503023,  // 0x0020: .word 0x40503023
+        32h40003283,  // 0x001c: .word 0x40003283
+        32h40129293,  // 0x0018: .word 0x40129293
+        32hFFFFFFFF,  // 0x0014: .word 0xffffffff
+        32h00000000,  // 0x0010: .word 0x00000000
+        32h40602023,  // 0x000c: sw x6, 0x400(x0)
+        32h00600313,  // 0x0008: addi x6, x0, 6
+        32h00500293,  // 0x0004: addi x5, x0, 5
+        32h00120213  // 0x0000: addi x4, x4, 1
     }
 }

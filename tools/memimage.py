@@ -60,6 +60,7 @@ def render_main_ram_v(assembled):
            "  reg [7:0] lane1 [0:WORDS-1];",
            "  reg [7:0] lane2 [0:WORDS-1];",
            "  reg [7:0] lane3 [0:WORDS-1];",
+           "  integer i;",
            "",
            "  always @(posedge clk) begin",
            "    rdata <= {lane3[raddr], lane2[raddr], lane1[raddr], lane0[raddr]};",
@@ -69,7 +70,12 @@ def render_main_ram_v(assembled):
            "    if (be[3]) lane3[waddr] <= wdata[31:24];",
            "  end",
            "",
-           "  initial begin"]
+           "  // every word defined: words left out of an initial block are x in Verilog (a zero",
+           "  // word in a program, e.g. a .string's terminator, read as x in simulation)",
+           "  initial begin",
+           "    for (i = 0; i < WORDS; i = i + 1) begin",
+           "      lane0[i] = 8'h00; lane1[i] = 8'h00; lane2[i] = 8'h00; lane3[i] = 8'h00;",
+           "    end"]
     for pid, (name, (words, _)) in enumerate(assembled.items()):
         out.append(f"    if (PROGRAM_ID == {pid}) begin   // {name}")
         for i, w in enumerate(image(words)):

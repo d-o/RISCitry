@@ -17,5 +17,9 @@ module program_image #(
     if (PROGRAM_ID == Programs.Id.MEMORY && addr < 17) word = Programs.MEMORY[addr];
     if (PROGRAM_ID == Programs.Id.BYTES && addr < 31) word = Programs.BYTES[addr];
     if (PROGRAM_ID == Programs.Id.UART && addr < 26) word = Programs.UART[addr];
+    if (PROGRAM_ID == Programs.Id.STRING && addr < 15) word = Programs.STRING[addr];
+    if (PROGRAM_ID == Programs.Id.TABLE && addr < 26) word = Programs.TABLE[addr];
+    if (PROGRAM_ID == Programs.Id.SELFMOD && addr < 18) word = Programs.SELFMOD[addr];
+    if (PROGRAM_ID == Programs.Id.ILLEGAL && addr < 21) word = Programs.ILLEGAL[addr];
   }
 }
