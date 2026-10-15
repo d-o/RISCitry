@@ -2,11 +2,16 @@
 
 It executes one instruction per step and knows nothing about the hardware's FSM, so a test
 can compare the core's architectural state (pc, registers) against it after every instruction.
-Deliberately strict: anything the core doesn't implement (CSRs, traps) raises, as do RAM accesses
-outside the 256-byte data memory, misaligned accesses, and loads from never-written words.
+Deliberately strict: anything the core doesn't implement (CSRs, traps) raises, as do data
+accesses outside memmap.py's ranges, misaligned accesses, and loads from never-written words.
+
+The UART has no timing here: STATUS always reads 0 (not busy), and each store to TXDATA that
+writes byte lane 0 appends that byte to uart_out. The hardware's polling loops therefore run a
+different number of times, so UART programs are checked by their output and final state.
 """
+import memmap
+
 MASK = 0xFFFFFFFF
-RAM_BYTES = 256   # simple_ram: 64 words, addressed by alu.result[7:2]
 
 
 def _sext(v, bits):
@@ -19,6 +24,7 @@ class Cpu:
         self.pc = 0
         self.x = [0] * 16
         self.mem = {}
+        self.uart_out = []
 
     def reg(self, r):
         if r > 15:
@@ -34,11 +40,39 @@ class Cpu:
     def _ram_addr(self, addr, size):
         """(word address, bit shift) for a little-endian access of `size` bytes."""
         addr &= MASK
-        if addr >= RAM_BYTES:
-            raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} outside the {RAM_BYTES}-byte RAM")
         if addr % size:
             raise ValueError(f"pc={self.pc:#x}: misaligned {size}-byte access at {addr:#x} (not supported)")
         return addr & ~3, 8 * (addr & 3)
+
+    def _region(self, addr):
+        addr &= MASK
+        if memmap.RAM_BASE <= addr < memmap.RAM_BASE + memmap.RAM_BYTES:
+            return "ram"
+        if memmap.UART_BASE <= addr < memmap.UART_BASE + memmap.UART_BYTES:
+            return "uart"
+        raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} is unmapped")
+
+    def _load(self, addr, size):
+        word_addr, shift = self._ram_addr(addr, size)
+        if self._region(addr) == "uart":
+            if word_addr != memmap.UART_STATUS:
+                raise ValueError(f"pc={self.pc:#x}: load from UART {addr:#x}: only STATUS is readable")
+            return 0                                 # never busy: no timing in this model
+        if word_addr not in self.mem:
+            raise ValueError(f"pc={self.pc:#x}: load from {word_addr:#x} before any store (RAM starts unknown)")
+        return (self.mem[word_addr] >> shift) & ((1 << (8 * size)) - 1)
+
+    def _store(self, addr, size, value):
+        word_addr, shift = self._ram_addr(addr, size)
+        if self._region(addr) == "uart":
+            if word_addr != memmap.UART_TXDATA:
+                raise ValueError(f"pc={self.pc:#x}: store to UART {addr:#x}: only TXDATA is writable")
+            if shift == 0:                           # only byte lane 0 sends
+                self.uart_out.append(value & 0xFF)
+            return
+        mask = ((1 << (8 * size)) - 1) << shift
+        old = self.mem.get(word_addr, 0)   # a partial store into an unwritten word: other bytes are 0
+        self.mem[word_addr] = (old & ~mask) | ((value << shift) & mask)
 
     def step(self):
         w = self.rom.get(self.pc, self.default_word)
@@ -79,21 +113,14 @@ class Cpu:
             if taken:
                 next_pc = (self.pc + imm) & MASK
         elif op == 0x03 and f3 in (0, 1, 2, 4, 5):
-            addr, size = self.reg(rs1) + i_imm, 1 << (f3 & 3)
-            word_addr, shift = self._ram_addr(addr, size)
-            if word_addr not in self.mem:
-                raise ValueError(f"pc={self.pc:#x}: load from {word_addr:#x} before any store (RAM starts unknown)")
-            value = (self.mem[word_addr] >> shift) & ((1 << (8 * size)) - 1)
+            size = 1 << (f3 & 3)
+            value = self._load(self.reg(rs1) + i_imm, size)
             if f3 < 4:                       # LB/LH/LW sign-extend; LBU/LHU zero-extend
                 value = _sext(value, 8 * size)
             self.write(rd, value)
         elif op == 0x23 and f3 in (0, 1, 2):
             s_imm = _sext(((w >> 25) << 5) | ((w >> 7) & 31), 12)
-            size = 1 << f3
-            word_addr, shift = self._ram_addr(self.reg(rs1) + s_imm, size)
-            mask = ((1 << (8 * size)) - 1) << shift
-            old = self.mem.get(word_addr, 0)   # a partial store into an unwritten word: other bytes are 0
-            self.mem[word_addr] = (old & ~mask) | ((self.reg(rs2) << shift) & mask)
+            self._store(self.reg(rs1) + s_imm, 1 << f3, self.reg(rs2))
         elif (op == 0x0F and f3 == 0) or w in (0x00000073, 0x00100073):
             pass  # FENCE, ECALL, EBREAK: no-ops on this core (no traps yet)
         else:

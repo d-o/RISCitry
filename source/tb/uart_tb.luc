@@ -1,0 +1,146 @@
+// The memory-mapped UART on its own, with the cpu clock and io_clk at different rates (cpu_tb
+// runs them from one clock). uart_rx decodes the serial line on io_clk.
+// Checks: busy straight after a write, a write while busy is dropped, the next byte can be
+// written while the previous one is still being sent, and bytes arrive in order.
+testbench uart_tb {
+    sig clk
+    sig io_clk
+    sig rst
+    sig write
+    sig wdata[8]
+    sig got[4]               // bytes received so far
+    sig bytes[4][8]          // ...and their values, in order
+    sig phase                // cpu_clock_fast: io_clk ticks on every other cpu clock
+
+    uart dut(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst),
+             .write(write), .write_data(wdata))
+    uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(io_clk), .rst(rst), .rx(dut.tx))
+
+    fun io_tick() {
+        io_clk = 1
+        $silent_tick()
+        io_clk = 0
+        $tick()
+        if (rx.new_data) {
+            bytes[got] = rx.data
+            got = got + 1
+        }
+    }
+
+    // one cpu clock = 6 io clocks (the board's io clock is 32+ times faster than the cpu clock)
+    fun cpu_clock_slow() {
+        clk = 1
+        repeat(i, 3) {
+            $io_tick()
+        }
+        clk = 0
+        repeat(i, 3) {
+            $io_tick()
+        }
+    }
+
+    // two cpu clocks per io clock (stress: the cpu outruns the handshake)
+    fun cpu_clock_fast() {
+        clk = 1
+        $silent_tick()
+        clk = 0
+        if (phase)
+            $io_tick()
+        else
+            $tick()
+        phase = !phase
+    }
+
+    test io_faster {
+        clk = 0
+        phase = 0
+        io_clk = 0
+        write = 0
+        wdata = 0
+        got = 0
+        bytes = {8h00, 8h00, 8h00, 8h00}
+        rst = 1
+        repeat(i, 4) {
+            $cpu_clock_slow()
+        }
+        rst = 0
+        $assert(!dut.busy)
+        $assert(dut.tx)
+
+        wdata = 8h48
+        write = 1
+        $cpu_clock_slow()
+        $assert(dut.busy)            // waiting to be taken
+
+        wdata = 8h55                 // dropped: still busy
+        $cpu_clock_slow()
+        write = 0
+
+        repeat(i, 20) {
+            if (dut.busy)
+                $cpu_clock_slow()
+        }
+        $assert(!dut.busy)           // taken...
+        $assert(got == 0)            // ...but still being sent
+
+        wdata = 8h69                 // buffered behind the first byte
+        write = 1
+        $cpu_clock_slow()
+        write = 0
+        $assert(dut.busy)
+
+        repeat(i, 100) {
+            if (got != 2 || dut.busy)
+                $cpu_clock_slow()
+        }
+        repeat(i, 20) {              // long enough for a dropped byte to show up if it was sent
+            $cpu_clock_slow()
+        }
+        if (got != 2)
+            $print("got %d bytes: %h %h %h", got, bytes[0], bytes[1], bytes[2])
+        $assert(got == 2)
+        $assert(bytes[0] == 8h48)
+        $assert(bytes[1] == 8h69)
+        $assert(!dut.busy)
+        $assert(dut.tx)
+    }
+
+    test io_slower {
+        clk = 0
+        phase = 0
+        io_clk = 0
+        write = 0
+        wdata = 0
+        got = 0
+        bytes = {8h00, 8h00, 8h00, 8h00}
+        rst = 1
+        repeat(i, 16) {
+            $cpu_clock_fast()
+        }
+        rst = 0
+
+        wdata = 8hA5
+        write = 1
+        $cpu_clock_fast()
+        write = 0
+        $assert(dut.busy)
+        repeat(i, 40) {
+            if (dut.busy)
+                $cpu_clock_fast()
+        }
+        $assert(!dut.busy)
+        wdata = 8h3C
+        write = 1
+        $cpu_clock_fast()
+        write = 0
+        repeat(i, 800) {
+            if (got != 2 || dut.busy)
+                $cpu_clock_fast()
+        }
+        if (got != 2)
+            $print("got %d bytes: %h %h %h", got, bytes[0], bytes[1], bytes[2])
+        $assert(got == 2)
+        $assert(bytes[0] == 8hA5)
+        $assert(bytes[1] == 8h3C)
+    }
+}

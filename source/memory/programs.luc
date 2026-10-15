@@ -2,7 +2,7 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES }
+    enum Id { LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART }
 
     const LARSON = {
         32hFCDFF0EF,  // 0x007c: jal x1, right
@@ -112,8 +112,8 @@ global Programs {
     }
     const MEMORY = {
         32h0000006F,  // 0x003c: halt
-        32h0FC02503,  // 0x0038: lw x10, 252(x0)
-        32h0E602E23,  // 0x0034: sw x6, 252(x0)
+        32h3FC02503,  // 0x0038: lw x10, 0x3fc(x0)
+        32h3E602E23,  // 0x0034: sw x6, 0x3fc(x0)
         32h00412483,  // 0x0030: lw x9, 4(x2)
         32hFE342E23,  // 0x002c: sw x3, -4(x8)
         32h00810413,  // 0x0028: addi x8, x2, 8
@@ -160,5 +160,34 @@ global Programs {
         32hF0118193,  // 0x0008: addi x3, x3, -255
         32h808181B7,  // 0x0004: lui x3, 0x80818
         32h08000113  // 0x0000: addi x2, x0, 128
+    }
+    const UART = {
+        32h00008067,  // 0x0068: jalr x0, x1, 0
+        32h00A10023,  // 0x0064: sb x10, 0(x2)
+        32hFE029EE3,  // 0x0060: bne x5, x0, putc_sb
+        32h00412283,  // 0x005c: lw x5, 4(x2)
+        32h00008067,  // 0x0058: jalr x0, x1, 0
+        32hFE029EE3,  // 0x0054: bne x5, x0, idle
+        32h00412283,  // 0x0050: lw x5, 4(x2)
+        32h00008067,  // 0x004c: jalr x0, x1, 0
+        32h00A12023,  // 0x0048: sw x10, 0(x2)
+        32hFE029EE3,  // 0x0044: bne x5, x0, putc
+        32h00412283,  // 0x0040: lw x5, 4(x2)
+        32h0000006F,  // 0x003c: halt
+        32h00002683,  // 0x0038: lw x13, 0(x0)
+        32h00C000EF,  // 0x0034: jal x1, putc
+        32h00A00513,  // 0x0030: addi x10, x0, 10
+        32h030000EF,  // 0x002c: jal x1, putc_sb
+        32h02100513,  // 0x0028: addi x10, x0, 33
+        32h00B100A3,  // 0x0024: sb x11, 1(x2)
+        32h030000EF,  // 0x0020: jal x1, idle
+        32h05800593,  // 0x001c: addi x11, x0, 88
+        32h028000EF,  // 0x0018: jal x1, putc
+        32h06900513,  // 0x0014: addi x10, x0, 105
+        32h030000EF,  // 0x0010: jal x1, putc
+        32h04800513,  // 0x000c: addi x10, x0, 72
+        32h80000137,  // 0x0008: lui x2, 0x80000
+        32h00C02023,  // 0x0004: sw x12, 0(x0)
+        32h05A00613  // 0x0000: addi x12, x0, 90
     }
 }

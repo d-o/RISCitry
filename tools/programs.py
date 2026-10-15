@@ -1,8 +1,10 @@
 """Programs for the core: the board demo (Larson) and one test program per instruction group.
 
 Each test program ends in `halt` (jal x0, 0). gen_cpu_tb.py runs every program on rv32sim and
-checks the hardware against it after each instruction. Registers are x0-x15 only (RV32E).
+checks the hardware against it after each instruction (UART programs: by their serial output and
+final state instead, since polling makes their timing differ). Registers are x0-x15 only (RV32E).
 """
+import memmap
 
 # Board demo. Kept at its original addresses so the ROM words are unchanged.
 # The turnaround jal x1 links pc + 4 = 0x80 (LED 7), so the jump itself is a display step.
@@ -108,8 +110,8 @@ JUMPS = [
     ("jalr", 0, 1, 0),              # ret
 ]
 
-# SW then LW, positive and negative offsets, overwrites, x0 as data. RAM is 64 words
-# (addresses 0..255) and starts unknown, so every load reads an address stored first.
+# SW then LW, positive and negative offsets, overwrites, x0 as data. RAM is memmap.RAM_BYTES
+# from address 0 and starts unknown, so every load reads an address stored first.
 MEMORY = [
     ("addi", 2, 0, 0x40),           # base address
     ("lui", 3, 0xDEADC),
@@ -124,8 +126,8 @@ MEMORY = [
     ("addi", 8, 2, 8),
     ("sw", 3, 8, -4),               # negative offset: address 0x44
     ("lw", 9, 2, 4),
-    ("sw", 6, 0, 252),              # top word of the RAM
-    ("lw", 10, 0, 252),
+    ("sw", 6, 0, memmap.RAM_BYTES - 4),     # top word of the RAM
+    ("lw", 10, 0, memmap.RAM_BYTES - 4),
     ("halt",),
 ]
 
@@ -166,6 +168,42 @@ BYTES = [
     ("halt",),
 ]
 
+# Memory-mapped UART: poll STATUS, then store to TXDATA, with both sw and sb. A byte stored to
+# lane 1 of TXDATA must not be sent. RAM word 0 is read back at the end: UART stores mustn't
+# reach the RAM (its low address bits match). Expected output: "Hi!\n".
+UART = [
+    ("addi", 12, 0, 0x5A),
+    ("sw", 12, 0, 0),                          # marker in RAM word 0
+    ("lui", 2, memmap.UART_BASE >> 12),        # x2 = UART base
+    ("addi", 10, 0, ord("H")),
+    ("jal", 1, "putc"),
+    ("addi", 10, 0, ord("i")),
+    ("jal", 1, "putc"),
+    ("addi", 11, 0, ord("X")),
+    ("jal", 1, "idle"),                        # not busy, so a wrongly decoded store would send
+    ("sb", 11, 2, memmap.UART_TXDATA - memmap.UART_BASE + 1),   # lane 1: not sent
+    ("addi", 10, 0, ord("!")),
+    ("jal", 1, "putc_sb"),
+    ("addi", 10, 0, ord("\n")),
+    ("jal", 1, "putc"),
+    ("lw", 13, 0, 0),                          # still the marker
+    ("halt",),
+    "putc:",                                   # send x10 with sw, once STATUS says not busy
+    ("lw", 5, 2, memmap.UART_STATUS - memmap.UART_BASE),
+    ("bne", 5, 0, "putc"),
+    ("sw", 10, 2, memmap.UART_TXDATA - memmap.UART_BASE),
+    ("jalr", 0, 1, 0),
+    "idle:",                                   # wait until STATUS says not busy
+    ("lw", 5, 2, memmap.UART_STATUS - memmap.UART_BASE),
+    ("bne", 5, 0, "idle"),
+    ("jalr", 0, 1, 0),
+    "putc_sb:",                                # the same with sb
+    ("lw", 5, 2, memmap.UART_STATUS - memmap.UART_BASE),
+    ("bne", 5, 0, "putc_sb"),
+    ("sb", 10, 2, memmap.UART_TXDATA - memmap.UART_BASE),
+    ("jalr", 0, 1, 0),
+]
+
 PROGRAMS = {
     "LARSON": LARSON,
     "ALU": ALU,
@@ -173,6 +211,7 @@ PROGRAMS = {
     "JUMPS": JUMPS,
     "MEMORY": MEMORY,
     "BYTES": BYTES,
+    "UART": UART,
 }
 
 # The program the board runs (instantiated by the top module).

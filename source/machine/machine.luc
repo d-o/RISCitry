@@ -21,7 +21,9 @@ module machine #(
     PROGRAM_ID = 0,                              // a Programs.Id, passed to computer
     SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1,  // 1 in testbenches, passed to computer
     SLOW_BITS = 21 : SLOW_BITS > 1,              // run: half period of 2^SLOW_BITS clocks
-    FAST_BITS = 4 : FAST_BITS > 0 && FAST_BITS < SLOW_BITS
+    FAST_BITS = 4 : FAST_BITS > 0 && FAST_BITS < SLOW_BITS,
+    CLK_FREQ = 100_000_000 : CLK_FREQ > 0,       // clk's frequency (the UART's baud comes from it)
+    UART_BAUD = 1_000_000 : UART_BAUD > 0 && UART_BAUD <= CLK_FREQ / 2
   ) (
     input clk,
     input rst,
@@ -36,7 +38,8 @@ module machine #(
     output cpu_clock,        // the cpu clock itself
     output halted,           // stopped, waiting for run or step
     output busy,             // finishing a step, or the instruction in progress when run went off
-    output in_reset          // the cpu is being held in reset
+    output in_reset,         // the cpu is being held in reset
+    output uart_tx           // the computer's serial out
   ) {
 
   .clk(clk), .rst(rst) {
@@ -55,11 +58,15 @@ module machine #(
   sig stopped
 
   .clk(core_clk) {
-    computer comp(#PROGRAM_ID(PROGRAM_ID), #SIM_RAM(SIM_RAM), .rst(cpu_rst.q));
+    computer comp(#PROGRAM_ID(PROGRAM_ID), #SIM_RAM(SIM_RAM), #UART_CLK_FREQ(CLK_FREQ),
+                  #UART_BAUD(UART_BAUD), .rst(cpu_rst.q));
   }
 
   always {
     core_clk = cpu_clk.q
+    comp.io_clk = clk
+    comp.io_rst = rst
+    uart_tx = comp.uart_tx
     phase.d = phase.q + 1
 
     resetting = reset_edges.q != 0

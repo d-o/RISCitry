@@ -1,4 +1,5 @@
-"""Generate source/memory/programs.luc, source/memory/instruction_mem.luc and source/tb/cpu_tb.luc from tools/programs.py.
+"""Generate source/memory/programs.luc, source/memory/instruction_mem.luc and source/tb/cpu_tb.luc
+from tools/programs.py, and source/computer/memory_map.luc from tools/memmap.py.
 
 programs.luc: every program as a constant array in `global Programs` (the board uses one,
 the testbenches use all of them).
@@ -9,11 +10,17 @@ destination register when the instruction writes one (x0 included, which must st
 last as this multi-cycle core should take (2, or 3 for stores, 4 for loads), so a missing or
 extra cycle is a failure. After the program halts, all 16 registers are compared.
 
+Programs that print to the UART poll its STATUS register, and rv32sim has no UART timing, so the
+loop counts differ and lockstep checking is impossible. Their testbench instead runs the computer
+until it has halted and every expected byte has arrived, decodes the serial line with Alchitry's
+uart_rx, compares the bytes with rv32sim's output, then compares all 16 registers.
+
 Usage: python3 tools/gen_cpu_tb.py
 """
 from pathlib import Path
 
 import asm
+import memmap
 import programs
 import rv32sim
 
@@ -24,6 +31,11 @@ MAX_STEPS = 200            # a test program that doesn't reach halt by then is a
 STATES = {2: ["EXECUTE", "FETCH"], 3: ["EXECUTE", "MEM_ACCESS", "FETCH"],
           4: ["EXECUTE", "MEM_ACCESS", "WRITEBACK", "FETCH"]}
 WRITES_RD = {0x37, 0x17, 0x6F, 0x67, 0x03, 0x13, 0x33}
+# UART timing in the testbenches: io_clk is the testbench clock, 8 clocks per bit (uart_rx needs
+# at least 4).
+TB_UART_CLK_FREQ = 8
+TB_UART_BAUD = 1
+UART_CLOCKS_PER_BYTE = 10 * TB_UART_CLK_FREQ // TB_UART_BAUD   # start + 8 data + stop
 
 
 def clocks_for(word):
@@ -79,15 +91,31 @@ def render_instruction_mem(assembled):
     return "\n".join(out) + "\n"
 
 
-def render_testbench(name, words, text):
+def run_to_halt(words):
+    """Run rv32sim until the program's halt has executed twice; return the model."""
     model = rv32sim.Cpu(words)
-    lines = [
+    halted_for = 0
+    for _ in range(MAX_STEPS):
+        word = words.get(model.pc, asm.NOP)
+        model.step()
+        if word == asm.HALT:
+            halted_for += 1
+            if halted_for == 2:
+                return model
+    raise RuntimeError(f"no halt after {MAX_STEPS} instructions")
+
+
+def header(name, extra_sigs=()):
+    return [
         f"testbench cpu_{name.lower()}_tb {{",
         "    sig clk",
         "    sig rst",
         "    sig sel[4]",
+        *extra_sigs,
         "",
-        f"    computer dut(#PROGRAM_ID(Programs.Id.{name}), #SIM_RAM(1), .clk(clk), .rst(rst), .debug_sel(sel))",
+        f"    computer dut(#PROGRAM_ID(Programs.Id.{name}), #SIM_RAM(1), "
+        f"#UART_CLK_FREQ({TB_UART_CLK_FREQ}), #UART_BAUD({TB_UART_BAUD}),",
+        "                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .debug_sel(sel))",
         "",
         "    fun tick_clock() {",
         "        clk = 1",
@@ -100,6 +128,7 @@ def render_testbench(name, words, text):
         "        if (dut.debug_pc != pc)",
         '            $print("pc: got %h want %h", dut.debug_pc, pc)',
         "        $assert(dut.debug_pc == pc)",
+        "        $assert(dut.uart_tx)       // idle high unless the program prints",
         "    }",
         "",
         "    fun expect_state(state[Cpu.STATE_BITS]) {",
@@ -116,14 +145,78 @@ def render_testbench(name, words, text):
         "        $assert(dut.debug_reg == value)",
         "    }",
         "",
+    ]
+
+
+RESET = [
+    "        $tick_clock()",
+    "        $tick_clock()",
+    "        rst = 0",
+    "        $expect_pc(32h00000000)",
+]
+
+
+def render_uart_testbench(name, words, text):
+    """Free-run until halted with every byte received; check bytes, then registers."""
+    model = run_to_halt(words)
+    out = model.uart_out
+    halt_pc = model.pc
+    n = len(out)
+    max_clocks = n * UART_CLOCKS_PER_BYTE * 3 + 1000
+    expected = ", ".join(f"8h{b:02X}" for b in reversed(out))   # last element is index 0
+    shown = "".join(chr(b) if 32 <= b < 127 else f"\\x{b:02x}" for b in out)
+    lines = header(name, ["    sig received[8]", f"    sig expected[{n}][8]"])
+    at = next(i for i, l in enumerate(lines) if ".debug_sel(sel))" in l) + 1
+    lines.insert(at, f"    uart_rx rx(#CLK_FREQ({TB_UART_CLK_FREQ}), #BAUD({TB_UART_BAUD}), "
+                     ".clk(clk), .rst(rst), .rx(dut.uart_tx))")
+    lines += [
         "    test run {",
         "        clk = 0",
         "        sel = 0",
         "        rst = 1",
-        "        $tick_clock()",
-        "        $tick_clock()",
-        "        rst = 0",
-        "        $expect_pc(32h00000000)",
+        "        received = 0",
+        f"        expected = {{{expected}}}   // \"{shown}\"",
+        "        // hold reset for an extra bit time: uart_tx's output register has no reset and starts",
+        "        // low for two clocks, and uart_rx's 3-deep input buffer (not reset either) would",
+        "        // take that for a start bit unless the idle-high line has filled it first",
+        f"        repeat(i, {TB_UART_CLK_FREQ // TB_UART_BAUD}) {{",
+        "            $tick_clock()",
+        "        }",
+        *RESET,
+        f"        // run until halted at {halt_pc:#06x} with all {n} bytes received (at most {max_clocks} clocks)",
+        f"        repeat(i, {max_clocks}) {{",
+        f"            if (received != {n} || dut.debug_pc != 32h{halt_pc:08X} || dut.debug_state != Cpu.State.FETCH) {{",
+        "                $tick_clock()",
+        "                if (rx.new_data) {",
+        f"                    $assert(received < {n})",
+        "                    if (rx.data != expected[received])",
+        '                        $print("byte %d: got %h want %h", received, rx.data, expected[received])',
+        "                    $assert(rx.data == expected[received])",
+        "                    received = received + 1",
+        "                }",
+        "            }",
+        "        }",
+        f"        if (received != {n})",
+        f'            $print("received %d of {n} bytes", received)',
+        f"        $assert(received == {n})",
+        f"        $expect_pc(32h{halt_pc:08X})",
+        "        $expect_state(Cpu.State.FETCH)",
+        "        // final register file",
+        *[f"        $expect_reg(4d{r}, 32h{model.x[r]:08X})" for r in range(16)],
+        "    }",
+        "}",
+    ]
+    return lines, f"{n} bytes"
+
+
+def render_testbench(name, words, text):
+    model = rv32sim.Cpu(words)
+    lines = header(name) + [
+        "    test run {",
+        "        clk = 0",
+        "        sel = 0",
+        "        rst = 1",
+        *RESET,
     ]
     steps, halted_for = 0, 0
     while True:
@@ -150,23 +243,25 @@ def render_testbench(name, words, text):
     lines.append("        // final register file")
     lines += [f"        $expect_reg(4d{r}, 32h{model.x[r]:08X})" for r in range(16)]
     lines += ["    }", "}"]
-    return lines, steps
+    return lines, f"{steps} instructions"
 
 
 def main():
     assembled = {name: asm.assemble_with_listing(prog) for name, prog in programs.PROGRAMS.items()}
     (ROOT / "source" / "memory" / "programs.luc").write_text(render_programs(assembled))
     (ROOT / "source" / "memory" / "instruction_mem.luc").write_text(render_instruction_mem(assembled))
+    (ROOT / "source" / "computer" / "memory_map.luc").write_text(memmap.render_luc())
 
     out = ["// GENERATED by tools/gen_cpu_tb.py from tools/programs.py, checked against tools/rv32sim.py.",
            "// Do not edit; rerun the script after changing a program."]
     summary = []
     for name, (words, text) in assembled.items():
-        tb, steps = render_testbench(name, words, text)
+        prints = name != "LARSON" and run_to_halt(words).uart_out
+        tb, size = (render_uart_testbench if prints else render_testbench)(name, words, text)
         out += [""] + tb
-        summary.append(f"{name.lower()}: {steps} instructions")
+        summary.append(f"{name.lower()}: {size}")
     (ROOT / "source" / "tb" / "cpu_tb.luc").write_text("\n".join(out) + "\n")
-    print("wrote programs.luc and cpu_tb.luc (" + ", ".join(summary) + ")")
+    print("wrote programs.luc, memory_map.luc and cpu_tb.luc (" + ", ".join(summary) + ")")
 
 
 if __name__ == "__main__":

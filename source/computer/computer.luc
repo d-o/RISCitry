@@ -1,18 +1,25 @@
-// The computer: the cpu plus everything it reaches by address (instruction ROM, data RAM; later
-// an address decoder and I/O such as a UART). Everything here runs on the cpu clock.
-// machine.luc decides when that clock ticks; this module is what it clocks.
+// The computer: the cpu plus everything it reaches by address (instruction ROM, data RAM, UART).
+// The bus side of everything here runs on the cpu clock; machine.luc decides when that ticks.
+// The UART's serializer also needs a steady clock for its baud rate: io_clk.
 //
 // It's a module rather than wiring inside machine so cpu_tb can test the real cpu-to-memory
 // wiring: a testbench can only connect an instance to ones declared before it, and the cpu and
 // its memories feed each other.
 //
-// No address decoding yet: the RAM sees dmem_addr[7:2], so it repeats every 256 bytes.
+// Data-bus decoding follows MemMap (memory_map.luc, generated from tools/memmap.py): full decode,
+// so unmapped addresses ignore writes and read 0. Reads come back one clock after the address,
+// like the RAM, so the device registers its read data too.
 module computer #(
     PROGRAM_ID = 0,          // which program the instruction ROM holds: a Programs.Id
-    SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1   // 1 in testbenches: data RAM uses its Lucid model
+    SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1,  // 1 in testbenches: data RAM uses its Lucid model
+    UART_CLK_FREQ = 100_000_000 : UART_CLK_FREQ > 0,   // io_clk frequency
+    UART_BAUD = 1_000_000 : UART_BAUD > 0 && UART_BAUD <= UART_CLK_FREQ / 2
   ) (
     input clk,
     input rst,
+    input io_clk,            // free-running clock for the UART's baud rate
+    input io_rst,
+    output uart_tx,
     input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
     output debug_reg[32],    // register x[debug_sel]
@@ -21,19 +28,44 @@ module computer #(
 
   .clk(clk) {
     cpu core(.rst(rst));
-    data_ram ram(#ENTRIES(64), #SIM_MODEL(SIM_RAM));
+    data_ram ram(#ENTRIES(MemMap.RAM_WORDS), #SIM_MODEL(SIM_RAM));
+    uart uart0(#CLK_FREQ(UART_CLK_FREQ), #BAUD(UART_BAUD), .rst(rst));
+    .rst(rst) {
+      dff read_ram           // the previous clock's address was in the RAM
+      dff io_read[32]        // device read data for the previous clock's address
+    }
   }
 
   instruction_mem rom(#PROGRAM_ID(PROGRAM_ID));
+
+  sig ram_sel
+  sig uart_sel
 
   always {
     rom.pc = core.imem_addr
     core.imem_data = rom.instruction
 
-    ram.address = core.dmem_addr[7:2]
+    // --- address decode ---
+    ram_sel = (core.dmem_addr >> MemMap.RAM_ADDR_BITS) == (MemMap.RAM_BASE >> MemMap.RAM_ADDR_BITS)
+    uart_sel = (core.dmem_addr >> MemMap.UART_ADDR_BITS) == (MemMap.UART_BASE >> MemMap.UART_ADDR_BITS)
+
+    // --- RAM ---
+    ram.address = core.dmem_addr[MemMap.RAM_ADDR_BITS-1:2]
     ram.write_data = core.dmem_wdata
-    ram.byte_enable = core.dmem_be
-    core.dmem_rdata = ram.read_data
+    if (ram_sel) ram.byte_enable = core.dmem_be; else ram.byte_enable = 4b0000;
+
+    // --- UART: TXDATA at +0 (byte lane 0 sends), STATUS at +4 ---
+    uart0.io_clk = io_clk
+    uart0.io_rst = io_rst
+    uart0.write = uart_sel && !core.dmem_addr[2] && core.dmem_be[0]
+    uart0.write_data = core.dmem_wdata[7:0]
+    uart_tx = uart0.tx
+
+    // --- read data, one clock after the address ---
+    read_ram.d = ram_sel
+    io_read.d = 0
+    if (uart_sel && core.dmem_addr[2]) io_read.d = c{31b0, uart0.busy};
+    if (read_ram.q) core.dmem_rdata = ram.read_data; else core.dmem_rdata = io_read.q;
 
     core.debug_sel = debug_sel
     debug_pc = core.debug_pc

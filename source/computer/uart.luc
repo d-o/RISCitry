@@ -1,0 +1,66 @@
+// Memory-mapped UART transmitter: the bus side runs on the cpu clock, the serializer on io_clk.
+// The cpu clock is slow, stoppable and changes speed, so it can't time a baud rate; io_clk is the
+// free-running board clock.
+//
+// Handshake across the two clocks (a one-byte buffer):
+//   cpu side: a write while not busy saves the byte and flips req.
+//   io side:  sees req (two-flip-flop synchroniser) differ from ack; when the serializer is idle
+//             it takes the byte and sets ack = req.
+//   cpu side: busy = req != ack (ack synchronised back). Busy clears when the byte is taken, so
+//             the next byte can be written while this one is still being sent.
+// data only changes while not busy, i.e. while the io side isn't reading it, so it crosses
+// safely: by the time the io side sees req change, data has been stable for two io clocks.
+// A write while busy is dropped; programs poll STATUS first.
+module uart #(
+    CLK_FREQ = 100_000_000 : CLK_FREQ > 0,           // io_clk frequency
+    BAUD = 1_000_000 : BAUD > 0 && BAUD <= CLK_FREQ / 2
+  ) (
+    input clk,               // cpu clock (bus side)
+    input rst,               // cpu reset
+    input io_clk,            // free-running clock the baud rate comes from
+    input io_rst,
+    input write,             // a store to TXDATA wrote byte lane 0 this cpu clock
+    input write_data[8],
+    output busy,             // STATUS bit 0: a byte is waiting to be taken; a write now is dropped
+    output tx                // serial out, idle high
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff req
+    dff ack_sync0
+    dff ack_sync1
+  }
+  dff data[8](.clk(clk))
+
+  .clk(io_clk), .rst(io_rst) {
+    dff req_sync0
+    dff req_sync1
+    dff ack
+    uart_tx serializer(#CLK_FREQ(CLK_FREQ), #BAUD(BAUD));
+  }
+
+  sig pending
+
+  always {
+    // cpu side
+    ack_sync0.d = ack.q
+    ack_sync1.d = ack_sync0.q
+    pending = req.q != ack_sync1.q
+    busy = pending
+    if (write && !pending) {
+      data.d = write_data
+      req.d = ~req.q
+    }
+
+    // io side
+    req_sync0.d = req.q
+    req_sync1.d = req_sync0.q
+    serializer.data = data.q
+    serializer.new_data = 0
+    if (req_sync1.q != ack.q && !serializer.busy) {
+      serializer.new_data = 1
+      ack.d = req_sync1.q
+    }
+    tx = serializer.tx
+  }
+}

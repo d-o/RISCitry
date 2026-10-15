@@ -77,6 +77,7 @@ def main():
         "        $assert(dut.halted)",
         "        $assert(!dut.busy)",
         "        $assert(!dut.cpu_clock)",
+        "        $assert(dut.uart_tx)       // MEMORY doesn't print: serial line idle high",
         "    }",
         "",
         "    fun expect_reg(r[4], value[32]) {",
