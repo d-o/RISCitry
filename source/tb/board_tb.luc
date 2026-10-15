@@ -1,0 +1,35 @@
+// The board top's front panel outputs (hand-written): the Cu LEDs carry the cpu state one-hot in
+// [3:0], the cpu clock in [4], stopped in [5]; stopped also lights the 7-segment's rightmost dot.
+// Runs the interactive-sim configuration ($is_sim() is 0 in testbenches, so this is the hardware
+// one except where the board picks by $is_sim(); SLOW_BITS 21 means run mode never clocks here,
+// so only stop and step are checked).
+testbench board_tb {
+    sig clk
+    sig btn[5]
+    sig dips[3][8]
+
+    basic_riscve_16k16k dut(.clk(clk), .rst_n(1), .io_button(btn), .io_dip(dips))
+
+    fun tick_clock() {
+        clk = 1
+        $silent_tick()
+        clk = 0
+        $silent_tick()
+    }
+
+    test stopped_leds {
+        clk = 0
+        btn = 0
+        dips = {8h80, 8h00, 8h01}    // bank 3 switch 8: stop; bank 1: show x1
+        repeat(i, 200) { $tick_clock(); }
+        // stopped between instructions: FETCH, clock low, stopped, not busy, out of reset
+        if (dut.led != 8b00100001)
+            $print("led: got %b want 00100001", dut.led)
+        $assert(dut.led == 8b00100001)
+        // the dot: digit 0 selected (active low) shows segment 7 lit (active low)
+        repeat(i, 4) {
+            if (dut.io_select == 4b1110) $assert(dut.io_segment[7] == 0);
+            $tick_clock()
+        }
+    }
+}
