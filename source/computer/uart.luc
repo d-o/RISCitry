@@ -5,12 +5,21 @@
 // Handshake across the two clocks (a one-byte buffer):
 //   cpu side: a write while not busy saves the byte and flips req.
 //   io side:  sees req (two-flip-flop synchroniser) differ from ack; when the serializer is idle
-//             it takes the byte and sets ack = req.
+//             it sets ack = req and raises new_data for two io clocks (issue), and the
+//             serializer takes the byte on the first of those edges it sees.
 //   cpu side: busy = req != ack (ack synchronised back). Busy clears when the byte is taken, so
 //             the next byte can be written while this one is still being sent.
 // data only changes while not busy, i.e. while the io side isn't reading it, so it crosses
 // safely: by the time the io side sees req change, data has been stable for two io clocks.
 // A write while busy is dropped; programs poll STATUS first.
+//
+// Why issue and not "new_data = 1 and ack = req when !serializer.busy" (the first version): that
+// makes ack and the serializer's state change on the same edge, each decided from the other's
+// pre-edge value. Hardware updates them together; the Alchitry simulator (2.0.57) updates one
+// instance at a time in a random order, so ack sometimes saw the post-edge busy (byte sent twice)
+// or the serializer the post-edge new_data (byte dropped). Now ack depends only on this module's
+// state on the edge the serializer accepts, and new_data is high for two edges, so either order
+// gives the same result.
 module uart #(
     CLK_FREQ = 100_000_000 : CLK_FREQ > 0,           // io_clk frequency
     BAUD = 1_000_000 : BAUD > 0 && BAUD <= CLK_FREQ / 2
@@ -36,6 +45,7 @@ module uart #(
     dff req_sync0
     dff req_sync1
     dff ack
+    dff issue[2]           // new_data for this io clock [0] and the next [1]
     uart_tx serializer(#CLK_FREQ(CLK_FREQ), #BAUD(BAUD));
   }
 
@@ -56,9 +66,11 @@ module uart #(
     req_sync0.d = req.q
     req_sync1.d = req_sync0.q
     serializer.data = data.q
-    serializer.new_data = 0
-    if (req_sync1.q != ack.q && !serializer.busy) {
-      serializer.new_data = 1
+    serializer.new_data = issue.q[0]
+    if (issue.q != 0) {
+      issue.d = c{1b0, issue.q[1]}
+    } else if (req_sync1.q != ack.q && !serializer.busy) {
+      issue.d = 2b11
       ack.d = req_sync1.q
     }
     tx = serializer.tx
