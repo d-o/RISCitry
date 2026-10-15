@@ -3,7 +3,14 @@
 It executes one instruction per step and knows nothing about the hardware's FSM, so a test
 can compare the core's architectural state (pc, registers) against it after every instruction.
 Deliberately strict: anything the core doesn't implement (CSRs, traps) raises, as do data
-accesses outside memmap.py's ranges, misaligned accesses, and loads from never-written words.
+accesses outside memmap.py's ranges, misaligned accesses, and fetches or loads of words that were
+neither preloaded nor written.
+
+One address space (von Neumann, like the hardware's main_ram): the program image is preloaded
+into RAM from address 0 (gaps as nops, as assembled), instructions are fetched from that same
+memory, so loads can read code and stores can change it. The model fetches each instruction when
+it executes it; the core prefetches the next one at the end of the current one, which only
+differs when an instruction stores over the very next one (not modelled, so not tested here).
 
 The UART has no timing here: STATUS always reads 0 (not busy), and each store to TXDATA that
 writes byte lane 0 appends that byte to uart_out. The hardware's polling loops therefore run a
@@ -12,6 +19,7 @@ different number of times, so UART programs are checked by their output and fina
 import memmap
 
 MASK = 0xFFFFFFFF
+NOP = 0x00000013
 
 
 def _sext(v, bits):
@@ -19,12 +27,17 @@ def _sext(v, bits):
 
 
 class Cpu:
-    def __init__(self, rom, default_word=0x00000013):
-        self.rom, self.default_word = rom, default_word
+    def __init__(self, words):
+        """words: {byte address: instruction or data word} as assembled."""
         self.pc = 0
         self.x = [0] * 16
-        self.mem = {}
+        self.mem = {}                 # word-aligned byte address -> word, preloaded or written
         self.uart_out = []
+        size = max(words) // 4 + 1
+        if size * 4 > memmap.RAM_BYTES:
+            raise ValueError(f"program ({size * 4} bytes) doesn't fit in RAM ({memmap.RAM_BYTES} bytes)")
+        for i in range(size):
+            self.mem[memmap.RAM_BASE + 4 * i] = words.get(4 * i, NOP)
 
     def reg(self, r):
         if r > 15:
@@ -59,7 +72,7 @@ class Cpu:
                 raise ValueError(f"pc={self.pc:#x}: load from UART {addr:#x}: only STATUS is readable")
             return 0                                 # never busy: no timing in this model
         if word_addr not in self.mem:
-            raise ValueError(f"pc={self.pc:#x}: load from {word_addr:#x} before any store (RAM starts unknown)")
+            raise ValueError(f"pc={self.pc:#x}: load from {word_addr:#x}: neither program nor stored")
         return (self.mem[word_addr] >> shift) & ((1 << (8 * size)) - 1)
 
     def _store(self, addr, size, value):
@@ -74,8 +87,16 @@ class Cpu:
         old = self.mem.get(word_addr, 0)   # a partial store into an unwritten word: other bytes are 0
         self.mem[word_addr] = (old & ~mask) | ((value << shift) & mask)
 
+    def fetch(self):
+        """The instruction at pc (what step() will execute next)."""
+        if self.pc % 4 or self._region(self.pc) != "ram":
+            raise ValueError(f"fetch from {self.pc:#x}: not an aligned RAM address")
+        if self.pc not in self.mem:
+            raise ValueError(f"fetch from {self.pc:#x}: never written (RAM past the program reads 0)")
+        return self.mem[self.pc]
+
     def step(self):
-        w = self.rom.get(self.pc, self.default_word)
+        w = self.fetch()
         op, rd, f3 = w & 0x7F, (w >> 7) & 31, (w >> 12) & 7
         rs1, rs2, f7 = (w >> 15) & 31, (w >> 20) & 31, w >> 25
         i_imm = _sext(w >> 20, 12)

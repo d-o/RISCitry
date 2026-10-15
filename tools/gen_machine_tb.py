@@ -109,7 +109,7 @@ def main():
 
     def next_instruction():
         pc = model.pc
-        word = words.get(pc, asm.NOP)
+        word = model.fetch()
         model.step()
         return pc, word
 
@@ -170,7 +170,7 @@ def main():
         "        run = 0",
         "        $settle()",
     ]
-    while words.get(model.pc, asm.NOP) != asm.HALT:
+    while model.fetch() != asm.HALT:
         model.step()
     out.append(f"        $expect_stopped_at(32h{model.pc:08X}, Cpu.State.FETCH)")
     out += [f"        $expect_reg(4d{r}, 32h{model.x[r]:08X})" for r in range(16)]

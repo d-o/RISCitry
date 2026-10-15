@@ -110,10 +110,11 @@ JUMPS = [
     ("jalr", 0, 1, 0),              # ret
 ]
 
-# SW then LW, positive and negative offsets, overwrites, x0 as data. RAM is memmap.RAM_BYTES
-# from address 0 and starts unknown, so every load reads an address stored first.
+# SW then LW, positive and negative offsets, overwrites, x0 as data. Code and data share the
+# RAM, so the data lives at DATA, clear of the program; every load reads an address stored first.
+DATA = 0x400
 MEMORY = [
-    ("addi", 2, 0, 0x40),           # base address
+    ("addi", 2, 0, DATA),           # base address
     ("lui", 3, 0xDEADC),
     ("addi", 3, 3, -0x111),         # x3 = 0xDEADBEEF
     ("sw", 3, 2, 0),
@@ -124,10 +125,11 @@ MEMORY = [
     ("sw", 0, 2, 0),                # overwrite with zero
     ("lw", 7, 2, 0),
     ("addi", 8, 2, 8),
-    ("sw", 3, 8, -4),               # negative offset: address 0x44
+    ("sw", 3, 8, -4),               # negative offset: DATA + 4
     ("lw", 9, 2, 4),
-    ("sw", 6, 0, memmap.RAM_BYTES - 4),     # top word of the RAM
-    ("lw", 10, 0, memmap.RAM_BYTES - 4),
+    ("lui", 11, memmap.RAM_BYTES >> 12),    # x11 = end of RAM
+    ("sw", 6, 11, -4),              # top word of the RAM
+    ("lw", 10, 11, -4),
     ("halt",),
 ]
 
@@ -135,7 +137,7 @@ MEMORY = [
 # offset, sign vs zero extension, partial stores read back as words, a negative offset, and a byte
 # store into a never-written word (the other bytes read as 0).
 BYTES = [
-    ("addi", 2, 0, 0x80),           # base address
+    ("addi", 2, 0, DATA + 0x80),    # base address
     ("lui", 3, 0x80818),
     ("addi", 3, 3, -0xFF),          # x3 = 0x80817F01: bytes 01 7F 81 80
     ("sw", 3, 2, 0),
@@ -160,7 +162,7 @@ BYTES = [
     ("lw", 1, 2, 4),
     ("lb", 1, 2, 5),                # 0x7F
     ("addi", 5, 2, 8),
-    ("sb", 0, 5, -1),               # address 0x87: top byte of word +4 -> 0x00FF7F01
+    ("sb", 0, 5, -1),               # base + 7: top byte of word +4 -> 0x00FF7F01
     ("lw", 6, 2, 4),
     ("sb", 14, 2, 9),               # never-written word +8: byte 1 -> 0x0000FF00
     ("lw", 7, 2, 8),
@@ -169,11 +171,11 @@ BYTES = [
 ]
 
 # Memory-mapped UART: poll STATUS, then store to TXDATA, with both sw and sb. A byte stored to
-# lane 1 of TXDATA must not be sent. RAM word 0 is read back at the end: UART stores mustn't
-# reach the RAM (its low address bits match). Expected output: "Hi!\n".
+# lane 1 of TXDATA must not be sent. RAM word 0 (this program's first instruction) is read back
+# at the end: UART stores mustn't reach the RAM (its low address bits match). Expected output:
+# "Hi!\n".
 UART = [
     ("addi", 12, 0, 0x5A),
-    ("sw", 12, 0, 0),                          # marker in RAM word 0
     ("lui", 2, memmap.UART_BASE >> 12),        # x2 = UART base
     ("addi", 10, 0, ord("H")),
     ("jal", 1, "putc"),
@@ -186,7 +188,7 @@ UART = [
     ("jal", 1, "putc_sb"),
     ("addi", 10, 0, ord("\n")),
     ("jal", 1, "putc"),
-    ("lw", 13, 0, 0),                          # still the marker
+    ("lw", 13, 0, 0),                          # still the first instruction
     ("halt",),
     "putc:",                                   # send x10 with sw, once STATUS says not busy
     ("lw", 5, 2, memmap.UART_STATUS - memmap.UART_BASE),

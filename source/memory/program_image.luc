@@ -14,8 +14,8 @@ module program_image #(
     if (PROGRAM_ID == Programs.Id.ALU && addr < 30) word = Programs.ALU[addr];
     if (PROGRAM_ID == Programs.Id.BRANCHES && addr < 21) word = Programs.BRANCHES[addr];
     if (PROGRAM_ID == Programs.Id.JUMPS && addr < 15) word = Programs.JUMPS[addr];
-    if (PROGRAM_ID == Programs.Id.MEMORY && addr < 16) word = Programs.MEMORY[addr];
+    if (PROGRAM_ID == Programs.Id.MEMORY && addr < 17) word = Programs.MEMORY[addr];
     if (PROGRAM_ID == Programs.Id.BYTES && addr < 31) word = Programs.BYTES[addr];
-    if (PROGRAM_ID == Programs.Id.UART && addr < 27) word = Programs.UART[addr];
+    if (PROGRAM_ID == Programs.Id.UART && addr < 26) word = Programs.UART[addr];
   }
 }

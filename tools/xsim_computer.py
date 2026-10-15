@@ -128,7 +128,7 @@ def expected_trace(name, words):
     trace = [("FETCH", 0)]
     steps, halted_for = 0, 0
     while True:
-        word = words.get(model.pc, asm.NOP)
+        word = model.fetch()
         model.step()
         steps += 1
         states = gen_cpu_tb.STATES[gen_cpu_tb.clocks_for(word)]

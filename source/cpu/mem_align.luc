@@ -7,7 +7,7 @@ module mem_align (
     input funct3[3],
     input addr_low[2],         // byte address bits [1:0]
     input store_data[32],      // rs2
-    input load_word[32],       // whole word read from data_ram
+    input load_word[32],       // whole word read from memory
     output write_data[32],     // store data copied into every lane it could occupy
     output byte_enable[4],     // lanes a store writes (only used when the instruction stores)
     output load_data[32]       // loaded value, sign- or zero-extended to 32 bits

@@ -1,4 +1,4 @@
-// The computer: the cpu plus everything it reaches by address (instruction ROM, data RAM, UART).
+// The computer: the cpu plus everything it reaches by address (main RAM, UART).
 // The bus side of everything here runs on the cpu clock; machine.luc decides when that ticks.
 // The UART's serializer also needs a steady clock for its baud rate: io_clk.
 //
@@ -6,16 +6,17 @@
 // wiring: a testbench can only connect an instance to ones declared before it, and the cpu and
 // its memories feed each other.
 //
-// The cpu has one read port (instruction fetches and loads, told apart by bus_load) and one
-// write port. Until code and data share one memory, instruction fetches read the ROM and loads
-// and stores go to the data bus. Reads come back one clock after the address, like block RAM,
-// so the ROM word and device read data are registered here.
+// One address space for code and data (von Neumann). The cpu has one read port (instruction
+// fetches and loads; bus_load = 1 for a load) and one write port; main_ram has one of each, so a
+// store and the next fetch happen on the same edge. Reads come back one clock after the address,
+// like the block RAM, so device read data is registered here too.
 //
-// Data-bus decoding follows MemMap (memory_map.luc, generated from tools/memmap.py): full decode,
-// so unmapped addresses ignore writes and read 0.
+// Decoding follows MemMap (memory_map.luc, generated from tools/memmap.py): full decode, so
+// unmapped addresses ignore writes and read 0. Devices answer loads only: a fetch from the UART
+// (or anywhere unmapped) reads 0, an illegal instruction, which the cpu treats as a NOP.
 module computer #(
-    PROGRAM_ID = 0,          // which program the instruction ROM holds: a Programs.Id
-    SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1,  // 1 in testbenches: data RAM uses its Lucid model
+    PROGRAM_ID = 0,          // the program main RAM starts with: a Programs.Id
+    SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1,  // 1 in testbenches: main RAM uses its Lucid model
     UART_CLK_FREQ = 100_000_000 : UART_CLK_FREQ > 0,   // io_clk frequency
     UART_BAUD = 1_000_000 : UART_BAUD > 0 && UART_BAUD <= UART_CLK_FREQ / 2
   ) (
@@ -32,37 +33,31 @@ module computer #(
 
   .clk(clk) {
     cpu core(.rst(rst));
-    data_ram ram(#ENTRIES(MemMap.RAM_WORDS), #SIM_MODEL(SIM_RAM));
+    main_ram ram(#WORDS(MemMap.RAM_WORDS), #PROGRAM_ID(PROGRAM_ID), #SIM_MODEL(SIM_RAM));
     uart uart0(#CLK_FREQ(UART_CLK_FREQ), #BAUD(UART_BAUD), .rst(rst));
-    .rst(rst) {
-      dff was_load           // the previous clock's read was a load (else a fetch)
-      dff read_ram           // ...from the RAM
-      dff io_read[32]        // device read data for the previous clock's address
-    }
-    dff fetch_word[32]       // the ROM word at the previous clock's address
+    // no reset, like the RAM's own read register: the read on reset's last edge (address 0) is
+    // the first instruction, and FETCH must see it come from the RAM
+    dff read_ram           // the previous clock's read address was in the RAM
+    dff io_read[32](.rst(rst))   // device read data for the previous clock's address
   }
 
-  instruction_mem rom(#PROGRAM_ID(PROGRAM_ID));
-
-  sig ram_rsel             // the read port's address is a load from the RAM
+  sig ram_rsel             // the read port's address (fetch or load) is in the RAM
   sig ram_wsel             // the write port's address is in the RAM
   sig uart_rsel
   sig uart_wsel
 
   always {
-    rom.pc = core.bus_raddr
-    fetch_word.d = rom.instruction
-
-    // --- address decode: loads by the read port, stores by the write port ---
-    ram_rsel = core.bus_load && (core.bus_raddr >> MemMap.RAM_ADDR_BITS) == (MemMap.RAM_BASE >> MemMap.RAM_ADDR_BITS)
+    // --- address decode: reads by the read port, stores by the write port ---
+    ram_rsel = (core.bus_raddr >> MemMap.RAM_ADDR_BITS) == (MemMap.RAM_BASE >> MemMap.RAM_ADDR_BITS)
     ram_wsel = (core.bus_waddr >> MemMap.RAM_ADDR_BITS) == (MemMap.RAM_BASE >> MemMap.RAM_ADDR_BITS)
     uart_rsel = core.bus_load && (core.bus_raddr >> MemMap.UART_ADDR_BITS) == (MemMap.UART_BASE >> MemMap.UART_ADDR_BITS)
     uart_wsel = (core.bus_waddr >> MemMap.UART_ADDR_BITS) == (MemMap.UART_BASE >> MemMap.UART_ADDR_BITS)
 
-    // --- RAM: one address port, so the store's address while storing, else the read port's ---
-    if (core.bus_be != 0) ram.address = core.bus_waddr[MemMap.RAM_ADDR_BITS-1:2]; else ram.address = core.bus_raddr[MemMap.RAM_ADDR_BITS-1:2];
-    ram.write_data = core.bus_wdata
-    if (ram_wsel) ram.byte_enable = core.bus_be; else ram.byte_enable = 4b0000;
+    // --- RAM: word addresses ---
+    ram.raddr = core.bus_raddr[MemMap.RAM_ADDR_BITS-1:2]
+    ram.waddr = core.bus_waddr[MemMap.RAM_ADDR_BITS-1:2]
+    ram.wdata = core.bus_wdata
+    if (ram_wsel) ram.be = core.bus_be; else ram.be = 4b0000;
 
     // --- UART: TXDATA at +0 (byte lane 0 sends), STATUS at +4 ---
     uart0.io_clk = io_clk
@@ -72,13 +67,10 @@ module computer #(
     uart_tx = uart0.tx
 
     // --- read data, one clock after the address ---
-    was_load.d = core.bus_load
     read_ram.d = ram_rsel
     io_read.d = 0
     if (uart_rsel && core.bus_raddr[2]) io_read.d = c{31b0, uart0.busy};
-    if (!was_load.q) core.bus_rdata = fetch_word.q;
-    else if (read_ram.q) core.bus_rdata = ram.read_data;
-    else core.bus_rdata = io_read.q;
+    if (read_ram.q) core.bus_rdata = ram.rdata; else core.bus_rdata = io_read.q;
 
     core.debug_sel = debug_sel
     debug_pc = core.debug_pc

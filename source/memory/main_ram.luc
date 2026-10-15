@@ -27,10 +27,14 @@ module main_ram #(
     input be[4]
   ) {
 
+  // The model's arrays are full size only when it's used; in a build they shrink to one word
+  // (synthesis would remove them anyway, but Yosys's check pass spent ~8 minutes on 2048 words).
+  const MODEL_WORDS = SIM_MODEL || $is_sim() ? WORDS : 2
+
   .clk(clk) {
     main_ram_bram bram(#PROGRAM_ID(PROGRAM_ID), #WORDS(WORDS));
-    dff model_mem[WORDS][4][8]
-    dff model_written[WORDS][4]    // byte has been written: read model_mem, not the image
+    dff model_mem[MODEL_WORDS][4][8]
+    dff model_written[MODEL_WORDS][4]    // byte has been written: read model_mem, not the image
     dff model_read[4][8]
   }
 

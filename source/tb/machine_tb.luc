@@ -72,12 +72,12 @@ testbench machine_tb {
         $settle()
         $expect_stopped_at(32h00000000, Cpu.State.FETCH)   // stays stopped
         clock_step = 1
-        // clock steps: 0x0000: addi x2, x0, 64
+        // clock steps: 0x0000: addi x2, x0, 0x400
         $press_step()
         $expect_stopped_at(32h00000000, Cpu.State.EXECUTE)
         $press_step()
         $expect_stopped_at(32h00000004, Cpu.State.FETCH)
-        $expect_reg(4d2, 32h00000040)
+        $expect_reg(4d2, 32h00000400)
         // one clock step into 0x0004: lui x3, 0xdeadc, then instruction mode
         clock_step = 1
         $press_step()
@@ -106,14 +106,14 @@ testbench machine_tb {
         // step: 0x0018: lw x5, 4(x2)
         $press_step()
         $expect_stopped_at(32h0000001C, Cpu.State.FETCH)
-        $expect_reg(4d5, 32h00000040)
+        $expect_reg(4d5, 32h00000400)
         clock_step = 1
         // clock steps: 0x001c: add x6, x4, x5
         $press_step()
         $expect_stopped_at(32h0000001C, Cpu.State.EXECUTE)
         $press_step()
         $expect_stopped_at(32h00000020, Cpu.State.FETCH)
-        $expect_reg(4d6, 32hDEADBF2F)
+        $expect_reg(4d6, 32hDEADC2EF)
         // clock steps: 0x0020: sw x0, 0(x2)
         $press_step()
         $expect_stopped_at(32h00000020, Cpu.State.EXECUTE)
@@ -145,19 +145,19 @@ testbench machine_tb {
         repeat(i, 40) { $settle(); }
         run = 0
         $settle()
-        $expect_stopped_at(32h0000003C, Cpu.State.FETCH)
+        $expect_stopped_at(32h00000040, Cpu.State.FETCH)
         $expect_reg(4d0, 32h00000000)
         $expect_reg(4d1, 32h00000000)
-        $expect_reg(4d2, 32h00000040)
+        $expect_reg(4d2, 32h00000400)
         $expect_reg(4d3, 32hDEADBEEF)
         $expect_reg(4d4, 32hDEADBEEF)
-        $expect_reg(4d5, 32h00000040)
-        $expect_reg(4d6, 32hDEADBF2F)
+        $expect_reg(4d5, 32h00000400)
+        $expect_reg(4d6, 32hDEADC2EF)
         $expect_reg(4d7, 32h00000000)
-        $expect_reg(4d8, 32h00000048)
+        $expect_reg(4d8, 32h00000408)
         $expect_reg(4d9, 32hDEADBEEF)
-        $expect_reg(4d10, 32hDEADBF2F)
-        $expect_reg(4d11, 32h00000000)
+        $expect_reg(4d10, 32hDEADC2EF)
+        $expect_reg(4d11, 32h00002000)
         $expect_reg(4d12, 32h00000000)
         $expect_reg(4d13, 32h00000000)
         $expect_reg(4d14, 32h00000000)
@@ -175,7 +175,7 @@ testbench machine_tb {
         repeat(i, 10) { $settle(); }
         run = 0
         $settle()
-        $expect_stopped_at(32h0000003C, Cpu.State.FETCH)
-        $expect_reg(4d10, 32hDEADBF2F)
+        $expect_stopped_at(32h00000040, Cpu.State.FETCH)
+        $expect_reg(4d10, 32hDEADC2EF)
     }
 }
