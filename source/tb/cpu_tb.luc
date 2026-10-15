@@ -3,20 +3,26 @@
 
 testbench cpu_board_sw0_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -43,6 +49,7 @@ testbench cpu_board_sw0_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -360,6 +367,7 @@ testbench cpu_board_sw0_tb {
 
 testbench cpu_board_sw1_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
@@ -367,16 +375,21 @@ testbench cpu_board_sw1_tb {
     sig expected[100][8]
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -403,6 +416,7 @@ testbench cpu_board_sw1_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h01
         rst = 1
@@ -439,20 +453,26 @@ testbench cpu_board_sw1_tb {
 
 testbench cpu_larson_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.LARSON), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -479,6 +499,7 @@ testbench cpu_larson_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -746,20 +767,26 @@ testbench cpu_larson_tb {
 
 testbench cpu_alu_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.ALU), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -786,6 +813,7 @@ testbench cpu_alu_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -1032,20 +1060,26 @@ testbench cpu_alu_tb {
 
 testbench cpu_branches_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.BRANCHES), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -1072,6 +1106,7 @@ testbench cpu_branches_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -1266,20 +1301,26 @@ testbench cpu_branches_tb {
 
 testbench cpu_jumps_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.JUMPS), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -1306,6 +1347,7 @@ testbench cpu_jumps_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -1433,20 +1475,26 @@ testbench cpu_jumps_tb {
 
 testbench cpu_memory_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.MEMORY), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -1473,6 +1521,7 @@ testbench cpu_memory_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -1653,20 +1702,26 @@ testbench cpu_memory_tb {
 
 testbench cpu_bytes_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.BYTES), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -1693,6 +1748,7 @@ testbench cpu_bytes_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -2022,6 +2078,7 @@ testbench cpu_bytes_tb {
 
 testbench cpu_uart_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
@@ -2029,16 +2086,21 @@ testbench cpu_uart_tb {
     sig expected[4][8]
 
     computer dut(#PROGRAM_ID(Programs.Id.UART), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -2065,6 +2127,7 @@ testbench cpu_uart_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -2120,6 +2183,7 @@ testbench cpu_uart_tb {
 
 testbench cpu_string_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
@@ -2127,16 +2191,21 @@ testbench cpu_string_tb {
     sig expected[16][8]
 
     computer dut(#PROGRAM_ID(Programs.Id.STRING), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -2163,6 +2232,7 @@ testbench cpu_string_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -2218,20 +2288,26 @@ testbench cpu_string_tb {
 
 testbench cpu_table_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.TABLE), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -2258,6 +2334,7 @@ testbench cpu_table_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -2546,20 +2623,26 @@ testbench cpu_table_tb {
 
 testbench cpu_selfmod_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.SELFMOD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -2586,6 +2669,7 @@ testbench cpu_selfmod_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -2785,20 +2869,26 @@ testbench cpu_selfmod_tb {
 
 testbench cpu_illegal_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.ILLEGAL), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -2825,6 +2915,7 @@ testbench cpu_illegal_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -3944,20 +4035,26 @@ testbench cpu_illegal_tb {
 
 testbench cpu_csr_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.CSR), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -3984,6 +4081,7 @@ testbench cpu_csr_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
@@ -4200,20 +4298,26 @@ testbench cpu_csr_tb {
 
 testbench cpu_traps_tb {
     sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
 
     computer dut(#PROGRAM_ID(Programs.Id.TRAPS), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
-                 .clk(clk), .rst(rst), .io_clk(clk), .io_rst(rst), .switches(switches),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
-    // for its waveform view, and across the suite that exhausts its memory
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
     fun tick_clock() {
         clk = 1
+        io_clk = 0
         $silent_tick()
         clk = 0
+        io_clk = 1
         $silent_tick()
     }
 
@@ -4240,6 +4344,7 @@ testbench cpu_traps_tb {
 
     test run {
         clk = 0
+        io_clk = 0
         sel = 0
         switches = 8h00
         rst = 1
