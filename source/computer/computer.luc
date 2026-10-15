@@ -6,9 +6,13 @@
 // wiring: a testbench can only connect an instance to ones declared before it, and the cpu and
 // its memories feed each other.
 //
+// The cpu has one read port (instruction fetches and loads, told apart by bus_load) and one
+// write port. Until code and data share one memory, instruction fetches read the ROM and loads
+// and stores go to the data bus. Reads come back one clock after the address, like block RAM,
+// so the ROM word and device read data are registered here.
+//
 // Data-bus decoding follows MemMap (memory_map.luc, generated from tools/memmap.py): full decode,
-// so unmapped addresses ignore writes and read 0. Reads come back one clock after the address,
-// like the RAM, so the device registers its read data too.
+// so unmapped addresses ignore writes and read 0.
 module computer #(
     PROGRAM_ID = 0,          // which program the instruction ROM holds: a Programs.Id
     SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1,  // 1 in testbenches: data RAM uses its Lucid model
@@ -31,41 +35,50 @@ module computer #(
     data_ram ram(#ENTRIES(MemMap.RAM_WORDS), #SIM_MODEL(SIM_RAM));
     uart uart0(#CLK_FREQ(UART_CLK_FREQ), #BAUD(UART_BAUD), .rst(rst));
     .rst(rst) {
-      dff read_ram           // the previous clock's address was in the RAM
+      dff was_load           // the previous clock's read was a load (else a fetch)
+      dff read_ram           // ...from the RAM
       dff io_read[32]        // device read data for the previous clock's address
     }
+    dff fetch_word[32]       // the ROM word at the previous clock's address
   }
 
   instruction_mem rom(#PROGRAM_ID(PROGRAM_ID));
 
-  sig ram_sel
-  sig uart_sel
+  sig ram_rsel             // the read port's address is a load from the RAM
+  sig ram_wsel             // the write port's address is in the RAM
+  sig uart_rsel
+  sig uart_wsel
 
   always {
-    rom.pc = core.imem_addr
-    core.imem_data = rom.instruction
+    rom.pc = core.bus_raddr
+    fetch_word.d = rom.instruction
 
-    // --- address decode ---
-    ram_sel = (core.dmem_addr >> MemMap.RAM_ADDR_BITS) == (MemMap.RAM_BASE >> MemMap.RAM_ADDR_BITS)
-    uart_sel = (core.dmem_addr >> MemMap.UART_ADDR_BITS) == (MemMap.UART_BASE >> MemMap.UART_ADDR_BITS)
+    // --- address decode: loads by the read port, stores by the write port ---
+    ram_rsel = core.bus_load && (core.bus_raddr >> MemMap.RAM_ADDR_BITS) == (MemMap.RAM_BASE >> MemMap.RAM_ADDR_BITS)
+    ram_wsel = (core.bus_waddr >> MemMap.RAM_ADDR_BITS) == (MemMap.RAM_BASE >> MemMap.RAM_ADDR_BITS)
+    uart_rsel = core.bus_load && (core.bus_raddr >> MemMap.UART_ADDR_BITS) == (MemMap.UART_BASE >> MemMap.UART_ADDR_BITS)
+    uart_wsel = (core.bus_waddr >> MemMap.UART_ADDR_BITS) == (MemMap.UART_BASE >> MemMap.UART_ADDR_BITS)
 
-    // --- RAM ---
-    ram.address = core.dmem_addr[MemMap.RAM_ADDR_BITS-1:2]
-    ram.write_data = core.dmem_wdata
-    if (ram_sel) ram.byte_enable = core.dmem_be; else ram.byte_enable = 4b0000;
+    // --- RAM: one address port, so the store's address while storing, else the read port's ---
+    if (core.bus_be != 0) ram.address = core.bus_waddr[MemMap.RAM_ADDR_BITS-1:2]; else ram.address = core.bus_raddr[MemMap.RAM_ADDR_BITS-1:2];
+    ram.write_data = core.bus_wdata
+    if (ram_wsel) ram.byte_enable = core.bus_be; else ram.byte_enable = 4b0000;
 
     // --- UART: TXDATA at +0 (byte lane 0 sends), STATUS at +4 ---
     uart0.io_clk = io_clk
     uart0.io_rst = io_rst
-    uart0.write = uart_sel && !core.dmem_addr[2] && core.dmem_be[0]
-    uart0.write_data = core.dmem_wdata[7:0]
+    uart0.write = uart_wsel && !core.bus_waddr[2] && core.bus_be[0]
+    uart0.write_data = core.bus_wdata[7:0]
     uart_tx = uart0.tx
 
     // --- read data, one clock after the address ---
-    read_ram.d = ram_sel
+    was_load.d = core.bus_load
+    read_ram.d = ram_rsel
     io_read.d = 0
-    if (uart_sel && core.dmem_addr[2]) io_read.d = c{31b0, uart0.busy};
-    if (read_ram.q) core.dmem_rdata = ram.read_data; else core.dmem_rdata = io_read.q;
+    if (uart_rsel && core.bus_raddr[2]) io_read.d = c{31b0, uart0.busy};
+    if (!was_load.q) core.bus_rdata = fetch_word.q;
+    else if (read_ram.q) core.bus_rdata = ram.read_data;
+    else core.bus_rdata = io_read.q;
 
     core.debug_sel = debug_sel
     debug_pc = core.debug_pc

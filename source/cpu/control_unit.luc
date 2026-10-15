@@ -3,6 +3,8 @@
 //   FETCH -> EXECUTE -> FETCH                          (ALU ops, jumps, branches, LUI/AUIPC)
 //   FETCH -> EXECUTE -> MEM_ACCESS -> FETCH            (stores)
 //   FETCH -> EXECUTE -> MEM_ACCESS -> WRITEBACK -> FETCH (loads: the RAM read takes a cycle)
+// The cycle that writes pc also fetches: cpu.luc puts the next pc on the read port then, so the
+// instruction is there in FETCH. A load's address goes on the read port in MEM_ACCESS (mem_read).
 // Illegal instructions arrive with every side effect already off, so they act as a NOP.
 module control_unit (
     input clk,
@@ -13,6 +15,7 @@ module control_unit (
     output pc_src[2],          // program_counter: 00 = pc + 4, 01 = pc + imm, 10 = JALR target
     output reg_write,
     output mem_write,
+    output mem_read,           // a load's address is on the read port this clock
     output current_state[Cpu.STATE_BITS]   // a Cpu.State; FETCH = between instructions
   ) {
 
@@ -23,6 +26,7 @@ module control_unit (
     pc_src = 2b00
     reg_write = 0
     mem_write = 0
+    mem_read = 0
     current_state = state.q
 
     case (state.q) {
@@ -46,6 +50,7 @@ module control_unit (
           pc_write = 1
           state.d = Cpu.State.FETCH
         } else {
+          mem_read = ctrl.mem_read
           state.d = Cpu.State.WRITEBACK
         }
 
