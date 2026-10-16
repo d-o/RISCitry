@@ -22,11 +22,11 @@ module display_chars (
   }
 
   always {
-    if (write) {
-      taken.d = 1
-      repeat(i, 4) {
-        if (be[i]) text.d[i] = wdata[i*8+:8];
-      }
+    if (write) taken.d = 1;
+    // repeat outside the if: inside it, the generated loop variable is only assigned when
+    // writing, which Verilator reports as a latch (vsim)
+    repeat(i, 4) {
+      if (write && be[i]) text.d[i] = wdata[i*8+:8];
     }
     chars = c{text.q[3], text.q[2], text.q[1], text.q[0]}
     owned = taken.q

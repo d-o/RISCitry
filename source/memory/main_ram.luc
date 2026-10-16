@@ -54,10 +54,10 @@ module main_ram #(
 
     read_image.addr = raddr
     repeat(i, 4) {
-      if (model_written.q[raddr][i]) model_read.d[i] = model_mem.q[raddr][i]; else model_read.d[i] = read_image.word[i*8+7:i*8];
+      if (model_written.q[raddr][i]) model_read.d[i] = model_mem.q[raddr][i]; else model_read.d[i] = read_image.word[i*8+:8];
       if (!ce) model_read.d[i] = model_read.q[i];
       if (be[i] && ce) {
-        model_mem.d[waddr][i] = wdata[i*8+7:i*8]
+        model_mem.d[waddr][i] = wdata[i*8+:8]
         model_written.d[waddr][i] = 1
       }
     }
