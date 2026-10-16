@@ -24,7 +24,7 @@ global Cpu {
     const CSR_MEPC = 12h341        // bits [1:0] read 0 (IALIGN = 32)
     const CSR_MCAUSE = 12h342
     const CSR_MTVAL = 12h343
-    const CSR_MIP = 12h344         // no interrupt sources yet: reads 0, writes ignored
+    const CSR_MIP = 12h344         // MTIP [7] from the timer; read-only (writes ignored)
     const CSR_MVENDORID = 12hF11   // the ID registers read 0
     const CSR_MARCHID = 12hF12
     const CSR_MIMPID = 12hF13
@@ -67,6 +67,7 @@ global Cpu {
     const CAUSE_LOAD_MISALIGNED = 4d4
     const CAUSE_STORE_MISALIGNED = 4d6
     const CAUSE_ECALL_M = 4d11
+    const CAUSE_TIMER_INTERRUPT = 4d7      // with mcause[31] = 1
 
     // What mtval gets on a trap
     enum TvalSel { ZERO, INSTRUCTION, ADDRESS, TARGET }

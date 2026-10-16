@@ -8,4 +8,6 @@ global MemMap {
     const UART_ADDR_BITS = 3
     const SWITCHES_BASE = 32h80001000    // bits 7:0 = switches
     const SWITCHES_ADDR_BITS = 2
+    const TIMER_BASE = 32h80002000    // mtime +0/+4, mtimecmp +8/+12
+    const TIMER_ADDR_BITS = 4
 }

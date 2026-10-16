@@ -1,0 +1,51 @@
+// Machine timer: mtime and mtimecmp (64 bits each, read and written as 32-bit words) and the
+// timer interrupt request MTIP = mtime >= mtimecmp.
+//
+// mtime counts cpu clocks, not wall-clock time. The spec expects a constant rate, but this machine
+// stops and single-steps, and a timer that ran on while the cpu was stopped would make stepping
+// through an interrupt handler meaningless. Counting cpu clocks also makes every interrupt exactly
+// predictable, so rv32sim checks them clock for clock. mtime is 0 after reset and counts every
+// clock; a write replaces the written half on that edge (no increment of that edge). mtimecmp is
+// all ones after reset (no interrupt until software sets it).
+//
+// MTIP is registered: the comparison of this clock's values is seen on the next one, which keeps
+// the 64-bit compare off the cpu's trap path. A store to mtimecmp in an instruction's last cycle
+// is therefore seen by the next instruction's EXECUTE (compared during its FETCH).
+module timer (
+    input clk,
+    input rst,
+    input sel_write,         // a word store to the timer this clock
+    input waddr[2],          // word within the timer: 0 mtime, 1 mtimeh, 2 mtimecmp, 3 mtimecmph
+    input wdata[32],
+    input raddr[2],          // the word a load reads (registered by the computer)
+    output rdata[32],
+    output mtip              // timer interrupt pending (mip.MTIP)
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff mtime[64]
+    dff mtimecmp[64](#INIT(64hFFFFFFFFFFFFFFFF))
+    dff pending
+  }
+
+  always {
+    mtime.d = mtime.q + 1
+    if (sel_write) {
+      case (waddr) {
+        2d0: mtime.d = c{mtime.q[63:32], wdata}
+        2d1: mtime.d = c{wdata, mtime.q[31:0]}
+        2d2: mtimecmp.d = c{mtimecmp.q[63:32], wdata}
+        default: mtimecmp.d = c{wdata, mtimecmp.q[31:0]}
+      }
+    }
+    pending.d = mtime.q >= mtimecmp.q
+    mtip = pending.q
+
+    case (raddr) {
+      2d0: rdata = mtime.q[31:0]
+      2d1: rdata = mtime.q[63:32]
+      2d2: rdata = mtimecmp.q[31:0]
+      default: rdata = mtimecmp.q[63:32]
+    }
+  }
+}

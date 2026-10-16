@@ -24,6 +24,7 @@ module cpu (
     output bus_waddr[32],    // write port: byte address (rs1 + imm)
     output bus_wdata[32],    // store data, copied into every lane it could occupy
     output bus_be[4],        // byte lanes to write this clock; 0 when not storing
+    input irq_timer,         // machine timer interrupt request (mip.MTIP)
     input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
     output debug_reg[32],    // register x[debug_sel]
@@ -121,9 +122,12 @@ module cpu (
     traps.addr_low = alu_unit.result[1:0];
     traps.target_bit1 = target[1];
     traps.branch_taken = branch.taken;
+    traps.interrupt = csrs.irq;
+    csrs.mtip = irq_timer;
     csrs.trap = control.take_trap;
     csrs.trap_pc = pc_unit.pc;
     csrs.trap_cause = traps.cause;
+    csrs.trap_interrupt = traps.interrupt_taken;
     case (traps.tval_sel) {
       Cpu.TvalSel.INSTRUCTION: csrs.trap_value = instruction;
       Cpu.TvalSel.ADDRESS:     csrs.trap_value = alu_unit.result;

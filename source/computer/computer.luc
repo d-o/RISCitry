@@ -1,4 +1,4 @@
-// The computer: the cpu plus everything it reaches by address (main RAM, UART, switches).
+// The computer: the cpu plus everything it reaches by address (main RAM, UART, switches, timer).
 // The bus side of everything here runs on the cpu clock; machine.luc decides when that ticks.
 // The UART's serializer also needs a steady clock for its baud rate: io_clk.
 //
@@ -36,6 +36,7 @@ module computer #(
     cpu core(.rst(rst));
     main_ram ram(#WORDS(MemMap.RAM_WORDS), #PROGRAM_ID(PROGRAM_ID), #SIM_MODEL(SIM_RAM));
     uart uart0(#CLK_FREQ(UART_CLK_FREQ), #BAUD(UART_BAUD), .rst(rst));
+    timer timer0(.rst(rst));
     // no reset, like the RAM's own read register: the read on reset's last edge (address 0) is
     // the first instruction, and FETCH must see it come from the RAM
     dff read_ram           // the previous clock's read address was in the RAM
@@ -47,6 +48,8 @@ module computer #(
   sig uart_rsel
   sig uart_wsel
   sig switches_rsel
+  sig timer_rsel
+  sig timer_wsel
 
   always {
     // --- address decode: reads by the read port, stores by the write port ---
@@ -55,6 +58,15 @@ module computer #(
     uart_rsel = core.bus_load && (core.bus_raddr >> MemMap.UART_ADDR_BITS) == (MemMap.UART_BASE >> MemMap.UART_ADDR_BITS)
     uart_wsel = (core.bus_waddr >> MemMap.UART_ADDR_BITS) == (MemMap.UART_BASE >> MemMap.UART_ADDR_BITS)
     switches_rsel = core.bus_load && (core.bus_raddr >> MemMap.SWITCHES_ADDR_BITS) == (MemMap.SWITCHES_BASE >> MemMap.SWITCHES_ADDR_BITS)
+    timer_rsel = core.bus_load && (core.bus_raddr >> MemMap.TIMER_ADDR_BITS) == (MemMap.TIMER_BASE >> MemMap.TIMER_ADDR_BITS)
+    timer_wsel = (core.bus_waddr >> MemMap.TIMER_ADDR_BITS) == (MemMap.TIMER_BASE >> MemMap.TIMER_ADDR_BITS)
+
+    // --- timer: word stores only (sb/sh to it are ignored) ---
+    timer0.sel_write = timer_wsel && core.bus_be == 4b1111
+    timer0.waddr = core.bus_waddr[3:2]
+    timer0.wdata = core.bus_wdata
+    timer0.raddr = core.bus_raddr[3:2]
+    core.irq_timer = timer0.mtip
 
     // --- RAM: word addresses ---
     ram.raddr = core.bus_raddr[MemMap.RAM_ADDR_BITS-1:2]
@@ -74,6 +86,7 @@ module computer #(
     io_read.d = 0
     if (uart_rsel && core.bus_raddr[2]) io_read.d = c{31b0, uart0.busy};
     if (switches_rsel) io_read.d = c{24b0, switches};
+    if (timer_rsel) io_read.d = timer0.rdata;
     if (read_ram.q) core.bus_rdata = ram.rdata; else core.bus_rdata = io_read.q;
 
     core.debug_sel = debug_sel

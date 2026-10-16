@@ -27,6 +27,14 @@ writes byte lane 0 appends that byte to uart_out. The hardware's polling loops t
 different number of times, so UART programs are checked by their output and final state.
 
 The switch register reads back `switches` (bits 7:0, the rest 0); storing to it raises.
+
+Time: the machine timer's mtime counts the core's clocks (timer.luc), so the model counts them too,
+with the core's clocks per instruction (clocks(): 2, store 3, load 4, a trap 2). self.mtime is its
+value at the start of an instruction (FETCH). A load of the timer reads it as of MEM_ACCESS (start
++ 2); a store to mtime replaces that half on its last edge. The timer interrupt is checked at the
+start of each instruction: MIE && MTIE && mtime >= mtimecmp (both as of that instruction's FETCH:
+the core registers the comparison), and taken before the instruction does anything (mcause
+0x80000007, mepc = pc, 2 clocks). Timing is exact only for programs without UART polling.
 """
 import memmap
 
@@ -37,6 +45,15 @@ CSR_WRITABLE = {0x300: 0x88, 0x304: 0x888, 0x305: 0xFFFFFFFC, 0x340: 0xFFFFFFFF,
 CSR_CONSTANT = {0x301: 0x40000010, 0x310: 0, 0x344: 0, 0xF11: 0, 0xF12: 0, 0xF13: 0, 0xF14: 0}
 MSTATUS_FIXED = 0x1800        # MPP = 3: machine mode is the only mode
 MRET, WFI = 0x30200073, 0x10500073
+
+
+def clocks(word, trapped=None):
+    """Clocks the core spends on an instruction: FETCH + EXECUTE, plus MEM_ACCESS for a store and
+    MEM_ACCESS + WRITEBACK for a load. One that traps (or is interrupted) takes 2."""
+    if trapped or not legal(word):
+        return 2
+    op = word & 0x7F
+    return 4 if op == 0x03 else 3 if op == 0x23 else 2
 
 
 class Trap(Exception):
@@ -91,6 +108,9 @@ class Cpu:
         self.mem = {}                 # word-aligned byte address -> word, preloaded or written
         self.uart_out = []
         self.csr = {a: 0 for a in CSR_WRITABLE}
+        self.mtime = 0                # at the start of the current instruction
+        self.mtimecmp = (1 << 64) - 1
+        self.timer_write = None       # (word index, value): a store to mtime in this instruction
         size = max(words) // 4 + 1
         if size * 4 > memmap.RAM_BYTES:
             raise ValueError(f"program ({size * 4} bytes) doesn't fit in RAM ({memmap.RAM_BYTES} bytes)")
@@ -123,6 +143,8 @@ class Cpu:
             return "uart"
         if memmap.SWITCHES_BASE <= addr < memmap.SWITCHES_BASE + memmap.SWITCHES_BYTES:
             return "switches"
+        if memmap.TIMER_BASE <= addr < memmap.TIMER_BASE + memmap.TIMER_BYTES:
+            return "timer"
         raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} is unmapped")
 
     def _load(self, addr, size):
@@ -133,6 +155,12 @@ class Cpu:
             return 0                                 # never busy: no timing in this model
         if self._region(addr) == "switches":
             return (self.switches >> shift) & ((1 << (8 * size)) - 1)
+        if self._region(addr) == "timer":
+            if size != 4:
+                raise ValueError(f"pc={self.pc:#x}: {size}-byte load from the timer (words only)")
+            index = (word_addr - memmap.TIMER_BASE) // 4
+            value = [self.mtime + 2, self.mtimecmp][index >> 1]     # as of MEM_ACCESS
+            return (value >> (32 * (index & 1))) & MASK
         if word_addr not in self.mem:
             raise ValueError(f"pc={self.pc:#x}: load from {word_addr:#x}: neither program nor stored")
         return (self.mem[word_addr] >> shift) & ((1 << (8 * size)) - 1)
@@ -147,13 +175,29 @@ class Cpu:
             return
         if self._region(addr) == "switches":
             raise ValueError(f"pc={self.pc:#x}: store to the switch register {addr:#x} (read-only)")
+        if self._region(addr) == "timer":
+            if size != 4:
+                raise ValueError(f"pc={self.pc:#x}: {size}-byte store to the timer (the core ignores it)")
+            index = (word_addr - memmap.TIMER_BASE) // 4
+            if index < 2:
+                self.timer_write = (index, value & MASK)
+            else:
+                half = 32 * (index & 1)
+                self.mtimecmp = (self.mtimecmp & ~(MASK << half)) | ((value & MASK) << half)
+            return
         mask = ((1 << (8 * size)) - 1) << shift
         if word_addr == (self.pc + 4) & MASK and word_addr in self.mem:
             self.new_stale = (word_addr, self.mem[word_addr])   # already prefetched: old word runs
         old = self.mem.get(word_addr, 0)   # a partial store into an unwritten word: other bytes are 0
         self.mem[word_addr] = (old & ~mask) | ((value << shift) & mask)
 
+    def mtip(self):
+        """mip.MTIP as the core sees it during this instruction (registered at its FETCH)."""
+        return self.mtime >= self.mtimecmp
+
     def read_csr(self, csr):
+        if csr == 0x344:
+            return int(self.mtip()) << 7
         if csr in CSR_CONSTANT:
             return CSR_CONSTANT[csr]
         return self.csr[csr] | (MSTATUS_FIXED if csr == 0x300 else 0)
@@ -175,7 +219,12 @@ class Cpu:
         w = self.fetch()
         self.new_stale = None
         self.trapped = None
+        self.timer_write = None
+        start = self.mtime
+        mstatus, mie = self.csr[0x300], self.csr[0x304]
         try:
+            if mstatus & 0x8 and mie & 0x80 and self.mtip():
+                raise Trap(0x80000007, 0)    # timer interrupt: before the instruction does anything
             self._execute(w)
         except Trap as trap:
             if not self.traps_ok:
@@ -189,6 +238,13 @@ class Cpu:
             self.csr[0x343] = trap.tval & MASK
             self.pc = self.csr[0x305]
             self.stale = None
+        if self.timer_write:                 # replaced on the store's last edge (start + 2)
+            index, value = self.timer_write
+            now = start + 2
+            half = 32 * index
+            self.mtime = (now & ~(MASK << half)) | (value << half)
+        else:
+            self.mtime = start + clocks(w, self.trapped)
 
     def _execute(self, w):
         if not legal(w):

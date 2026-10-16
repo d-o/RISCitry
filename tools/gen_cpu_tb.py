@@ -31,7 +31,7 @@ import programs
 import rv32sim
 
 ROOT = Path(__file__).resolve().parent.parent
-MAX_STEPS = 200            # a test program that doesn't reach halt by then is a bug
+MAX_STEPS = 400            # a test program that doesn't reach halt by then is a bug
 MAX_PRINT_STEPS = 20000    # ... or a forever-printing one that hasn't printed PRINT_BYTES
 # control_unit's state after each clock of an instruction, by the instruction's clock count
 STATES = {2: ["EXECUTE", "FETCH"], 3: ["EXECUTE", "MEM_ACCESS", "FETCH"],
@@ -45,12 +45,9 @@ UART_CLOCKS_PER_BYTE = 10 * TB_UART_CLK_FREQ // TB_UART_BAUD   # start + 8 data 
 
 
 def clocks_for(word, trapped=False):
-    """Clocks this core spends on an instruction: FETCH + EXECUTE, plus memory states. One that
-    traps (rv32sim's model.trapped after the step) is taken in EXECUTE: 2, even a load or store."""
-    op = word & 0x7F
-    if trapped or not rv32sim.legal(word):
-        return 2
-    return 4 if op == 0x03 else 3 if op == 0x23 else 2
+    """Clocks this core spends on an instruction (rv32sim.clocks). One that traps or is interrupted
+    (rv32sim's model.trapped after the step) is taken in EXECUTE: 2, even a load or store."""
+    return rv32sim.clocks(word, trapped)
 
 
 def writes_rd(word, trapped=False):

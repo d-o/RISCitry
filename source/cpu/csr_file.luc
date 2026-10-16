@@ -13,11 +13,14 @@ module csr_file (
     input mret,              // MRET's pc-writing edge: MIE = MPIE, MPIE = 1
     input trap,              // a trap is taken on this edge: record it, MPIE = MIE, MIE = 0
     input trap_pc[32],       // the trapping instruction's address (mepc)
-    input trap_cause[4],     // mcause's exception code (interrupt bit 0)
+    input trap_cause[4],     // mcause's exception code
+    input trap_interrupt,    // ... and its interrupt bit (mcause[31])
+    input mtip,              // timer interrupt pending (mip.MTIP, read-only)
     input trap_value[32],    // mtval
     output read_data[32],    // the addressed CSR
     output mepc[32],         // MRET's return address
-    output mtvec[32]         // the trap handler's address
+    output mtvec[32],        // the trap handler's address
+    output irq               // an enabled interrupt is pending: MIE && MTIE && MTIP
   ) {
 
   .clk(clk), .rst(rst) {
@@ -46,11 +49,13 @@ module csr_file (
       Cpu.CSR_MEPC:    value = c{mepc_word.q, 2b00}
       Cpu.CSR_MCAUSE:  value = mcause.q
       Cpu.CSR_MTVAL:   value = mtval.q
-      default:         value = 0        // mstatush, mip, the ID registers
+      Cpu.CSR_MIP:     value = c{24b0, mtip, 7b0}
+      default:         value = 0        // mstatush, the ID registers
     }
     read_data = value
     mepc = c{mepc_word.q, 2b00}
     mtvec = c{mtvec_base.q, 2b00}
+    irq = mstatus_mie.q && mie_mtie.q && mtip
 
     case (op) {
       2b10:    new_value = value | src
@@ -83,7 +88,7 @@ module csr_file (
 
     if (trap) {
       mepc_word.d = trap_pc[31:2]
-      mcause.d = c{28b0, trap_cause}
+      mcause.d = c{trap_interrupt, 27b0, trap_cause}
       mtval.d = trap_value
       mstatus_mpie.d = mstatus_mie.q
       mstatus_mie.d = 0

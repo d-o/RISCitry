@@ -2,7 +2,7 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS }
+    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS, TIMER }
 
     const BOARD = {
         32h00464544,  // 0x017c: (data)
@@ -447,5 +447,50 @@ global Programs {
         32h30046073,  // 0x0008: csrrsi x0, 0x300
         32h30519073,  // 0x0004: csrrw x0, 0x305
         32h05C00193  // 0x0000: addi x3, x0, handler
+    }
+    const TIMER = {
+        32h30200073,  // 0x00a8: mret
+        32h300027F3,  // 0x00a4: csrrs x15, 0x300
+        32h00B12423,  // 0x00a0: sw x11, 8(x2)
+        32h02858593,  // 0x009c: addi x11, x11, 40
+        32h00812583,  // 0x0098: lw x11, 8(x2)
+        32h00170713,  // 0x0094: addi x14, x14, 1
+        32h34102673,  // 0x0090: csrrs x12, 0x341
+        32h342026F3,  // 0x008c: csrrs x13, 0x342
+        32h0000006F,  // 0x0088: halt
+        32h30047073,  // 0x0084: csrrci x0, 0x300
+        32hFE671EE3,  // 0x0080: bne x14, x6, spin
+        32h00128293,  // 0x007c: addi x5, x5, 1
+        32h30046073,  // 0x0078: csrrsi x0, 0x300
+        32h00300313,  // 0x0074: addi x6, x0, 3
+        32h00412423,  // 0x0070: sw x4, 8(x2)
+        32h02820213,  // 0x006c: addi x4, x4, 40
+        32h00012203,  // 0x0068: lw x4, 0(x2)
+        32h34402573,  // 0x0064: csrrs x10, 0x344
+        32h30442073,  // 0x0060: csrrs x0, 0x304
+        32h08000413,  // 0x005c: addi x8, x0, 128
+        32h34402573,  // 0x0058: csrrs x10, 0x344
+        32h00012423,  // 0x0054: sw x0, 8(x2)
+        32h00012623,  // 0x0050: sw x0, 12(x2)
+        32h00012223,  // 0x004c: sw x0, 4(x2)
+        32h00012023,  // 0x0048: sw x0, 0(x2)
+        32h00012403,  // 0x0044: lw x8, 0(x2)
+        32h00412483,  // 0x0040: lw x9, 4(x2)
+        32h00000013,  // 0x003c: addi x0, x0, 0
+        32h00000013,  // 0x0038: addi x0, x0, 0
+        32h00000013,  // 0x0034: addi x0, x0, 0
+        32h00000013,  // 0x0030: addi x0, x0, 0
+        32h00000013,  // 0x002c: addi x0, x0, 0
+        32h00000013,  // 0x0028: addi x0, x0, 0
+        32h00412483,  // 0x0024: lw x9, 4(x2)
+        32h00812023,  // 0x0020: sw x8, 0(x2)
+        32hFF000413,  // 0x001c: addi x8, x0, -16
+        32h344023F3,  // 0x0018: csrrs x7, 0x344
+        32h00812303,  // 0x0014: lw x6, 8(x2)
+        32h00412283,  // 0x0010: lw x5, 4(x2)
+        32h00012203,  // 0x000c: lw x4, 0(x2)
+        32h80002137,  // 0x0008: lui x2, 0x80002
+        32h30519073,  // 0x0004: csrrw x0, 0x305
+        32h08C00193  // 0x0000: addi x3, x0, timer_handler
     }
 }

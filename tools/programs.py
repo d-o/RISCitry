@@ -471,6 +471,54 @@ CSR = [
     ("halt",),
 ]
 
+# The machine timer and its interrupt. mtime counts cpu clocks, so every value read here and every
+# interrupt's position is exact (rv32sim counts the same clocks). Reads of mtime/mtimeh/mtimecmp,
+# the 64-bit carry, MTIP visible in mip while MIE = 0 (no interrupt), then three timer interrupts
+# 40 clocks apart: the handler records mcause (0x80000007) and mepc, and moves mtimecmp on.
+T = memmap.TIMER_BASE
+TIMER = [
+    ("addi", 3, 0, "timer_handler"),
+    ("csrrw", 0, 0x305, 3),                    # mtvec
+    ("lui", 2, T >> 12),                       # x2 = timer base
+    ("lw", 4, 2, memmap.TIMER_MTIME - T),      # mtime as of this load's MEM_ACCESS
+    ("lw", 5, 2, memmap.TIMER_MTIMEH - T),     # 0
+    ("lw", 6, 2, memmap.TIMER_MTIMECMP - T),   # 0xFFFFFFFF after reset
+    ("csrrs", 7, 0x344, 0),                    # mip = 0
+    ("addi", 8, 0, -16),
+    ("sw", 8, 2, memmap.TIMER_MTIME - T),      # mtime = 0x00000000_FFFFFFF0
+    ("lw", 9, 2, memmap.TIMER_MTIMEH - T),     # 0: not wrapped yet
+    *[("addi", 0, 0, 0)] * 6,
+    ("lw", 9, 2, memmap.TIMER_MTIMEH - T),     # 1: carried into the high word
+    ("lw", 8, 2, memmap.TIMER_MTIME - T),
+    ("sw", 0, 2, memmap.TIMER_MTIME - T),      # mtime = 0x00000001_00000000 ...
+    ("sw", 0, 2, memmap.TIMER_MTIMEH - T),     # ... then 0 (+ the clocks since)
+    ("sw", 0, 2, memmap.TIMER_MTIMECMPH - T),
+    ("sw", 0, 2, memmap.TIMER_MTIMECMP - T),   # mtimecmp = 0: pending from the next compare
+    ("csrrs", 10, 0x344, 0),                   # x10 = 0x80 (MTIP)
+    ("addi", 8, 0, 0x80),
+    ("csrrs", 0, 0x304, 8),                    # MTIE = 1, but MIE = 0: no interrupt
+    ("csrrs", 10, 0x344, 0),                   # still pending
+    ("lw", 4, 2, memmap.TIMER_MTIME - T),
+    ("addi", 4, 4, 40),
+    ("sw", 4, 2, memmap.TIMER_MTIMECMP - T),   # first interrupt ~40 clocks from now
+    ("addi", 6, 0, 3),
+    ("csrrsi", 0, 0x300, 0x08),                # MIE = 1
+    "spin:",
+    ("addi", 5, 5, 1),
+    ("bne", 14, 6, "spin"),
+    ("csrrci", 0, 0x300, 0x08),                # MIE = 0
+    ("halt",),
+    "timer_handler:",
+    ("csrrs", 13, 0x342, 0),                   # 0x80000007
+    ("csrrs", 12, 0x341, 0),                   # where the spin loop was interrupted
+    ("addi", 14, 14, 1),
+    ("lw", 11, 2, memmap.TIMER_MTIMECMP - T),
+    ("addi", 11, 11, 40),
+    ("sw", 11, 2, memmap.TIMER_MTIMECMP - T),  # next interrupt 40 clocks after this one was due
+    ("csrrs", 15, 0x300, 0),                   # 0x1880 inside the handler
+    ("mret",),
+]
+
 PROGRAMS = {
     "BOARD": BOARD,
     "LARSON": LARSON,
@@ -486,6 +534,7 @@ PROGRAMS = {
     "ILLEGAL": ILLEGAL,
     "CSR": CSR,
     "TRAPS": TRAPS,
+    "TIMER": TIMER,
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
@@ -495,7 +544,7 @@ PRINT_BYTES = 100              # the banner and the first three numbered lines
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
-EXPECTS_TRAPS = {"ILLEGAL", "TRAPS"}
+EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER"}
 
 # The program the board runs (instantiated by the top module).
 BOARD_PROGRAM = "BOARD"

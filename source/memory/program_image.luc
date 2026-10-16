@@ -24,5 +24,6 @@ module program_image #(
     if (PROGRAM_ID == Programs.Id.ILLEGAL && addr < 31) word = Programs.ILLEGAL[addr];
     if (PROGRAM_ID == Programs.Id.CSR && addr < 27) word = Programs.CSR[addr];
     if (PROGRAM_ID == Programs.Id.TRAPS && addr < 31) word = Programs.TRAPS[addr];
+    if (PROGRAM_ID == Programs.Id.TIMER && addr < 43) word = Programs.TIMER[addr];
   }
 }
