@@ -1,6 +1,10 @@
 #!/bin/bash
 # Build (if needed) and start vsim: the board's Verilog under Verilator with the Io front panel.
 #   tools/vsim/vsim.sh [vsim options]      e.g. --scale 14, --unthrottled, --quiet
+# Time runs 5x faster per clock than on the board (the board top's SLOW_BITS 18, TICK_DIV 5,
+# DEBOUNCE_BITS 17 instead of 20, 25, 19), so at Verilator's ~5 MHz the demos, the run-slow
+# clock and the timer feel like the real board. VSIM_REAL=1 uses the hardware values (a fifth
+# of real speed). The UART still takes 25 clocks a bit, so serial is 5x slower than 1 Mbaud.
 # Needs: `alchitry build` run first (vsim simulates build/source/*.v), verilator, libsdl2-dev,
 # ImageMagick (convert) and unzip; the board artwork comes from the installed Alchitry Labs jar.
 set -euo pipefail
@@ -8,7 +12,11 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$HERE/../.." && pwd)"
 SRC="$ROOT/build/source"
-OBJ="$ROOT/build/vsim"
+if [ "${VSIM_REAL:-0}" = 1 ]; then
+    OBJ="$ROOT/build/vsim-real"; TIME_SCALE=1; PARAMS=""
+else
+    OBJ="$ROOT/build/vsim"; TIME_SCALE=5; PARAMS="-GSLOW_BITS=18 -GTICK_DIV=5 -GDEBOUNCE_BITS=17"
+fi
 
 if [ ! -f "$SRC/basic_riscve_16k16k.v" ]; then
     echo "vsim: no $SRC/basic_riscve_16k16k.v: run alchitry build $ROOT/basic-riscve-16k16k.alp first" >&2
@@ -29,7 +37,7 @@ if [ ! -x "$bin" ] || [ -n "$(find "$SRC" "$HERE" -newer "$bin" -name '*.v' -o -
     # signals in cpu.v (alu result, csr read data, ...) have bits that feed other bits through
     # logic; not a real loop (nextpnr would refuse one), only slower for Verilator to evaluate.
     verilator --cc --exe --build -j 0 -O3 --x-assign fast --x-initial fast \
-        -Wno-WIDTH -Wno-UNOPTFLAT --top-module basic_riscve_16k16k -GPLL=0 \
+        -Wno-WIDTH -Wno-UNOPTFLAT --top-module basic_riscve_16k16k -GPLL=0 $PARAMS \
         -CFLAGS "-O2 $(sdl2-config --cflags)" -LDFLAGS "$(sdl2-config --libs)" \
         --Mdir "$OBJ" -o Vbasic_riscve_16k16k \
         "$HERE/sb_pll40_core.v" "$SRC"/*.v "$HERE/vsim.cpp" >"$OBJ/build.log" 2>&1 || {
@@ -42,4 +50,4 @@ if [ ! -x "$bin" ] || [ -n "$(find "$SRC" "$HERE" -newer "$bin" -name '*.v' -o -
     fi
 fi
 
-exec "$bin" "$@"
+exec "$bin" --time-scale "$TIME_SCALE" "$@"

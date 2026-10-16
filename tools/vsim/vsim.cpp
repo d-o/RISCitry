@@ -12,7 +12,9 @@
 // Serial: usb_tx is decoded (8N1) and echoed to stdout and to a pseudo-terminal whose path is
 // printed at start-up (`picocom -b 1000000 /dev/pts/N` works; the baud setting is ignored).
 //
-// Built and started by tools/vsim/vsim.sh.
+// Built and started by tools/vsim/vsim.sh, which normally builds the design with its timing 5x
+// shorter (SLOW_BITS, TICK_DIV, DEBOUNCE_BITS) and passes --time-scale 5: then 5 MHz here is
+// real time, and "board time" in the title is what a stopwatch on the real board would show.
 
 #include "Vbasic_riscve_16k16k.h"
 #include "verilated.h"
@@ -40,6 +42,7 @@ struct Options {
     double scale = 11.0;       // pixels per mm
     bool throttle = true;      // never run faster than the real board
     bool echo = true;          // serial bytes to stdout
+    int time_scale = 1;        // the design was built with its timing this many times shorter
     uint64_t headless = 0;     // run this many clocks without a window, then print the outputs
     unsigned dips = 0;         // starting DIP switches, io_dip[23:0]
     std::string snapshot;      // save the window to this .bmp after snapshot_clocks, then quit
@@ -144,6 +147,7 @@ int main(int argc, char** argv) {
         else if (a == "--jar" && i + 1 < argc) o.jar = argv[++i];
         else if (a == "--unthrottled") o.throttle = false;
         else if (a == "--quiet") o.echo = false;
+        else if (a == "--time-scale" && i + 1 < argc) o.time_scale = atoi(argv[++i]);
         else if (a == "--headless" && i + 1 < argc) o.headless = strtoull(argv[++i], nullptr, 0);
         else if (a == "--dips" && i + 1 < argc) o.dips = (unsigned)strtoul(argv[++i], nullptr, 16);
         else if (a == "--snapshot" && i + 2 < argc) {
@@ -157,12 +161,17 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Clocks per second of board time: 25 MHz, or less when the design's timing is scaled down
+    const double REAL_HZ = SYS_HZ / (o.time_scale > 0 ? o.time_scale : 1);
+
     if (o.headless) {
         // No window: the given DIPs, a power-on reset, then CLOCKS clocks at full speed.
         Vbasic_riscve_16k16k* top = new Vbasic_riscve_16k16k;
         top->io_button = 0;
         top->io_dip = o.dips;
         UartRx rx;
+        uint64_t cpu_clocks = 0;   // Cu LED 4 toggles once per enabled cpu clock
+        unsigned led4 = 0;
         auto t0 = std::chrono::steady_clock::now();
         for (uint64_t c = 0; c < o.headless; c++) {
             top->rst_n = c >= 16;
@@ -172,11 +181,15 @@ int main(int argc, char** argv) {
             top->eval();
             int b = rx.clock(top->usb_tx);
             if (b >= 0 && o.echo) { fputc(b, stdout); fflush(stdout); }
+            unsigned l = top->led >> 4 & 1;
+            cpu_clocks += l != led4;
+            led4 = l;
         }
         double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-        fprintf(stderr, "\nvsim: %llu clocks (%.3f s of board time) in %.2f s: %.2f MHz, %.0f%% of the board\n",
-                (unsigned long long)o.headless, o.headless / SYS_HZ, dt, o.headless / dt / 1e6,
-                100 * o.headless / dt / SYS_HZ);
+        fprintf(stderr, "\nvsim: %llu clocks (%.3f s of board time) in %.2f s: %.2f MHz, %.0f%% of real time\n",
+                (unsigned long long)o.headless, o.headless / REAL_HZ, dt, o.headless / dt / 1e6,
+                100 * o.headless / dt / REAL_HZ);
+        fprintf(stderr, "vsim: %llu cpu clocks\n", (unsigned long long)cpu_clocks);
         fprintf(stderr, "vsim: led %02x  io_led %06x  io_select %x  io_segment %02x\n",
                 (unsigned)top->led, (unsigned)top->io_led, (unsigned)top->io_select, (unsigned)top->io_segment);
         top->final();
@@ -294,7 +307,7 @@ int main(int argc, char** argv) {
         while (std::chrono::steady_clock::now() - frame_start < budget) {
             if (o.throttle) {
                 double real = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
-                if (clocks > real * SYS_HZ) break;
+                if (clocks > real * REAL_HZ) break;
             }
             for (int n = 0; n < 4096; n++) {
                 top->rst_n = !(reset_held || power_on > 0);
@@ -398,10 +411,10 @@ int main(int argc, char** argv) {
         double dt = std::chrono::duration<double>(now - last_title).count();
         if (dt >= 0.5) {
             double hz = (clocks - title_clocks) / dt;
-            double t = clocks / SYS_HZ;
+            double t = clocks / REAL_HZ;
             char title[160];
-            snprintf(title, sizeof title, "vsim  %.2f MHz (%.0f%% of the board)  board time %.1f s%s",
-                     hz / 1e6, 100 * hz / SYS_HZ, t, o.throttle ? "" : "  unthrottled");
+            snprintf(title, sizeof title, "vsim  %.2f MHz  %.0f%% of real time  board time %.1f s%s",
+                     hz / 1e6, 100 * hz / REAL_HZ, t, o.throttle ? "" : "  unthrottled");
             SDL_SetWindowTitle(win, title);
             last_title = now;
             title_clocks = clocks;
