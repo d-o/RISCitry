@@ -78,7 +78,7 @@ module computer #(
     buttons_wsel = (core.bus_waddr >> MemMap.BUTTONS_ADDR_BITS) == (MemMap.BUTTONS_BASE >> MemMap.BUTTONS_ADDR_BITS)
     buttons0.level = buttons
     buttons0.clear = buttons_wsel && core.bus_be[0]
-    buttons0.clear_mask = core.bus_wdata[3:0]
+    buttons0.clear_mask = core.bus_wdata[7:0]
     core.irq_external = buttons0.irq
 
     // --- RAM: word addresses ---

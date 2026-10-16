@@ -26,7 +26,7 @@ TIMER_MTIMECMP = TIMER_BASE + 8   # mtimecmp low word; +12 high word. MTIP = mti
 TIMER_MTIMECMPH = TIMER_BASE + 12
 TIMER_BYTES = 16
 
-BUTTONS_BASE = 0x8000_3000    # read: pending presses [3:0], live levels [11:8]; write: 1s clear pending
+BUTTONS_BASE = 0x8000_3000    # read: pending [3:0], overrun [7:4], levels [11:8]; write: 1s clear [7:0]
 BUTTONS_BYTES = 4             # bit order: up, down, left, right (the Io's direction buttons)
 
 
@@ -48,7 +48,7 @@ def render_luc():
         "    const SWITCHES_ADDR_BITS = 2",
         f"    const TIMER_BASE = 32h{TIMER_BASE:08X}    // mtime +0/+4, mtimecmp +8/+12",
         "    const TIMER_ADDR_BITS = 4",
-        f"    const BUTTONS_BASE = 32h{BUTTONS_BASE:08X}    // pending [3:0], levels [11:8]; write 1s to clear",
+        f"    const BUTTONS_BASE = 32h{BUTTONS_BASE:08X}    // pending [3:0], overrun [7:4], levels [11:8]; write 1s to clear",
         "    const BUTTONS_ADDR_BITS = 2",
         "}",
     ]) + "\n"

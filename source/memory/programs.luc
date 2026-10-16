@@ -583,11 +583,15 @@ global Programs {
         32h06C00193  // 0x0000: addi x3, x0, irq_handler
     }
     const PRESS = {
-        32h30200073,  // 0x0044: mret
-        32h00170713,  // 0x0040: addi x14, x14, 1
-        32h00A12023,  // 0x003c: sw x10, 0(x2)
-        32h00012503,  // 0x0038: lw x10, 0(x2)
-        32h0000006F,  // 0x0034: halt
+        32h30200073,  // 0x0054: mret
+        32h00170713,  // 0x0050: addi x14, x14, 1
+        32h00A66633,  // 0x004c: or x12, x12, x10
+        32h00A12023,  // 0x0048: sw x10, 0(x2)
+        32h00012503,  // 0x0044: lw x10, 0(x2)
+        32h0000006F,  // 0x0040: halt
+        32h00012583,  // 0x003c: lw x11, 0(x2)
+        32h00912023,  // 0x0038: sw x9, 0(x2)
+        32h00012483,  // 0x0034: lw x9, 0(x2)
         32h30047073,  // 0x0030: csrrci x0, 0x300
         32hFE039EE3,  // 0x002c: bne x7, x0, press_more
         32hFFF38393,  // 0x0028: addi x7, x7, -1
@@ -600,6 +604,6 @@ global Programs {
         32h00100413,  // 0x000c: addi x8, x0, 1
         32h80003137,  // 0x0008: lui x2, 0x80003
         32h30519073,  // 0x0004: csrrw x0, 0x305
-        32h03800193  // 0x0000: addi x3, x0, press_handler
+        32h04400193  // 0x0000: addi x3, x0, press_handler
     }
 }

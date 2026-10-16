@@ -39,7 +39,8 @@ the core registers the comparison), and taken before the instruction does anythi
 Buttons (buttons.luc): button_events = [(clock, levels)], levels applied before post-reset edge
 `clock` (edge 0 is the first instruction's FETCH edge). Modelled edge by edge like the hardware:
 two synchroniser flip-flops, a rising edge sets a pending bit, a store's last edge clears the bits
-it writes as 1 (a press on that same edge wins). MEIP = any pending, seen in EXECUTE as of the
+it writes as 1 (a press on that same edge wins); a press while its bit is still pending sets that
+button's overrun bit (bits 7:4, cleared the same way). MEIP = any pending, seen in EXECUTE as of the
 FETCH edge; a load reads pending (and the synchronised levels) as of MEM_ACCESS. External
 interrupts beat the timer (cause 0x8000000B vs 0x80000007).
 """
@@ -120,7 +121,7 @@ class Cpu:
         self.timer_write = None       # (word index, value): a store to mtime in this instruction
         self.cycle = 0                # post-reset edges before the current instruction
         self.button_events = sorted(button_events)
-        self.btn = {"edge": 0, "sync0": 0, "sync1": 0, "last": 0, "pending": 0}
+        self.btn = {"edge": 0, "sync0": 0, "sync1": 0, "last": 0, "pending": 0, "overrun": 0}
         self.btn_clear = None         # mask written by a store in this instruction
         size = max(words) // 4 + 1
         if size * 4 > memmap.RAM_BYTES:
@@ -170,7 +171,7 @@ class Cpu:
             return (self.switches >> shift) & ((1 << (8 * size)) - 1)
         if self._region(addr) == "buttons":
             self._buttons_to(self.cycle + 1)                        # as of MEM_ACCESS
-            value = (self.btn["sync1"] << 8) | self.btn["pending"]
+            value = (self.btn["sync1"] << 8) | (self.btn["overrun"] << 4) | self.btn["pending"]
             return (value >> shift) & ((1 << (8 * size)) - 1)
         if self._region(addr) == "timer":
             if size != 4:
@@ -194,7 +195,7 @@ class Cpu:
             raise ValueError(f"pc={self.pc:#x}: store to the switch register {addr:#x} (read-only)")
         if self._region(addr) == "buttons":
             if shift == 0:                           # byte lane 0 carries the clear mask
-                self.btn_clear = value & 0xF
+                self.btn_clear = value & 0xFF
             return
         if self._region(addr) == "timer":
             if size != 4:
@@ -225,11 +226,15 @@ class Cpu:
         b = self.btn
         while b["edge"] <= edge:
             e = b["edge"]
-            pending = b["pending"]
+            pending, overrun = b["pending"], b["overrun"]
             if e == clear_edge:
-                pending &= ~mask
-            pending |= b["sync1"] & ~b["last"]
-            b["sync0"], b["sync1"], b["last"], b["pending"] = self._level(e), b["sync0"], b["sync1"], pending
+                pending &= ~mask & 0xF
+                overrun &= ~(mask >> 4) & 0xF
+            rise = b["sync1"] & ~b["last"] & 0xF
+            overrun |= rise & pending          # a press while still pending: merged, reported
+            pending |= rise
+            b["sync0"], b["sync1"], b["last"] = self._level(e), b["sync0"], b["sync1"]
+            b["pending"], b["overrun"] = pending, overrun
             b["edge"] = e + 1
 
     def meip(self):

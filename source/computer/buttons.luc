@@ -2,14 +2,18 @@
 // The board debounces them; here they're synchronised to the cpu clock (two flip-flops) and each
 // rising edge sets a pending bit, which stays set until software writes a 1 to it (a press on the
 // same edge as the clear wins, so none is lost). irq = any bit pending.
-// Read: pending [3:0], the synchronised levels [11:8]. Write (byte lane 0): 1s clear pending.
+// A press while that button's bit is still pending (after this edge's clear) can't be recorded:
+// it merges with the first. It sets the button's overrun bit instead, so software knows it missed
+// presses (as a UART reports receive overrun). See notes 2026-10-16 for what would keep them.
+// Read: pending [3:0], overrun [7:4], the synchronised levels [11:8].
+// Write (byte lane 0): 1s in [3:0] clear pending, 1s in [7:4] clear overrun.
 // Timing from a level change before edge c: sync0 at c, sync1 at c+1, pending at c+2.
 module buttons (
     input clk,
     input rst,
     input level[4],          // debounced buttons, active high
     input clear,             // a store to the device this clock
-    input clear_mask[4],     // ... its bits [3:0]
+    input clear_mask[8],     // ... its bits [7:0]: pending [3:0], overrun [7:4]
     output rdata[32],
     output irq
   ) {
@@ -19,17 +23,28 @@ module buttons (
     dff sync1[4]
     dff last[4]
     dff pending[4]
+    dff overrun[4]
   }
 
-  sig cleared[4]
+  sig cleared[4]             // pending after this edge's clear
+  sig overrun_cleared[4]
+  sig rise[4]
 
   always {
     sync0.d = level
     sync1.d = sync0.q
     last.d = sync1.q
-    if (clear) cleared = pending.q & ~clear_mask; else cleared = pending.q;
-    pending.d = cleared | (sync1.q & ~last.q)
+    rise = sync1.q & ~last.q
+    if (clear) {
+      cleared = pending.q & ~clear_mask[3:0]
+      overrun_cleared = overrun.q & ~clear_mask[7:4]
+    } else {
+      cleared = pending.q
+      overrun_cleared = overrun.q
+    }
+    pending.d = cleared | rise
+    overrun.d = overrun_cleared | (rise & cleared)
     irq = |pending.q
-    rdata = c{20b0, sync1.q, 4b0, pending.q}
+    rdata = c{20b0, sync1.q, overrun.q, pending.q}
   }
 }

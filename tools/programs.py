@@ -612,13 +612,15 @@ IRQ = [
 # worked out with rv32sim; the handler is lw pending / sw it back to clear / count / mret):
 #  (A) press at 20: interrupt at 22, handler lw at 24, sw at 28, which clears on edge 30. Re-press
 #      at 28: its rising edge is detected on edge 30 too, and "set wins" keeps the bit: a second
-#      interrupt (35). Clear-wins would lose it.
+#      interrupt (37). Clear-wins would lose it.
 #  (B) press at 108: interrupt at 110, lw at 112 (reads as of edge 113), sw at 116 (clears on 118).
 #      Re-press at 115: its edge (117) finds the bit already set, so nothing changes, and the clear
 #      removes both presses: merged, no interrupt for it. This is the press a pending *bit* can't
 #      keep: from a button's first press until the handler clears it, further presses of that
-#      button are absorbed (see notes 2026-10-16 for what would keep them).
-# Four presses, three interrupts; the program then waits to show no fourth arrives.
+#      button are absorbed (see notes 2026-10-16 for what would keep them). It does set the
+#      button's overrun bit, which the handler's clear (the value it read) leaves alone.
+# Four presses, three interrupts; the program then waits to show no fourth arrives, reads the
+# overrun bit (case A set none, case B one), clears it and reads again.
 PRESS = [
     ("addi", 3, 0, "press_handler"),
     ("csrrw", 0, 0x305, 3),
@@ -635,10 +637,15 @@ PRESS = [
     ("addi", 7, 7, -1),
     ("bne", 7, 0, "press_more"),
     ("csrrci", 0, 0x300, 0x08),
+    ("lw", 9, 2, 0),                           # x9 = 0x10: button 0's overrun, nothing pending
+    ("sw", 9, 2, 0),                           # clear it
+    ("lw", 11, 2, 0),                          # x11 = 0
     ("halt",),
     "press_handler:",
     ("lw", 10, 2, 0),
     ("sw", 10, 2, 0),
+    ("or", 12, 12, 10),                        # every value read: no overrun bit (case A sets none,
+                                               # case B's comes after its read)
     ("addi", 14, 14, 1),
     ("mret",),
 ]
