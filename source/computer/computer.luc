@@ -23,6 +23,7 @@ module computer #(
   ) (
     input clk,
     input rst,
+    input ce,                // clock enable: on a clock with ce = 0 nothing here changes
     input io_clk,            // free-running clock for the UART's baud rate
     input io_rst,
     output uart_tx,
@@ -37,12 +38,12 @@ module computer #(
   ) {
 
   .clk(clk) {
-    cpu core(.rst(rst));
-    main_ram ram(#WORDS(MemMap.RAM_WORDS), #PROGRAM_ID(PROGRAM_ID), #SIM_MODEL(SIM_RAM));
-    uart uart0(#CLK_FREQ(UART_CLK_FREQ), #BAUD(UART_BAUD), .rst(rst));
-    timer timer0(.rst(rst));
-    buttons buttons0(.rst(rst));
-    display_chars display0(.rst(rst));
+    cpu core(.rst(rst), .ce(ce));
+    main_ram ram(#WORDS(MemMap.RAM_WORDS), #PROGRAM_ID(PROGRAM_ID), #SIM_MODEL(SIM_RAM), .ce(ce));
+    uart uart0(#CLK_FREQ(UART_CLK_FREQ), #BAUD(UART_BAUD), .rst(rst), .ce(ce));
+    timer timer0(.rst(rst), .ce(ce));
+    buttons buttons0(.rst(rst), .ce(ce));
+    display_chars display0(.rst(rst), .ce(ce));
     // no reset, like the RAM's own read register: the read on reset's last edge (address 0) is
     // the first instruction, and FETCH must see it come from the RAM
     dff read_ram           // the previous clock's read address was in the RAM
@@ -122,5 +123,10 @@ module computer #(
     debug_pc = core.debug_pc
     debug_reg = core.debug_reg
     debug_state = core.debug_state
+
+    if (!ce) {        // disabled clock: hold everything
+      read_ram.d = read_ram.q
+      io_read.d = io_read.q
+    }
   }
 }

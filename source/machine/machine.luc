@@ -120,6 +120,7 @@ module machine #(
     comp.debug_sel = debug_sel
     comp.switches = switches
     comp.buttons = buttons
+    comp.ce = 1              // step 2 of the single-clock plan: plumbing only; the clock is still divided
     debug_pc = comp.debug_pc
     debug_reg = comp.debug_reg
   }

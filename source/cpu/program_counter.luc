@@ -1,6 +1,7 @@
 module program_counter (
     input clk,                  // Clock signal
     input rst,                  // Reset signal
+    input ce,                // clock enable: on a clock with ce = 0 nothing here changes
     input pc_write,             // 1 = update PC, 0 = stall PC
     input pc_src[2],            // 00 = PC+4, 01 = Branch/JAL target, 10 = JALR target, 11 = vector
     input target_address[32],   // Address from ALU/Immediate generator
@@ -37,5 +38,9 @@ module program_counter (
     }
     pc_reg.d = new_pc;
     next_pc = new_pc;
+
+    if (!ce) {        // disabled clock: hold everything
+      pc_reg.d = pc_reg.q
+    }
   }
 }

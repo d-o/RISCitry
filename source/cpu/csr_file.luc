@@ -6,6 +6,7 @@
 module csr_file (
     input clk,
     input rst,
+    input ce,                // clock enable: on a clock with ce = 0 nothing here changes
     input addr[12],          // the CSR address, instruction[31:20]
     input op[2],             // funct3[1:0]: 01 write, 10 set, 11 clear
     input src[32],           // rs1's value, or the zero-extended zimm
@@ -95,6 +96,19 @@ module csr_file (
       mtval.d = trap_value
       mstatus_mpie.d = mstatus_mie.q
       mstatus_mie.d = 0
+    }
+
+    if (!ce) {        // disabled clock: hold everything
+      mstatus_mie.d = mstatus_mie.q
+      mstatus_mpie.d = mstatus_mpie.q
+      mie_msie.d = mie_msie.q
+      mie_mtie.d = mie_mtie.q
+      mie_meie.d = mie_meie.q
+      mtvec_base.d = mtvec_base.q
+      mscratch.d = mscratch.q
+      mepc_word.d = mepc_word.q
+      mcause.d = mcause.q
+      mtval.d = mtval.q
     }
   }
 }

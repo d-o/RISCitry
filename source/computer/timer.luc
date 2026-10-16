@@ -14,6 +14,7 @@
 module timer (
     input clk,
     input rst,
+    input ce,                // clock enable: on a clock with ce = 0 nothing here changes
     input sel_write,         // a word store to the timer this clock
     input waddr[2],          // word within the timer: 0 mtime, 1 mtimeh, 2 mtimecmp, 3 mtimecmph
     input wdata[32],
@@ -46,6 +47,12 @@ module timer (
       2d1: rdata = mtime.q[63:32]
       2d2: rdata = mtimecmp.q[31:0]
       default: rdata = mtimecmp.q[63:32]
+    }
+
+    if (!ce) {        // disabled clock: hold everything
+      mtime.d = mtime.q
+      mtimecmp.d = mtimecmp.q
+      pending.d = pending.q
     }
   }
 }

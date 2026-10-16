@@ -23,6 +23,7 @@ module main_ram #(
     SIM_MODEL = 0 : SIM_MODEL == 0 || SIM_MODEL == 1
   ) (
     input clk,
+    input ce,                      // clock enable: no read, no write while 0
     input raddr[$clog2(WORDS)],    // word addresses
     output rdata[32],
     input waddr[$clog2(WORDS)],
@@ -36,6 +37,7 @@ module main_ram #(
 
   .clk(clk) {
     main_ram_bram bram(#PROGRAM_ID(PROGRAM_ID), #WORDS(WORDS));
+
     dff model_mem[MODEL_WORDS][4][8]
     dff model_written[MODEL_WORDS][4]    // byte has been written: read model_mem, not the image
     dff model_read[4][8]
@@ -48,11 +50,13 @@ module main_ram #(
     bram.waddr = waddr
     bram.wdata = wdata
     bram.be = be
+    bram.ce = ce
 
     read_image.addr = raddr
     repeat(i, 4) {
       if (model_written.q[raddr][i]) model_read.d[i] = model_mem.q[raddr][i]; else model_read.d[i] = read_image.word[i*8+7:i*8];
-      if (be[i]) {
+      if (!ce) model_read.d[i] = model_read.q[i];
+      if (be[i] && ce) {
         model_mem.d[waddr][i] = wdata[i*8+7:i*8]
         model_written.d[waddr][i] = 1
       }

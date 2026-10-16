@@ -26,6 +26,7 @@ module uart #(
   ) (
     input clk,               // cpu clock (bus side)
     input rst,               // cpu reset
+    input ce,                // cpu clock enable (bus side only; the io side always runs)
     input io_clk,            // free-running clock the baud rate comes from
     input io_rst,
     input write,             // a store to TXDATA wrote byte lane 0 this cpu clock
@@ -60,6 +61,13 @@ module uart #(
     if (write && !pending) {
       data.d = write_data
       req.d = ~req.q
+    }
+
+    if (!ce) {        // disabled cpu clock: the bus side holds
+      ack_sync0.d = ack_sync0.q
+      ack_sync1.d = ack_sync1.q
+      data.d = data.q
+      req.d = req.q
     }
 
     // io side

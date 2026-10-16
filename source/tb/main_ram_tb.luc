@@ -8,7 +8,7 @@ testbench main_ram_tb {
     sig be[4]
 
     main_ram dut(#WORDS(64), #PROGRAM_ID(Programs.Id.LARSON), #SIM_MODEL(1),
-                 .clk(clk), .raddr(raddr), .waddr(waddr), .wdata(wdata), .be(be))
+                 .clk(clk), .ce(1), .raddr(raddr), .waddr(waddr), .wdata(wdata), .be(be))
 
     // settle first: inputs changed in the same step as the rising edge would be missed
     fun tick_clock() {
@@ -123,7 +123,7 @@ testbench main_ram_full_tb {
     sig be[4]
 
     main_ram dut(#WORDS(2048), #PROGRAM_ID(Programs.Id.LARSON), #SIM_MODEL(1),
-                 .clk(clk), .raddr(raddr), .waddr(waddr), .wdata(wdata), .be(be))
+                 .clk(clk), .ce(1), .raddr(raddr), .waddr(waddr), .wdata(wdata), .be(be))
 
     // settle first: inputs changed in the same step as the rising edge would be missed
     fun tick_clock() {

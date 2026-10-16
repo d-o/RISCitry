@@ -8,6 +8,7 @@
 module display_chars (
     input clk,
     input rst,
+    input ce,                // clock enable: on a clock with ce = 0 nothing here changes
     input write,             // a store to the device this clock ...
     input be[4],             // ... to these byte lanes
     input wdata[32],
@@ -29,5 +30,10 @@ module display_chars (
     }
     chars = c{text.q[3], text.q[2], text.q[1], text.q[0]}
     owned = taken.q
+
+    if (!ce) {        // disabled clock: hold everything
+      text.d = text.q
+      taken.d = taken.q
+    }
   }
 }

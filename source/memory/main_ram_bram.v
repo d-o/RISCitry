@@ -8,6 +8,7 @@ module main_ram_bram #(
     parameter WORDS = 2048
   ) (
     input clk,
+    input ce,                // clock enable: no read, no write while 0
     input [$clog2(WORDS)-1:0] raddr,
     output reg [31:0] rdata,
     input [$clog2(WORDS)-1:0] waddr,
@@ -21,7 +22,7 @@ module main_ram_bram #(
   reg [7:0] lane3 [0:WORDS-1];
   integer i;
 
-  always @(posedge clk) begin
+  always @(posedge clk) if (ce) begin
     rdata <= {lane3[raddr], lane2[raddr], lane1[raddr], lane0[raddr]};
     if (be[0]) lane0[waddr] <= wdata[7:0];
     if (be[1]) lane1[waddr] <= wdata[15:8];

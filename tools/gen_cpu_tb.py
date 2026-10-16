@@ -134,21 +134,31 @@ def run_to_halt(name, words, sw=0):
     raise RuntimeError(f"no halt after {MAX_STEPS} instructions")
 
 
-def header(name, sw, extra_sigs=()):
+# Clock-enable tests: these programs run again with the computer enabled on one clock in
+# CE_EVERY. The trace must be the ce = 1 trace stretched: nothing moves on a disabled clock (the
+# state is checked after each one) and every enabled clock does exactly what a clock did before.
+# Chosen to cover the RAM and its read register (MEMORY), the prefetch (SELFMOD), the timer and
+# the buttons with interrupts (TIMER, IRQ).
+CE_CASES = ["MEMORY", "SELFMOD", "TIMER", "IRQ"]
+CE_EVERY = 3
+
+
+def header(name, sw, extra_sigs=(), suffix=""):
     return [
-        f"testbench cpu_{case_name(name, sw)}_tb {{",
+        f"testbench cpu_{case_name(name, sw)}{suffix}_tb {{",
         "    sig clk",
         "    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)",
         "    sig rst",
         "    sig sel[4]",
         "    sig switches[8]",
         "    sig buttons[4]",
+        "    sig ce                 // the computer's clock enable",
         *extra_sigs,
         "",
         f"    computer dut(#PROGRAM_ID(Programs.Id.{name}), #SIM_RAM(1), "
         f"#UART_CLK_FREQ({TB_UART_CLK_FREQ}), #UART_BAUD({TB_UART_BAUD}),",
         "                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),",
-        "                 .buttons(buttons),",
+        "                 .buttons(buttons), .ce(ce),",
         "                 .debug_sel(sel))",
         "",
         "    // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)",
@@ -234,6 +244,7 @@ def render_uart_testbench(name, words, text, sw, forever=False):
         "        sel = 0",
         f"        switches = 8h{sw:02X}",
         "        buttons = 0",
+        "        ce = 1",
         "        rst = 1",
         "        received = 0",
         "        clock_count = 0",
@@ -278,19 +289,21 @@ def render_uart_testbench(name, words, text, sw, forever=False):
     return lines, f"{n} bytes"
 
 
-def render_testbench(name, words, text, sw):
+def render_testbench(name, words, text, sw, ce_every=1):
     model = new_model(name, words, sw)
-    lines = header(name, sw) + [
+    lines = header(name, sw, suffix="" if ce_every == 1 else f"_ce{ce_every}") + [
         "    test run {",
         "        clk = 0",
         "        io_clk = 0",
         "        sel = 0",
         f"        switches = 8h{sw:02X}",
         "        buttons = 0",
+        "        ce = 1",
         "        rst = 1",
         *RESET,
     ]
     steps, halted_for, clock = 0, 0, 0
+    shown = "FETCH"                        # the state after reset
     while True:
         pc = model.pc
         word = model.fetch()
@@ -299,7 +312,12 @@ def render_testbench(name, words, text, sw):
         lines.append(f"        // {pc:#06x}: {text.get(pc, 'nop')}")
         for state in STATES[clocks_for(word, model.trapped)]:
             lines += button_lines(name, clock, "        ")
+            if ce_every > 1:               # disabled clocks first: nothing may move
+                for _ in range(ce_every - 1):
+                    lines += ["        ce = 0", "        $tick_clock()", f"        $expect_state(Cpu.State.{shown})"]
+                lines.append("        ce = 1")
             lines += ["        $tick_clock()", f"        $expect_state(Cpu.State.{state})"]
+            shown = state
             clock += 1
         lines.append(f"        $expect_pc(32h{model.pc:08X})")
         if word & 0x7F == 0x23:            # after every store: only stores move the display
@@ -342,6 +360,10 @@ def main():
             tb, size = render_uart_testbench(name, words, text, sw, forever=k == "uart_forever")
         out += [""] + tb
         summary.append(f"{case_name(name, sw)}: {size}")
+        if name in CE_CASES:
+            tb, size = render_testbench(name, words, text, sw, ce_every=CE_EVERY)
+            out += [""] + tb
+            summary.append(f"{case_name(name, sw)}_ce{CE_EVERY}: {size}")
     (ROOT / "source" / "tb" / "cpu_tb.luc").write_text("\n".join(out) + "\n")
     print("wrote programs.luc, memory_map.luc and cpu_tb.luc (" + ", ".join(summary) + ")")
 

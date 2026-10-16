@@ -13,7 +13,7 @@ testbench uart_tb {
     sig phase                // cpu_clock_fast: io_clk ticks on every other cpu clock
 
     uart dut(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst),
-             .write(write), .write_data(wdata))
+             .write(write), .write_data(wdata), .ce(1))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(io_clk), .rst(rst), .rx(dut.tx))
 
     fun io_tick() {

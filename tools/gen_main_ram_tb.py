@@ -37,7 +37,7 @@ def bench(name, words, body):
         "    sig be[4]",
         "",
         f"    main_ram dut(#WORDS({words}), #PROGRAM_ID(Programs.Id.{PROGRAM}), #SIM_MODEL(1),",
-        "                 .clk(clk), .raddr(raddr), .waddr(waddr), .wdata(wdata), .be(be))",
+        "                 .clk(clk), .ce(1), .raddr(raddr), .waddr(waddr), .wdata(wdata), .be(be))",
         "",
         "    // settle first: inputs changed in the same step as the rising edge would be missed",
         "    fun tick_clock() {",

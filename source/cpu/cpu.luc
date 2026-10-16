@@ -19,6 +19,7 @@
 module cpu (
     input clk,
     input rst,
+    input ce,                // clock enable: on a clock with ce = 0 nothing here changes
     output bus_raddr[32],    // read port: byte address (next pc, or a load's rs1 + imm)
     output bus_load,         // 1 while bus_raddr is a load's address; 0 for instruction fetches
     input bus_rdata[32],     // the word at bus_raddr on the previous clock
@@ -34,10 +35,10 @@ module cpu (
   ) {
 
   .clk(clk) {
-    program_counter pc_unit(.rst(rst));
-    register_file reg_file(.rst(rst));
-    control_unit control(.rst(rst));
-    csr_file csrs(.rst(rst));
+    program_counter pc_unit(.rst(rst), .ce(ce));
+    register_file reg_file(.rst(rst), .ce(ce));
+    control_unit control(.rst(rst), .ce(ce));
+    csr_file csrs(.rst(rst), .ce(ce));
     dff if_id_reg[32](.rst(rst));   // instruction latched at the end of FETCH
     // Pre-decode: the instruction is already on bus_rdata during FETCH, so it's decoded there and
     // the result registered with it. EXECUTE then starts from flip-flops instead of running the
@@ -169,5 +170,13 @@ module cpu (
     debug_state = control.current_state;
     reg_file.debug_sel = debug_sel;
     debug_reg = reg_file.debug_reg;
+
+    if (!ce) {        // disabled clock: hold everything
+      if_id_reg.d = if_id_reg.q
+      ctrl_reg.d = ctrl_reg.q
+      imm_reg.d = imm_reg.q
+      rs1_val.d = rs1_val.q
+      rs2_val.d = rs2_val.q
+    }
   }
 }

@@ -63,7 +63,7 @@ module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
   computer #(.PROGRAM_ID(PROGRAM_ID), .SIM_RAM(0), .UART_CLK_FREQ({gen_cpu_tb.TB_UART_CLK_FREQ}),
              .UART_BAUD({gen_cpu_tb.TB_UART_BAUD})) dut (
     .clk(clk), .rst(cycle < 2), .io_clk(clk), .io_rst(cycle < 2), .switches(SWITCHES[7:0]),
-    .buttons(BUTTONS),
+    .buttons(BUTTONS), .ce(1'b1),
     .debug_sel(cycle[3:0]),
     .uart_tx(uart_tx), .debug_pc(debug_pc), .debug_reg(debug_reg), .debug_state(debug_state),
     .display_chars(display_chars), .display_owned(display_owned));

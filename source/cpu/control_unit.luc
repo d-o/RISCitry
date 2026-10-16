@@ -12,6 +12,7 @@
 module control_unit (
     input clk,
     input rst,
+    input ce,                // clock enable: on a clock with ce = 0 nothing here changes
     input ctrl<Cpu.control>,
     input branch_taken,
     input trap,                // trap_unit: this instruction traps
@@ -81,6 +82,10 @@ module control_unit (
 
       default:
         state.d = Cpu.State.FETCH
+    }
+
+    if (!ce) {        // disabled clock: hold everything
+      state.d = state.q
     }
   }
 }

@@ -1,6 +1,7 @@
 module register_file (
     input clk,
     input rst,
+    input ce,                // clock enable: on a clock with ce = 0 nothing here changes
     input rs1[5],           
     input rs2[5],           
     input rd[5],            
@@ -44,6 +45,10 @@ module register_file (
     
     if (reg_write && (rd_idx != 4b0000) && (rd < 16)) {
       registers.d[rd_idx] = write_data
+    }
+
+    if (!ce) {        // disabled clock: hold everything
+      registers.d = registers.q
     }
   }
 }
