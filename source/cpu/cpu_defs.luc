@@ -38,8 +38,8 @@ global Cpu {
     // listed least-significant first; flattened layout:
     //   [17:14] alu_op  [13] alu_src_a  [12] alu_src_b  [11:9] imm_type  [8:7] wb_sel
     //   [6] reg_write  [5] mem_read  [4] mem_write  [3] branch  [2] jump  [1] jalr  [0] illegal
-    //   [22] ebreak  [21] ecall  [20] mret  [19] csr_write  [18] csr   (added at the top so the older
-    //   fields keep their bits)
+    //   [23] wfi  [22] ebreak  [21] ecall  [20] mret  [19] csr_write  [18] csr   (added at the top so
+    //   the older fields keep their bits)
     struct control {
         illegal,                   // not a valid RV32E instruction; all side effects are forced off
         jalr,                      // JALR: pc = (rs1 + imm) & ~1
@@ -57,7 +57,8 @@ global Cpu {
         csr_write,                 // ...and the CSR is written (not csrrs/csrrc with x0 or zimm 0)
         mret,                      // MRET: pc = mepc, mstatus.MIE = MPIE, MPIE = 1
         ecall,                     // ECALL: environment call trap (cause 11)
-        ebreak                     // EBREAK: breakpoint trap (cause 3)
+        ebreak,                    // EBREAK: breakpoint trap (cause 3)
+        wfi                        // WFI: wait in EXECUTE until an interrupt enabled in mie is pending
     }
 
     // mcause exception codes (trap_unit.luc)

@@ -38,6 +38,10 @@ value at the start of an instruction (FETCH). A load of the timer reads it as of
 start of each instruction: MIE && MTIE && mtime >= mtimecmp (both as of that instruction's FETCH:
 the core registers the comparison), and taken before the instruction does anything (mcause
 0x80000007, mepc = pc, 2 clocks). Timing is exact only for programs without UART polling.
+WFI waits in EXECUTE, one extra clock at a time (self.stall), until an interrupt enabled in mie
+is pending, each extra clock checked like a first EXECUTE (mtip(stall), meip(stall)); with MIE set
+that interrupt is taken with mepc = the WFI + 4, otherwise the WFI completes. clocks_taken is the
+step's clocks, stall included. A WFI with nothing enabled in mie waits forever (raises here).
 timer_rate R: the hardware timer runs on every clock (real time, timer.luc) while the cpu is
 enabled on one clock in R (ce; the _ce3 testbenches). Counting from the start of an instruction
 (R raw clocks per cpu clock): a load reads mtime at start + 3R - 1 (the clock before MEM_ACCESS's
@@ -134,6 +138,8 @@ class Cpu:
         self.button_events = sorted(button_events)
         self.btn = {"edge": 0, "sync0": 0, "sync1": 0, "last": 0, "pending": 0, "overrun": 0}
         self.btn_clear = None         # mask written by a store in this instruction
+        self.stall = 0                # the last step's WFI wait, in extra EXECUTE clocks
+        self.clocks_taken = 0         # the last step's clocks (clocks() + stall)
         size = max(words) // 4 + 1
         if size * 4 > memmap.RAM_BYTES:
             raise ValueError(f"program ({size * 4} bytes) doesn't fit in RAM ({memmap.RAM_BYTES} bytes)")
@@ -256,14 +262,16 @@ class Cpu:
             b["pending"], b["overrun"] = pending, overrun
             b["edge"] = e + 1
 
-    def meip(self):
-        """mip.MEIP during this instruction's EXECUTE (pending as of its FETCH edge)."""
-        self._buttons_to(self.cycle)
+    def meip(self, stall=0):
+        """mip.MEIP during this instruction's EXECUTE (pending as of its FETCH edge), or during
+        its stall-th extra EXECUTE clock while a WFI waits."""
+        self._buttons_to(self.cycle + stall)
         return self.btn["pending"] != 0
 
-    def mtip(self):
-        """mip.MTIP as the core sees it during this instruction (registered at its FETCH)."""
-        return self.mtime + 2 * self.rate - 2 >= self.mtimecmp
+    def mtip(self, stall=0):
+        """mip.MTIP as the core sees it during this instruction's EXECUTE (registered one raw
+        clock before EXECUTE's enabled edge), or its stall-th extra EXECUTE clock (a WFI)."""
+        return self.mtime + (2 + stall) * self.rate - 2 >= self.mtimecmp
 
     def read_csr(self, csr):
         if csr == 0x344:
@@ -293,11 +301,18 @@ class Cpu:
         self.btn_clear = None
         start = self.mtime
         mstatus, mie = self.csr[0x300], self.csr[0x304]
+        self.stall = 0                       # extra EXECUTE clocks a WFI spent waiting
         try:
-            if mstatus & 0x8 and mie & 0x800 and self.meip():
-                raise Trap(0x8000000B, 0)    # external interrupt: beats the timer
-            if mstatus & 0x8 and mie & 0x80 and self.mtip():
-                raise Trap(0x80000007, 0)    # timer interrupt: before the instruction does anything
+            while True:
+                if mstatus & 0x8 and mie & 0x800 and self.meip(self.stall):
+                    raise Trap(0x8000000B, 0)    # external interrupt: beats the timer
+                if mstatus & 0x8 and mie & 0x80 and self.mtip(self.stall):
+                    raise Trap(0x80000007, 0)    # timer interrupt: before the instruction does anything
+                if w != WFI or (mie & 0x800 and self.meip(self.stall)) or (mie & 0x80 and self.mtip(self.stall)):
+                    break                        # (a WFI ends on an interrupt enabled in mie, whatever MIE)
+                self.stall += 1
+                if self.stall > 1_000_000:
+                    raise ValueError(f"pc={self.pc:#x}: WFI never wakes (no interrupt enabled in mie?)")
             self._execute(w)
         except Trap as trap:
             if not self.traps_ok:
@@ -306,7 +321,7 @@ class Cpu:
             self.trapped = trap
             mstatus = self.csr[0x300]
             self.csr[0x300] = (mstatus & ~0x88) | ((mstatus & 0x8) << 4)   # MPIE = MIE, MIE = 0
-            self.csr[0x341] = self.pc
+            self.csr[0x341] = (self.pc + 4) & MASK if w == WFI else self.pc   # after a WFI: the next one
             self.csr[0x342] = trap.cause
             self.csr[0x343] = trap.tval & MASK
             self.pc = self.csr[0x305]
@@ -317,8 +332,9 @@ class Cpu:
             half = 32 * index
             self.mtime = (now & ~(MASK << half)) | (value << half)
         else:
-            self.mtime = start + clocks(w, self.trapped) * self.rate
-        n = clocks(w, self.trapped)
+            self.mtime = start + (clocks(w, self.trapped) + self.stall) * self.rate
+        n = clocks(w, self.trapped) + self.stall
+        self.clocks_taken = n
         if self.btn_clear is not None:       # cleared on the store's last edge
             self._buttons_to(self.cycle + n - 1, clear_edge=self.cycle + 2, mask=self.btn_clear)
         self.cycle += n

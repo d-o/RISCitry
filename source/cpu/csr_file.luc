@@ -23,6 +23,7 @@ module csr_file (
     output mepc[32],         // MRET's return address
     output mtvec[32],        // the trap handler's address
     output irq,              // an enabled interrupt is pending: MIE && (MEIE && MEIP || MTIE && MTIP)
+    output wake,             // ...the same without MIE: what ends a WFI (the spec: regardless of MIE)
     output irq_cause[4]      // which: external (11) beats timer (7), the spec's priority order
   ) {
 
@@ -42,6 +43,8 @@ module csr_file (
   sig value[32]              // the addressed CSR's current value
   sig new_value[32]
 
+  sig pending_enabled          // an interrupt enabled in mie is pending
+
   always {
     case (addr) {
       Cpu.CSR_MSTATUS: value = c{19b0, 2b11, 3b0, mstatus_mpie.q, 3b0, mstatus_mie.q, 3b0}
@@ -58,7 +61,9 @@ module csr_file (
     read_data = value
     mepc = c{mepc_word.q, 2b00}
     mtvec = c{mtvec_base.q, 2b00}
-    irq = mstatus_mie.q && ((mie_meie.q && meip) || (mie_mtie.q && mtip))
+    pending_enabled = (mie_meie.q && meip) || (mie_mtie.q && mtip)
+    wake = pending_enabled
+    irq = mstatus_mie.q && pending_enabled
     if (mie_meie.q && meip) irq_cause = Cpu.CAUSE_EXTERNAL_INTERRUPT; else irq_cause = Cpu.CAUSE_TIMER_INTERRUPT;
 
     case (op) {

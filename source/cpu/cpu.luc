@@ -92,6 +92,7 @@ module cpu (
     control.ctrl = ctrl;
     control.branch_taken = branch.taken;
     control.trap = traps.trap;
+    control.wake = csrs.wake;
 
     reg_file.rs1 = bus_rdata[19:15];     // read in FETCH (see rs1_val)
     reg_file.rs2 = bus_rdata[24:20];
@@ -156,7 +157,9 @@ module cpu (
     csrs.meip = irq_external;
     traps.interrupt_cause = csrs.irq_cause;
     csrs.trap = control.take_trap;
-    csrs.trap_pc = pc_unit.pc;
+    // an interrupt that ends a WFI returns to the instruction after it (the spec), anything else
+    // to the trapping instruction itself
+    if (ctrl.wfi) csrs.trap_pc = pc_unit.pc + 4; else csrs.trap_pc = pc_unit.pc;
     csrs.trap_cause = traps.cause;
     csrs.trap_interrupt = traps.interrupt_taken;
     case (traps.tval_sel) {

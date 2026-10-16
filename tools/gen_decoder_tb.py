@@ -1,8 +1,8 @@
 """Generate source/tb/decoder_tb.luc: expected control signals for every RV32I instruction,
 written here as a table from the spec (deliberately not derived from decoder.luc), plus illegal encodings.
 
-The decoder outputs are packed into one 23-bit word in the testbench:
-  [22] ebreak  [21] ecall  [20] mret  [19] csr_write  [18] csr  [17:14] alu_op  [13] alu_src_a  [12] alu_src_b  [11:9] imm_type  [8:7] wb_sel
+The decoder outputs are packed into one 24-bit word in the testbench:
+  [23] wfi  [22] ebreak  [21] ecall  [20] mret  [19] csr_write  [18] csr  [17:14] alu_op  [13] alu_src_a  [12] alu_src_b  [11:9] imm_type  [8:7] wb_sel
   [6] reg_write  [5] mem_read  [4] mem_write  [3] branch  [2] jump  [1] jalr  [0] illegal
 
 Usage: python3 tools/gen_decoder_tb.py   (rewrites source/tb/decoder_tb.luc)
@@ -36,7 +36,7 @@ SPEC = {
     "fence": ("add", 0, 0, "I", "ALU", ""),
     "ecall": ("add", 0, 0, "I", "ALU", "ecall"),
     "ebreak": ("add", 0, 0, "I", "ALU", "ebreak"),
-    "wfi": ("add", 0, 0, "I", "ALU", ""),
+    "wfi": ("add", 0, 0, "I", "ALU", "wfi"),
     "mret": ("add", 0, 0, "I", "ALU", "mret"),
     # Zicsr: rd gets the old value; the write is suppressed for set/clear with x0 / zimm 0
     # (vectors below use nonzero sources, plus explicit read-only cases)
@@ -44,8 +44,8 @@ SPEC = {
                                                          "csrrwi", "csrrsi", "csrrci")},
 }
 FLAG_BITS = {"rw": 6, "mr": 5, "mw": 4, "br": 3, "j": 2, "jr": 1, "csr": 18, "cw": 19, "mret": 20,
-             "ecall": 21, "ebreak": 22}
-WIDTH = 23
+             "ecall": 21, "ebreak": 22, "wfi": 23}
+WIDTH = 24
 FULL_MASK = (1 << WIDTH) - 1
 SIDE_EFFECTS_AND_ILLEGAL = 0b11111 << 18 | 0b1111111  # bits 22..18 and 6..0
 

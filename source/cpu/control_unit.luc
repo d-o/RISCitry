@@ -9,6 +9,10 @@
 // of anything the instruction would do: pc = mtvec (pc_src 11), csr_file records the cause, and
 // the next instruction fetched is the handler's first. A trapping load/store never reaches
 // MEM_ACCESS, so it neither reads nor writes memory.
+// WFI waits in EXECUTE (no side effects, pc held) until wake: an interrupt enabled in mie is
+// pending. With MIE set that interrupt is then taken as a trap (cpu.luc makes mepc = pc + 4, the
+// instruction after the WFI, as the spec says); with MIE clear the WFI just completes. The timer
+// counts real time, so it ticks on while the cpu waits.
 module control_unit (
     input clk,
     input rst,
@@ -16,6 +20,7 @@ module control_unit (
     input ctrl<Cpu.control>,
     input branch_taken,
     input trap,                // trap_unit: this instruction traps
+    input wake,                // csr_file: an interrupt enabled in mie is pending (ends a WFI)
     output pc_write,
     output pc_src[2],          // program_counter: 00 = pc + 4, 01 = pc + imm, 10 = JALR target, 11 = vector (mtvec, or mepc for MRET)
     output reg_write,
@@ -50,6 +55,8 @@ module control_unit (
           pc_write = 1
           pc_src = 2b11
           state.d = Cpu.State.FETCH
+        } else if (ctrl.wfi && !wake) {
+          state.d = Cpu.State.EXECUTE      // waiting for an interrupt
         } else if (ctrl.mem_read || ctrl.mem_write) {
           state.d = Cpu.State.MEM_ACCESS
         } else {

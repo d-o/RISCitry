@@ -36,6 +36,14 @@ MAX_PRINT_STEPS = 20000    # ... or a forever-printing one that hasn't printed P
 # control_unit's state after each clock of an instruction, by the instruction's clock count
 STATES = {2: ["EXECUTE", "FETCH"], 3: ["EXECUTE", "MEM_ACCESS", "FETCH"],
           4: ["EXECUTE", "MEM_ACCESS", "WRITEBACK", "FETCH"]}
+
+
+def states_after(model):
+    """The control states after each clock of the instruction model.step() just ran (a WFI that
+    waited stays in EXECUTE for model.stall extra clocks)."""
+    if model.stall:
+        return ["EXECUTE"] * (model.clocks_taken - 1) + ["FETCH"]
+    return STATES[model.clocks_taken]
 WRITES_RD = {0x37, 0x17, 0x6F, 0x67, 0x03, 0x13, 0x33}
 # UART timing in the testbenches: io_clk is the testbench clock, 8 clocks per bit (uart_rx needs
 # at least 4).
@@ -142,7 +150,7 @@ def run_to_halt(name, words, sw=0):
 # counts real time, every clock, so TIMER reads it at three ticks per cpu clock; TIMER runs again
 # with the timer in STOPTIME mode (counting cpu clocks only: suffix _ce3s). IRQ sets mtimecmp to 0,
 # so it can't tell the two modes apart.
-CE_CASES = [("MEMORY", 0), ("SELFMOD", 0), ("TIMER", 0), ("TIMER", 1), ("IRQ", 0)]   # (name, STOPTIME)
+CE_CASES = [("MEMORY", 0), ("SELFMOD", 0), ("TIMER", 0), ("TIMER", 1), ("IRQ", 0), ("WFI", 0)]   # (name, STOPTIME)
 CE_EVERY = 3
 
 
@@ -317,7 +325,7 @@ def render_testbench(name, words, text, sw, ce_every=1, stoptime=0):
         model.step()
         steps += 1
         lines.append(f"        // {pc:#06x}: {text.get(pc, 'nop')}")
-        for state in STATES[clocks_for(word, model.trapped)]:
+        for state in states_after(model):
             lines += button_lines(name, clock, "        ")
             if ce_every > 1:               # disabled clocks first: nothing may move
                 for _ in range(ce_every - 1):

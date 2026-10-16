@@ -328,8 +328,7 @@ ILLEGAL = [
     (".word", rv32.encode("csrrw", 5, 6, imm=0xC00)),  # csrrw x5, cycle, x6: not implemented
     (".word", rv32.encode("csrrw", 5, 6, imm=0xF11)),  # csrrw x5, mvendorid, x6: read-only
     (".word", 0x0000100F),                          # fence.i: Zifencei not implemented
-    ("fence",),
-    ("wfi",),
+    ("fence",),                                     # (no WFI here since it really waits: nothing to wake it)
     ("lw", 7, 0, DATA),                             # still 6: the sd didn't store
     ("lui", 2, memmap.UART_BASE >> 12),
     ("jalr", 1, 2, 0),                              # run from the UART: a trap per word
@@ -604,7 +603,7 @@ BOARD = [
 
 # Zicsr and MRET: read the constant CSRs, write/set/clear mscratch (rd gets the old value each
 # time), the WARL masks of mtvec/mstatus/mie/mepc, a write to misa ignored, then MRET: pc = mepc
-# (low bits read 0), MIE = MPIE, MPIE = 1. WFI is a no-op.
+# (low bits read 0), MIE = MPIE, MPIE = 1. A WFI with the timer pending and MIE = 0 just completes.
 CSR = [
     ("csrrs", 1, 0x301, 0),                    # x1 = misa = 0x40000010 (RV32E)
     ("csrrs", 2, 0xF14, 0),                    # x2 = mhartid = 0
@@ -632,7 +631,11 @@ CSR = [
     ("addi", 14, 0, 1),                        # skipped
     "back:",
     ("csrrs", 14, 0x300, 0),                   # x14 = 0x1880: MPP = 3, MPIE = 1, MIE = 0
-    ("wfi",),
+    ("lui", 1, memmap.TIMER_BASE >> 12),
+    ("sw", 0, 1, memmap.TIMER_MTIMECMPH - memmap.TIMER_BASE),
+    ("sw", 0, 1, memmap.TIMER_MTIMECMP - memmap.TIMER_BASE),   # mtimecmp = 0: MTIP pending
+    ("wfi",),                                  # MTIE (set above) + MTIP wake it at once; MIE = 0: no trap
+    ("sw", 8, 1, memmap.TIMER_MTIMECMPH - memmap.TIMER_BASE),  # disarm before MIE is set below
     ("csrrw", 15, 0x300, 8),                   # x15 = 0x1880; mstatus = all ones ...
     ("csrrs", 15, 0x300, 0),                   # ... reads 0x1888
     ("halt",),
@@ -784,6 +787,56 @@ PRESS = [
     ("mret",),
 ]
 
+# WFI: the cpu waits in EXECUTE until an interrupt enabled in mie is pending. (a) MIE = 1: the timer
+# interrupt (60 ticks ahead) wakes it and is taken with mepc = the WFI + 4. (b) MIE = 0: the timer
+# wakes it and it just completes (mip shows MTIP). (c) MIE = 1, MEIE only: a button press
+# (BUTTON_EVENTS) wakes it. mtime after each wake goes into x5, x6, x9, so the wait lengths reach
+# the final registers; the handler adds each mepc into x10 and counts in x14.
+WFI_TEST = [
+    ("addi", 3, 0, "wfi_handler"),
+    ("csrrw", 0, 0x305, 3),                    # mtvec
+    ("lui", 2, T >> 12),                       # x2 = timer
+    ("lui", 11, B >> 12),                      # x11 = buttons
+    ("sw", 0, 2, memmap.TIMER_MTIMECMPH - T),
+    ("addi", 8, 0, 0x80),
+    ("csrrs", 0, 0x304, 8),                    # MTIE
+    ("lw", 4, 2, memmap.TIMER_MTIME - T),
+    ("addi", 4, 4, 60),
+    ("sw", 4, 2, memmap.TIMER_MTIMECMP - T),   # (a) an interrupt 60 ticks from now
+    ("csrrsi", 0, 0x300, 0x08),                # MIE
+    ("wfi",),
+    ("lw", 5, 2, memmap.TIMER_MTIME - T),      # x5: after the wake and the handler
+    ("csrrci", 0, 0x300, 0x08),                # (b) MIE = 0
+    ("lw", 4, 2, memmap.TIMER_MTIME - T),
+    ("addi", 4, 4, 60),
+    ("sw", 4, 2, memmap.TIMER_MTIMECMP - T),   # low word first: the high word is all ones (disarmed)
+    ("sw", 0, 2, memmap.TIMER_MTIMECMPH - T),
+    ("wfi",),                                  # wakes on MTIP, no trap
+    ("lw", 6, 2, memmap.TIMER_MTIME - T),      # x6
+    ("csrrs", 7, 0x344, 0),                    # x7 = mip: 0x80 (MTIP)
+    ("addi", 4, 0, -1),
+    ("sw", 4, 2, memmap.TIMER_MTIMECMPH - T),  # disarm
+    ("csrrc", 0, 0x304, 8),                    # MTIE = 0
+    ("addi", 8, 0, 1),
+    ("slli", 8, 8, 11),
+    ("csrrs", 0, 0x304, 8),                    # (c) MEIE
+    ("csrrsi", 0, 0x300, 0x08),                # MIE
+    ("wfi",),                                  # a button press wakes it
+    ("lw", 9, 2, memmap.TIMER_MTIME - T),      # x9
+    ("csrrci", 0, 0x300, 0x08),
+    ("halt",),
+    "wfi_handler:",
+    ("csrrs", 13, 0x342, 0),                   # x13 = mcause (the last one)
+    ("csrrs", 12, 0x341, 0),                   # x12 = mepc: the instruction after the WFI
+    ("add", 10, 10, 12),
+    ("addi", 14, 14, 1),
+    ("lw", 15, 11, 0),
+    ("sw", 15, 11, 0),                         # clear any button presses
+    ("addi", 4, 0, -1),
+    ("sw", 4, 2, memmap.TIMER_MTIMECMPH - T),  # disarm the timer
+    ("mret",),
+]
+
 PROGRAMS = {
     "BOARD": BOARD,
     "LARSON": LARSON,
@@ -802,6 +855,7 @@ PROGRAMS = {
     "TIMER": TIMER,
     "IRQ": IRQ,
     "PRESS": PRESS,
+    "WFI": WFI_TEST,
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
@@ -821,7 +875,7 @@ PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
-EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD"}
+EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI"}
 # Button presses for programs that use the buttons device: (post-reset clock, levels), levels =
 # up | down << 1 | left << 2 | right << 3, applied before that clock's rising edge.
 BUTTON_EVENTS = {
@@ -829,6 +883,7 @@ BUTTON_EVENTS = {
     "PRESS": [(20, 0x1), (25, 0x0), (28, 0x1), (33, 0x0),      # (A) set wins on the clear edge
               (108, 0x1), (113, 0x0), (115, 0x1), (120, 0x0)],  # (B) merged before the clear
     "BOARD": [(2000, 0x4), (2100, 0x0), (3000, 0x9), (3100, 0x0)],   # only menu entry 2 listens
+    "WFI": [(240, 0x1), (260, 0x0)],          # wakes (c), whose WFI starts at clock 192
 }
 
 # The program the board runs (instantiated by the top module).
