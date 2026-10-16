@@ -20,7 +20,7 @@ testbench machine_tb {
         clk = 1
         $silent_tick()
         clk = 0
-        $tick()
+        $silent_tick()
     }
 
     fun settle() {
@@ -44,7 +44,6 @@ testbench machine_tb {
         $assert(dut.cpu_state == state)
         $assert(dut.halted)
         $assert(!dut.busy)
-        $assert(!dut.cpu_clock)
         $assert(dut.uart_tx)       // MEMORY doesn't print: serial line idle high
         $assert(!dut.display_owned && dut.display_chars == 0)   // nor use the display
     }
@@ -76,65 +75,84 @@ testbench machine_tb {
         $expect_stopped_at(32h00000000, Cpu.State.FETCH)
         $settle()
         $expect_stopped_at(32h00000000, Cpu.State.FETCH)   // stays stopped
+        $assert(dut.cpu_clock == 0)   // two cpu clocks in reset: toggled twice
         clock_step = 1
         // clock steps: 0x0000: addi x2, x0, 0x400
         $press_step()
         $expect_stopped_at(32h00000000, Cpu.State.EXECUTE)
+        $assert(dut.cpu_clock == 1)
         $press_step()
         $expect_stopped_at(32h00000004, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 0)
         $expect_reg(4d2, 32h00000400)
         // one clock step into 0x0004: lui x3, 0xdeadc, then instruction mode
         clock_step = 1
         $press_step()
         $expect_stopped_at(32h00000004, Cpu.State.EXECUTE)
+        $assert(dut.cpu_clock == 1)
         clock_step = 0
         $settle()
         $expect_stopped_at(32h00000004, Cpu.State.EXECUTE)
         $press_step()
         $expect_stopped_at(32h00000008, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 0)
         $expect_reg(4d3, 32hDEADC000)
         clock_step = 0
         // step: 0x0008: addi x3, x3, -0x111
         $press_step()
         $expect_stopped_at(32h0000000C, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 0)
         $expect_reg(4d3, 32hDEADBEEF)
         // step: 0x000c: sw x3, 0(x2)
         $press_step()
         $expect_stopped_at(32h00000010, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 1)
         // step: 0x0010: sw x2, 4(x2)
         $press_step()
         $expect_stopped_at(32h00000014, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 0)
         // step: 0x0014: lw x4, 0(x2)
         $press_step()
         $expect_stopped_at(32h00000018, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 0)
         $expect_reg(4d4, 32hDEADBEEF)
         // step: 0x0018: lw x5, 4(x2)
         $press_step()
         $expect_stopped_at(32h0000001C, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 0)
         $expect_reg(4d5, 32h00000400)
         clock_step = 1
         // clock steps: 0x001c: add x6, x4, x5
         $press_step()
         $expect_stopped_at(32h0000001C, Cpu.State.EXECUTE)
+        $assert(dut.cpu_clock == 1)
         $press_step()
         $expect_stopped_at(32h00000020, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 0)
         $expect_reg(4d6, 32hDEADC2EF)
         // clock steps: 0x0020: sw x0, 0(x2)
         $press_step()
         $expect_stopped_at(32h00000020, Cpu.State.EXECUTE)
+        $assert(dut.cpu_clock == 1)
         $press_step()
         $expect_stopped_at(32h00000020, Cpu.State.MEM_ACCESS)
+        $assert(dut.cpu_clock == 0)
         $press_step()
         $expect_stopped_at(32h00000024, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 1)
         // clock steps: 0x0024: lw x7, 0(x2)
         $press_step()
         $expect_stopped_at(32h00000024, Cpu.State.EXECUTE)
+        $assert(dut.cpu_clock == 0)
         $press_step()
         $expect_stopped_at(32h00000024, Cpu.State.MEM_ACCESS)
+        $assert(dut.cpu_clock == 1)
         $press_step()
         $expect_stopped_at(32h00000024, Cpu.State.WRITEBACK)
+        $assert(dut.cpu_clock == 0)
         $press_step()
         $expect_stopped_at(32h00000028, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 1)
         $expect_reg(4d7, 32h00000000)
         // run, with a step pulse that must be ignored, then stop: ends in the halt loop
         clock_step = 0
@@ -173,6 +191,7 @@ testbench machine_tb {
         rst = 0
         $settle()
         $expect_stopped_at(32h00000000, Cpu.State.FETCH)
+        $assert(dut.cpu_clock == 0)
         $expect_reg(4d2, 32h00000000)
         // fast run reaches the halt loop too
         fast = 1

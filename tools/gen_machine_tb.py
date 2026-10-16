@@ -2,7 +2,8 @@
 
 Runs the MEMORY program (2-, 3- and 4-clock instructions) on the machine with short clock
 periods, checked against tools/rv32sim.py:
-  - after reset, with run off, the machine is stopped at pc 0 (state FETCH, cpu clock low)
+  - after reset, with run off, the machine is stopped at pc 0 (state FETCH)
+  - the cpu clock light toggles once per cpu clock (checked while stepping, where the count is known)
   - clock mode: each step pulse is one cpu clock (state and pc checked after each, through an
     ALU op, a store and a load)
   - a clock step part-way into an instruction, then instruction mode: it stays put until a step,
@@ -25,7 +26,7 @@ from gen_cpu_tb import STATES, clocks_for, writes_rd
 ROOT = Path(__file__).resolve().parent.parent
 PROGRAM = "MEMORY"
 SLOW_BITS, FAST_BITS = 3, 1
-SETTLE = 64                 # fast clocks after a step: a 4-clock instruction needs 4 * 2 * 2^FAST_BITS
+SETTLE = 64                 # clocks after a step: a 4-clock instruction needs 4 * 2^FAST_BITS
 
 
 def main():
@@ -54,7 +55,7 @@ def main():
         "        clk = 1",
         "        $silent_tick()",
         "        clk = 0",
-        "        $tick()",
+        "        $silent_tick()",   # silent: every $tick() keeps a whole-design snapshot (RAM model included)
         "    }",
         "",
         "    fun settle() {",
@@ -78,7 +79,6 @@ def main():
         "        $assert(dut.cpu_state == state)",
         "        $assert(dut.halted)",
         "        $assert(!dut.busy)",
-        "        $assert(!dut.cpu_clock)",
         "        $assert(dut.uart_tx)       // MEMORY doesn't print: serial line idle high",
         "        $assert(!dut.display_owned && dut.display_chars == 0)   // nor use the display",
         "    }",
@@ -110,7 +110,14 @@ def main():
         "        $expect_stopped_at(32h00000000, Cpu.State.FETCH)",
         "        $settle()",
         "        $expect_stopped_at(32h00000000, Cpu.State.FETCH)   // stays stopped",
+        "        $assert(dut.cpu_clock == 0)   // two cpu clocks in reset: toggled twice",
     ]
+
+    led = [0]                # the cpu clock light: reset gives two cpu clocks, so it's back at 0
+
+    def toggle(n=1):
+        led[0] ^= n & 1
+        out.append(f"        $assert(dut.cpu_clock == {led[0]})")
 
     def next_instruction():
         pc = model.pc
@@ -132,6 +139,7 @@ def main():
             for state in STATES[clocks_for(word)]:
                 now = model.pc if state == "FETCH" else pc
                 out.extend(["        $press_step()", f"        $expect_stopped_at(32h{now:08X}, Cpu.State.{state})"])
+                toggle()
             expect_rd(word)
 
     def instruction_steps(count):
@@ -140,6 +148,7 @@ def main():
             pc, word = next_instruction()
             out.extend([f"        // step: {pc:#06x}: {text.get(pc, 'nop')}", "        $press_step()",
                         f"        $expect_stopped_at(32h{model.pc:08X}, Cpu.State.FETCH)"])
+            toggle(clocks_for(word))
             expect_rd(word)
 
     clock_steps(1)
@@ -149,11 +158,13 @@ def main():
             "        clock_step = 1",
             "        $press_step()",
             f"        $expect_stopped_at(32h{pc:08X}, Cpu.State.EXECUTE)",
+            f"        $assert(dut.cpu_clock == {led[0] ^ 1})",
             "        clock_step = 0",
             "        $settle()",
             f"        $expect_stopped_at(32h{pc:08X}, Cpu.State.EXECUTE)",
             "        $press_step()",
             f"        $expect_stopped_at(32h{model.pc:08X}, Cpu.State.FETCH)"]
+    toggle(clocks_for(word))         # one clock step plus the rest of the instruction
     expect_rd(word)
     instruction_steps(5)             # through sw (3 clocks) and lw (4 clocks)
     clock_steps(3)                   # add, then sw and lw clock by clock
@@ -186,6 +197,7 @@ def main():
         "        rst = 0",
         "        $settle()",
         "        $expect_stopped_at(32h00000000, Cpu.State.FETCH)",
+        "        $assert(dut.cpu_clock == 0)",
         "        $expect_reg(4d2, 32h00000000)",
         "        // fast run reaches the halt loop too",
         "        fast = 1",

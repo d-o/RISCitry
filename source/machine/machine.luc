@@ -1,28 +1,36 @@
-// The computer (cpu + memory) plus the clock and reset sequencer that a front panel drives: run,
-// run fast, or stop and single-step, either one whole instruction or one cpu clock at a time.
+// The computer (cpu + memory) plus the sequencer that a front panel drives: run, run fast, or
+// stop and single-step, either one whole instruction or one cpu clock at a time.
 //
-// The cpu still runs on a clock derived from clk (cpu_clk, a flip-flop, so glitch-free), not on clk
-// with a clock enable: the core's fmax (37-60 MHz, depending on the program in the ROM) is under
-// 100 MHz, so a clock enable would fail timing on every path unless they all had multicycle
-// constraints.
+// One clock for everything (clk; 25 MHz from the PLL on the board). The computer runs on clk
+// with a clock enable, ce: on a clock with ce = 0 none of its state changes (every flip-flop
+// there holds; see the `if (!ce)` blocks). "A cpu clock" is a clock with ce = 1. Until
+// 2026-10-16 the sequencer made a separate cpu clock from a flip-flop instead (a second clock
+// domain, a logic-made clock on its own global net, crossings everywhere); see notes.
 //
-// cpu_clk changes only when the half-period counter fills: every 2^SLOW_BITS clocks when running,
-// every 2^FAST_BITS when running fast, stepping or resetting. Stopping happens only where a rising
-// edge would go, so the clock is always low when stopped.
-//   Instruction mode: a step, or turning run off, keeps clocking until the cpu is between
+// ce is a flip-flop: a decision made on this clock enables the computer's next edge.
+//   Run fast: ce = 1 on every clock (the cpu at the full clock rate).
+//   Run: one ce pulse every 2^SLOW_BITS clocks. Steps and resets: one every 2^FAST_BITS clocks.
+//   Instruction mode: a step, or turning run off, keeps pulsing until the cpu is between
 //   instructions (state FETCH), so it always leaves whole instructions done.
-//   Clock mode (clock_step): a step is one rising edge, and turning run off stops at the next one,
+//   Clock mode (clock_step): a step is one pulse, and turning run off stops at the next one,
 //   wherever the cpu is. A step in instruction mode from mid-instruction finishes that instruction.
-//   The cpu state is in the cpu_clk domain; it's sampled half a cpu clock after it last changed.
-//   cpu_rst changes only with a falling edge, so it's never racing a rising one.
-// After rst the cpu clock runs (fast) with cpu_rst held for two rising edges, so a short reset
-// pulse is enough even when stopped.
+//   Decisions to pulse are only made with no enabled edge pending (!ce.q), so a stop can't
+//   overshoot by one clock.
+// The sequencer runs on clk's FALLING edge; the computer samples ce and cpu_rst on the rising edge
+// half a clock later. So they are steady when the computer's flip-flops look, and the Alchitry
+// simulator, which updates instances one at a time in an order of its own, can't let the
+// computer see them from after the edge (with ce on the rising edge it missed every pulse,
+// 2026-10-16). The whole sequencer is on that edge, not just ce: split across both edges, its
+// bookkeeping (moved, active) saw the decisions half a clock late and a clock step never ended.
+// iCE40 flip-flops can clock on either edge of the same global clock.
+// After rst, ce pulses twice with cpu_rst held (the RAM's read register, which has no reset,
+// reads the first instruction on the second), so a short reset pulse is enough even when stopped.
 module machine #(
     PROGRAM_ID = 0,                              // a Programs.Id, passed to computer
     SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1,  // 1 in testbenches, passed to computer
-    SLOW_BITS = 21 : SLOW_BITS > 1,              // run: half period of 2^SLOW_BITS clocks
-    FAST_BITS = 4 : FAST_BITS > 0 && FAST_BITS < SLOW_BITS,
-    CLK_FREQ = 100_000_000 : CLK_FREQ > 0,       // clk's frequency (the UART's baud comes from it)
+    SLOW_BITS = 20 : SLOW_BITS > 1,              // run: a cpu clock every 2^SLOW_BITS clocks
+    FAST_BITS = 1 : FAST_BITS > 0 && FAST_BITS < SLOW_BITS,   // steps and resets: every 2^FAST_BITS
+    CLK_FREQ = 25_000_000 : CLK_FREQ > 0,        // clk's frequency (the UART's baud comes from it)
     UART_BAUD = 1_000_000 : UART_BAUD > 0 && UART_BAUD <= CLK_FREQ / 2
   ) (
     input clk,
@@ -37,7 +45,7 @@ module machine #(
     output debug_pc[32],
     output debug_reg[32],
     output cpu_state[Cpu.STATE_BITS],   // the cpu's control state (a Cpu.State)
-    output cpu_clock,        // the cpu clock itself
+    output cpu_clock,        // toggles on every cpu clock (a ce pulse is too short to see)
     output halted,           // stopped, waiting for run or step
     output busy,             // finishing a step, or the instruction in progress when run went off
     output in_reset,         // the cpu is being held in reset
@@ -46,33 +54,36 @@ module machine #(
     output display_owned     // ... once the program has written it
   ) {
 
-  .clk(clk), .rst(rst) {
-    dff phase[SLOW_BITS]
-    dff half_done                  // the half period just ended (registered: the 21-input AND is slow)
-    dff cpu_clk
-    dff cpu_rst(#INIT(1))
-    dff reset_edges[2](#INIT(2))   // rising edges still to give the cpu with cpu_rst held
-    dff active                     // clocking towards a stop point (a step, or the end of a run)
-    dff moved                      // ...and has given at least one rising edge
-    dff was_stopped                // stopped, one clock late: gates step (stopped straight into
-                                   // active's enable missed 100 MHz, 2026-10-16); a step pulse
-                                   // can't come twice in two clocks, so the lag is harmless
-  }
-
-  sig core_clk
   sig resetting
   sig at_fetch
   sig stopped
+  sig clk_n                        // clk inverted: the falling edge
 
-  .clk(core_clk) {
+  .clk(clk_n), .rst(rst) {
+    dff ce                         // the computer's clock enable
+    dff cpu_rst(#INIT(1))
+    dff phase[SLOW_BITS]
+    dff tick                       // a period just ended (registered: the wide AND is slow)
+    dff clock_led                  // toggles with each ce pulse
+    dff reset_edges[2](#INIT(2))   // enabled edges still to give the cpu with cpu_rst held
+    dff active                     // pulsing towards a stop point (a step, or the end of a run)
+    dff moved                      // ...and has given at least one pulse
+    dff was_stopped                // stopped, one clock late: gates step (stopped straight into
+                                   // active's enable missed timing at 100 MHz, 2026-10-16); a step
+                                   // pulse can't come twice in two clocks, so the lag is harmless
+  }
+
+
+  .clk(clk) {
     computer comp(#PROGRAM_ID(PROGRAM_ID), #SIM_RAM(SIM_RAM), #UART_CLK_FREQ(CLK_FREQ),
                   #UART_BAUD(UART_BAUD), .rst(cpu_rst.q));
   }
 
   always {
-    core_clk = cpu_clk.q
+    clk_n = ~clk
     comp.io_clk = clk
     comp.io_rst = rst
+    comp.ce = ce.q
     uart_tx = comp.uart_tx
     display_chars = comp.display_chars
     display_owned = comp.display_owned
@@ -80,25 +91,27 @@ module machine #(
 
     resetting = reset_edges.q != 0
     at_fetch = comp.debug_state == Cpu.State.FETCH
-    if (fast || resetting || (active.q && !run)) half_done.d = &phase.q[FAST_BITS-1:0]; else half_done.d = &phase.q;
+    if (fast || resetting || (active.q && !run)) tick.d = &phase.q[FAST_BITS-1:0]; else tick.d = &phase.q;
 
-    stopped = !cpu_clk.q && !run && !resetting && !active.q
+    stopped = !ce.q && !run && !resetting && !active.q
     was_stopped.d = stopped
 
-    if (half_done.q) {
-      if (cpu_clk.q) {
-        cpu_clk.d = 0
-        if (resetting) {
-          reset_edges.d = reset_edges.q - 1
-          if (reset_edges.q == 1) cpu_rst.d = 0;
-        }
+    if (ce.q) {
+      clock_led.d = ~clock_led.q
+      if (resetting) reset_edges.d = reset_edges.q - 1;
+    }
+    cpu_rst.d = resetting          // falls half a clock after the last reset edge
+
+    ce.d = 0
+    if (run && fast && !resetting) {
+      ce.d = 1                     // full speed
+      moved.d = 1
+    } else if (tick.q && !ce.q) {
+      if (run || resetting || (active.q && (!moved.q || (!at_fetch && !clock_step)))) {
+        ce.d = 1
+        moved.d = 1
       } else {
-        if (run || resetting || (active.q && (!moved.q || (!at_fetch && !clock_step)))) {
-          cpu_clk.d = 1
-          moved.d = 1
-        } else {
-          active.d = 0
-        }
+        active.d = 0
       }
     }
 
@@ -115,12 +128,11 @@ module machine #(
     halted = stopped
     busy = active.q && !run
     in_reset = cpu_rst.q
-    cpu_clock = cpu_clk.q
+    cpu_clock = clock_led.q
     cpu_state = comp.debug_state
     comp.debug_sel = debug_sel
     comp.switches = switches
     comp.buttons = buttons
-    comp.ce = 1              // step 2 of the single-clock plan: plumbing only; the clock is still divided
     debug_pc = comp.debug_pc
     debug_reg = comp.debug_reg
   }
