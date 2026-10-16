@@ -17,7 +17,8 @@ io_clk = clk with the testbenches' UART timing. Then:
     and the final register file; one that never halts: its first programs.PRINT_BYTES bytes.
 A program that reads the switch register runs once per setting in programs.SWITCHES.
 
-Usage: python3 tools/xsim_computer.py [VERILOG_DIR]
+Usage: python3 tools/xsim_computer.py [VERILOG_DIR] [--only CASE,CASE...]
+  CASE is a testbench case name as gen_cpu_tb names them, e.g. timer, board_sw6 (a quick pass).
   Default build/source, after `alchitry build` (it refuses stale Verilog). Another directory
   (e.g. a mutated copy, to check this script can fail) is used as is.
 """
@@ -32,7 +33,13 @@ import programs
 
 ROOT = Path(__file__).resolve().parent.parent
 YOSYS = "/usr/lib/alchitry/alchitry-labs/lib/app/tools/oss-cad-suite/bin/yosys"
-VERILOG = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "source"
+ARGS = sys.argv[1:]
+ONLY = None
+if "--only" in ARGS:
+    i = ARGS.index("--only")
+    ONLY = set(ARGS[i + 1].split(","))
+    del ARGS[i:i + 2]
+VERILOG = Path(ARGS[0]) if ARGS else ROOT / "build" / "source"
 STATE = {"FETCH": 0, "EXECUTE": 1, "MEM_ACCESS": 2, "WRITEBACK": 3}   # control_unit's enum order
 BIT = gen_cpu_tb.TB_UART_CLK_FREQ // gen_cpu_tb.TB_UART_BAUD
 SIGNALS = ["cycle", "debug_pc", "debug_state", "debug_reg", "uart_tx",
@@ -225,11 +232,13 @@ def check_uart(pid, name, words, sw, forever=False):
 
 
 def main():
-    if len(sys.argv) == 1:
+    if not ARGS:
         check_fresh()
     failures = 0
     ids = list(programs.PROGRAMS)
     for name, sw in gen_cpu_tb.cases():
+        if ONLY is not None and gen_cpu_tb.case_name(name, sw) not in ONLY:
+            continue
         words = asm.assemble(programs.PROGRAMS[name])
         k = gen_cpu_tb.kind(name, words, sw)
         if k == "lockstep":

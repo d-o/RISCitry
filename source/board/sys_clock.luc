@@ -1,0 +1,24 @@
+// The system clock: the PLL's 25 MHz on hardware, the board clock itself where the PLL can't run
+// (the simulator doesn't simulate Verilog, so in sim the PLL's outputs would be x).
+// locked is 0 until the PLL output is stable; the board holds reset until then.
+module sys_clock #(
+    USE_PLL = 1 : USE_PLL == 0 || USE_PLL == 1
+  ) (
+    input clk,               // 100 MHz oscillator
+    output clk_out,
+    output locked
+  ) {
+
+  pll_25 pll
+
+  always {
+    pll.clk_in = clk
+    if (USE_PLL) {
+      clk_out = pll.clk_out
+      locked = pll.locked
+    } else {
+      clk_out = clk
+      locked = 1
+    }
+  }
+}

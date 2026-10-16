@@ -1,12 +1,15 @@
 // Four characters on the Io's multiplexed 7-segment LEDs: the font and the scan, in hardware.
-// One digit lit at a time, switching every 2^DIV clocks (like hex_display). Outputs are active
+// One digit lit at a time, switching every 2^(SCAN_BITS-2) clocks (like hex_display). Outputs are active
 // high; the top module inverts them for the Io.
 // chars: lane 0 (bits 7:0) is the leftmost digit. ASCII: digits, letters (lower case shown as
 // upper case; b d n r t u come out lower case, K M V W X are approximations, as on any 7-segment
 // display), space and a little punctuation; anything else is blank.
 // seg bits: [0] a (top), [1] b, [2] c, [3] d (bottom), [4] e, [5] f, [6] g (middle), [7] point.
 module text_display #(
-    DIV = 16 : DIV >= 0
+    // the scan counter's width; its top two bits pick the digit. Passed as the width rather than
+    // as a divider exponent plus 2 here: Lucid emits a parameter at its value's minimal width and
+    // Verilog wraps the sum at that width (14 = 4'he, + 2 = 0: undefined digit select, 2026-10-16)
+    SCAN_BITS = 18 : SCAN_BITS >= 2
   ) (
     input clk,
     input rst,
@@ -16,7 +19,7 @@ module text_display #(
   ) {
 
   .clk(clk), .rst(rst) {
-    dff scan[DIV + 2]
+    dff scan[SCAN_BITS]
   }
 
   sig digit[2]               // 0 = rightmost
@@ -25,7 +28,7 @@ module text_display #(
 
   always {
     scan.d = scan.q + 1
-    digit = scan.q[DIV+1:DIV]
+    digit = scan.q[SCAN_BITS-1:SCAN_BITS-2]
     ch = chars[(3 - digit)*8+:8]
     up = ch[6:0]
     if (ch[6:0] >= 7h61 && ch[6:0] <= 7h7A) up = ch[6:0] - 7h20;

@@ -8,7 +8,7 @@ testbench board_tb {
     sig btn[5]
     sig dips[3][8]
 
-    basic_riscve_16k16k dut(.clk(clk), .rst_n(1), .io_button(btn), .io_dip(dips))
+    basic_riscve_16k16k dut(#PLL(0), .clk(clk), .rst_n(1), .io_button(btn), .io_dip(dips))
 
     fun tick_clock() {
         clk = 1

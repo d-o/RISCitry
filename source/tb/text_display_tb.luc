@@ -1,4 +1,4 @@
-// text_display (hand-written): the scan visits digits right to left, one per clock with DIV = 0,
+// text_display (hand-written): the scan visits digits right to left, one per clock with SCAN_BITS = 2,
 // each showing its character (lane 0 = leftmost) through the font; lower case folds to upper
 // case and characters outside the font are blank.
 testbench text_display_tb {
@@ -6,7 +6,7 @@ testbench text_display_tb {
     sig rst
     sig chars[32]
 
-    text_display dut(#DIV(0), .clk(clk), .rst(rst), .chars(chars))
+    text_display dut(#SCAN_BITS(2), .clk(clk), .rst(rst), .chars(chars))
 
     fun tick_clock() {
         clk = 1

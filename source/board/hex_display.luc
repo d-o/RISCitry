@@ -1,10 +1,13 @@
 // Four-digit hex display for the Io's multiplexed 7-segment LEDs: one digit lit at a time,
-// switching every 2^DIV clocks. Outputs are active high; the Io V2 drives segments and digit
+// switching every 2^(SCAN_BITS-2) clocks. Outputs are active high; the Io V2 drives segments and digit
 // selects active low, so the top module inverts them.
 // seg bits: [0] a (top), [1] b, [2] c, [3] d (bottom), [4] e, [5] f, [6] g (middle), [7] decimal point.
 // Digit 0 (sel[0]) shows value[3:0].
 module hex_display #(
-    DIV = 16 : DIV >= 0
+    // the scan counter's width; its top two bits pick the digit. Passed as the width rather than
+    // as a divider exponent plus 2 here: Lucid emits a parameter at its value's minimal width and
+    // Verilog wraps the sum at that width (14 = 4'he, + 2 = 0: undefined digit select, 2026-10-16)
+    SCAN_BITS = 18 : SCAN_BITS >= 2
   ) (
     input clk,
     input rst,
@@ -15,7 +18,7 @@ module hex_display #(
   ) {
 
   .clk(clk), .rst(rst) {
-    dff scan[DIV + 2]
+    dff scan[SCAN_BITS]
   }
 
   sig digit[2]
@@ -23,7 +26,7 @@ module hex_display #(
 
   always {
     scan.d = scan.q + 1
-    digit = scan.q[DIV+1:DIV]
+    digit = scan.q[SCAN_BITS-1:SCAN_BITS-2]
     nibble = value[digit*4+:4]
 
     case (nibble) {
