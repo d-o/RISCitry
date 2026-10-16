@@ -32,6 +32,7 @@ module machine #(
     input clock_step,        // 1: step and stop by cpu clock; 0: by whole instruction
     input step,              // one-clock pulse: when stopped, run one instruction (or one cpu clock)
     input switches[8],       // the computer's switch register (synchronised to clk)
+    input buttons[4],        // debounced push buttons (the computer's external interrupt source)
     input debug_sel[4],
     output debug_pc[32],
     output debug_reg[32],
@@ -114,6 +115,7 @@ module machine #(
     cpu_state = comp.debug_state
     comp.debug_sel = debug_sel
     comp.switches = switches
+    comp.buttons = buttons
     debug_pc = comp.debug_pc
     debug_reg = comp.debug_reg
   }

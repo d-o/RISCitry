@@ -26,6 +26,7 @@ module cpu (
     output bus_wdata[32],    // store data, copied into every lane it could occupy
     output bus_be[4],        // byte lanes to write this clock; 0 when not storing
     input irq_timer,         // machine timer interrupt request (mip.MTIP)
+    input irq_external,      // machine external interrupt request (mip.MEIP)
     input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
     output debug_reg[32],    // register x[debug_sel]
@@ -151,6 +152,8 @@ module cpu (
     traps.branch_taken = branch.taken;
     traps.interrupt = csrs.irq;
     csrs.mtip = irq_timer;
+    csrs.meip = irq_external;
+    traps.interrupt_cause = csrs.irq_cause;
     csrs.trap = control.take_trap;
     csrs.trap_pc = pc_unit.pc;
     csrs.trap_cause = traps.cause;

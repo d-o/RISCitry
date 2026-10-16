@@ -1,0 +1,35 @@
+// Push buttons as an interrupt source (machine external interrupt, mip.MEIP).
+// The board debounces them; here they're synchronised to the cpu clock (two flip-flops) and each
+// rising edge sets a pending bit, which stays set until software writes a 1 to it (a press on the
+// same edge as the clear wins, so none is lost). irq = any bit pending.
+// Read: pending [3:0], the synchronised levels [11:8]. Write (byte lane 0): 1s clear pending.
+// Timing from a level change before edge c: sync0 at c, sync1 at c+1, pending at c+2.
+module buttons (
+    input clk,
+    input rst,
+    input level[4],          // debounced buttons, active high
+    input clear,             // a store to the device this clock
+    input clear_mask[4],     // ... its bits [3:0]
+    output rdata[32],
+    output irq
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff sync0[4]
+    dff sync1[4]
+    dff last[4]
+    dff pending[4]
+  }
+
+  sig cleared[4]
+
+  always {
+    sync0.d = level
+    sync1.d = sync0.q
+    last.d = sync1.q
+    if (clear) cleared = pending.q & ~clear_mask; else cleared = pending.q;
+    pending.d = cleared | (sync1.q & ~last.q)
+    irq = |pending.q
+    rdata = c{20b0, sync1.q, 4b0, pending.q}
+  }
+}

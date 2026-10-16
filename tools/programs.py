@@ -374,7 +374,9 @@ TRAPS = [
 # reset and jumps through a table: bits 1:0 pick the program, so change the DIPs and press reset.
 #   0  Larson scanner on x1 (at its original addresses: its turnaround jal links 0x80 = LED 7)
 #   1  hello: a banner on the serial port, then a Larson sweep on x1 and a numbered line per sweep
-#   2, 3  Larson (spare)
+#   2  buttons: a banner, then Larson on x1; each press of a direction button interrupts and the
+#      handler prints "buttons N" (N = the pending mask in hex: 1 up, 2 down, 4 left, 8 right)
+#   3  Larson (spare)
 # The serial port is the Cu's USB (FTDI) at 1 Mbaud, 8N1. Registers: x1 LEDs, x2 device base,
 # x3 string pointer / menu index, x4 menu target / digit count, x5 putc's link, x6 puts/hex's
 # link, x7 STATUS, x8 sweep count, x9 hex shift register, x10 the character.
@@ -386,7 +388,7 @@ BOARD = [
     ("lw", 4, 3, "menu"),                      # menu + 4 * choice
     ("jalr", 0, 4, 0),
     "menu:",
-    (".word", "turn", "hello", "turn", "turn"),
+    (".word", "turn", "hello", "buttons_demo", "turn"),
     *LARSON[2:],                               # .org 0x48, right/left/turn as on the old ROM
     "hello:",
     ("lui", 2, memmap.UART_BASE >> 12),
@@ -403,6 +405,33 @@ BOARD = [
     *[("slli", 1, 1, 1)] * 7,
     *[("srli", 1, 1, 1)] * 7,
     ("jal", 0, "sweep"),
+    "buttons_demo:",
+    ("lui", 2, memmap.UART_BASE >> 12),
+    ("addi", 3, 0, "press_msg"),
+    ("jal", 6, "puts"),
+    ("lui", 11, memmap.BUTTONS_BASE >> 12),    # x11 = buttons base
+    ("addi", 3, 0, "button_handler"),
+    ("csrrw", 0, 0x305, 3),
+    ("addi", 8, 0, 1),
+    ("slli", 8, 8, 11),
+    ("csrrs", 0, 0x304, 8),                    # MEIE
+    ("csrrsi", 0, 0x300, 0x08),                # MIE
+    ("addi", 1, 0, 1),
+    "bsweep:",
+    *[("slli", 1, 1, 1)] * 7,
+    *[("srli", 1, 1, 1)] * 7,
+    ("jal", 0, "bsweep"),
+    "button_handler:",                         # main only uses x1, so no registers are saved
+    ("lw", 12, 11, 0),                         # pending presses
+    ("sw", 12, 11, 0),                         # clear them
+    ("addi", 3, 0, "buttons_msg"),
+    ("jal", 6, "puts"),
+    ("andi", 12, 12, 0xF),
+    ("lbu", 10, 12, "digits"),
+    ("jal", 5, "putc"),
+    ("addi", 3, 0, "crlf"),
+    ("jal", 6, "puts"),
+    ("mret",),
     "puts:",                                   # print the .string at x3; returns through x6
     ("lbu", 10, 3, 0),
     ("beq", 10, 0, "puts_end"),
@@ -431,6 +460,10 @@ BOARD = [
     (".string", "\r\nHello from an RV32E soft core on the Alchitry Cu\r\n"),
     "sweep_msg:",
     (".string", "sweep "),
+    "press_msg:",
+    (".string", "\r\nPress a direction button\r\n"),
+    "buttons_msg:",
+    (".string", "buttons "),
     "crlf:",
     (".string", "\r\n"),
     "digits:",
@@ -521,6 +554,60 @@ TIMER = [
     ("mret",),
 ]
 
+# The buttons device and the external interrupt. Presses come from BUTTON_EVENTS at exact clocks;
+# each rising edge latches a pending bit and MEIP interrupts (mcause 0x8000000B). (1) MIE = 1 but
+# MEIE = 0: a press shows in mip, nothing is taken; setting MEIE then interrupts at once. (2) The
+# timer and a press pending together (MIE = 0 while they arrive): enabling MIE takes the external
+# one first, then the timer (the spec's priority). (3) A last press: four interrupts in all. The
+# handler records mcause/mepc, clears exactly the pending buttons, or disarms the timer.
+B = memmap.BUTTONS_BASE
+IRQ = [
+    ("addi", 3, 0, "irq_handler"),
+    ("csrrw", 0, 0x305, 3),
+    ("lui", 2, B >> 12),                       # x2 = buttons base
+    ("lui", 3, memmap.TIMER_BASE >> 12),       # x3 = timer base
+    ("lw", 4, 2, 0),                           # 0: nothing pending, nothing pressed
+    ("addi", 15, 0, 7),                        # the timer's cause code, for the handler
+    ("csrrsi", 0, 0x300, 0x08),                # MIE = 1, MEIE = MTIE = 0
+    "wait_press:",
+    ("csrrs", 7, 0x344, 0),
+    ("beq", 7, 0, "wait_press"),               # x7 = 0x800 (MEIP): pending, not taken
+    ("addi", 8, 0, 1),
+    ("slli", 8, 8, 11),
+    ("csrrs", 0, 0x304, 8),                    # MEIE: interrupt 1 at once
+    ("csrrci", 0, 0x300, 0x08),                # MIE = 0 while both sources become pending
+    ("sw", 0, 3, memmap.TIMER_MTIMECMPH - memmap.TIMER_BASE),
+    ("sw", 0, 3, memmap.TIMER_MTIMECMP - memmap.TIMER_BASE),   # MTIP pending
+    ("addi", 8, 0, 0x80),
+    ("csrrs", 0, 0x304, 8),                    # MTIE
+    "wait_second:",
+    ("lw", 9, 2, 0),
+    ("andi", 9, 9, 0xF),
+    ("beq", 9, 0, "wait_second"),              # the second press is pending too
+    ("addi", 6, 0, 4),
+    ("csrrsi", 0, 0x300, 0x08),                # MIE: external (2), then timer (3)
+    "irq_spin:",
+    ("addi", 5, 5, 1),
+    ("bne", 14, 6, "irq_spin"),                # ... and the third press (4)
+    ("csrrci", 0, 0x300, 0x08),
+    ("lw", 9, 2, 0),                           # levels [11:8] (the last press still held), none pending
+    ("halt",),
+    "irq_handler:",
+    ("csrrs", 13, 0x342, 0),                   # 0x8000000B, or 0x80000007 for the timer
+    ("csrrs", 12, 0x341, 0),
+    ("addi", 14, 14, 1),
+    ("andi", 11, 13, 0xF),
+    ("beq", 11, 15, "irq_timer"),
+    ("lw", 10, 2, 0),                          # which buttons (and the levels)
+    ("sw", 10, 2, 0),                          # clear exactly those
+    ("csrrs", 7, 0x344, 0),                    # mip: MEIP gone (MTIP may still be set)
+    ("mret",),
+    "irq_timer:",
+    ("addi", 11, 0, -1),
+    ("sw", 11, 3, memmap.TIMER_MTIMECMP - memmap.TIMER_BASE),  # disarm: mtimecmp = 0x0_FFFFFFFF
+    ("mret",),
+]
+
 PROGRAMS = {
     "BOARD": BOARD,
     "LARSON": LARSON,
@@ -537,16 +624,24 @@ PROGRAMS = {
     "CSR": CSR,
     "TRAPS": TRAPS,
     "TIMER": TIMER,
+    "IRQ": IRQ,
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
 # checked by its first PRINT_BYTES bytes instead.
 RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160}
-PRINT_BYTES = 100              # the banner and the first three numbered lines
+PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered lines
+               ("BOARD", 2): 50}       # the banner and two presses
 # Programs that read the switch register: one testbench per setting.
-SWITCHES = {"BOARD": [0, 1]}
+SWITCHES = {"BOARD": [0, 1, 2]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
-EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER"}
+EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "BOARD"}
+# Button presses for programs that use the buttons device: (post-reset clock, levels), levels =
+# up | down << 1 | left << 2 | right << 3, applied before that clock's rising edge.
+BUTTON_EVENTS = {
+    "IRQ": [(30, 0x1), (50, 0x0), (150, 0xC), (170, 0x0), (300, 0x2)],
+    "BOARD": [(2000, 0x4), (2100, 0x0), (3000, 0x9), (3100, 0x0)],   # only menu entry 2 listens
+}
 
 # The program the board runs (instantiated by the top module).
 BOARD_PROGRAM = "BOARD"

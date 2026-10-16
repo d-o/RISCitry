@@ -35,6 +35,13 @@ value at the start of an instruction (FETCH). A load of the timer reads it as of
 start of each instruction: MIE && MTIE && mtime >= mtimecmp (both as of that instruction's FETCH:
 the core registers the comparison), and taken before the instruction does anything (mcause
 0x80000007, mepc = pc, 2 clocks). Timing is exact only for programs without UART polling.
+
+Buttons (buttons.luc): button_events = [(clock, levels)], levels applied before post-reset edge
+`clock` (edge 0 is the first instruction's FETCH edge). Modelled edge by edge like the hardware:
+two synchroniser flip-flops, a rising edge sets a pending bit, a store's last edge clears the bits
+it writes as 1 (a press on that same edge wins). MEIP = any pending, seen in EXECUTE as of the
+FETCH edge; a load reads pending (and the synchronised levels) as of MEM_ACCESS. External
+interrupts beat the timer (cause 0x8000000B vs 0x80000007).
 """
 import memmap
 
@@ -96,7 +103,7 @@ def legal(w):
 
 
 class Cpu:
-    def __init__(self, words, traps_ok=False, switches=0):
+    def __init__(self, words, traps_ok=False, switches=0, button_events=()):
         """words: {byte address: instruction or data word} as assembled. traps_ok: the program
         expects traps (take them as the core does); otherwise any trap raises."""
         self.traps_ok = traps_ok
@@ -111,6 +118,10 @@ class Cpu:
         self.mtime = 0                # at the start of the current instruction
         self.mtimecmp = (1 << 64) - 1
         self.timer_write = None       # (word index, value): a store to mtime in this instruction
+        self.cycle = 0                # post-reset edges before the current instruction
+        self.button_events = sorted(button_events)
+        self.btn = {"edge": 0, "sync0": 0, "sync1": 0, "last": 0, "pending": 0}
+        self.btn_clear = None         # mask written by a store in this instruction
         size = max(words) // 4 + 1
         if size * 4 > memmap.RAM_BYTES:
             raise ValueError(f"program ({size * 4} bytes) doesn't fit in RAM ({memmap.RAM_BYTES} bytes)")
@@ -145,6 +156,8 @@ class Cpu:
             return "switches"
         if memmap.TIMER_BASE <= addr < memmap.TIMER_BASE + memmap.TIMER_BYTES:
             return "timer"
+        if memmap.BUTTONS_BASE <= addr < memmap.BUTTONS_BASE + memmap.BUTTONS_BYTES:
+            return "buttons"
         raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} is unmapped")
 
     def _load(self, addr, size):
@@ -155,6 +168,10 @@ class Cpu:
             return 0                                 # never busy: no timing in this model
         if self._region(addr) == "switches":
             return (self.switches >> shift) & ((1 << (8 * size)) - 1)
+        if self._region(addr) == "buttons":
+            self._buttons_to(self.cycle + 1)                        # as of MEM_ACCESS
+            value = (self.btn["sync1"] << 8) | self.btn["pending"]
+            return (value >> shift) & ((1 << (8 * size)) - 1)
         if self._region(addr) == "timer":
             if size != 4:
                 raise ValueError(f"pc={self.pc:#x}: {size}-byte load from the timer (words only)")
@@ -175,6 +192,10 @@ class Cpu:
             return
         if self._region(addr) == "switches":
             raise ValueError(f"pc={self.pc:#x}: store to the switch register {addr:#x} (read-only)")
+        if self._region(addr) == "buttons":
+            if shift == 0:                           # byte lane 0 carries the clear mask
+                self.btn_clear = value & 0xF
+            return
         if self._region(addr) == "timer":
             if size != 4:
                 raise ValueError(f"pc={self.pc:#x}: {size}-byte store to the timer (the core ignores it)")
@@ -191,13 +212,38 @@ class Cpu:
         old = self.mem.get(word_addr, 0)   # a partial store into an unwritten word: other bytes are 0
         self.mem[word_addr] = (old & ~mask) | ((value << shift) & mask)
 
+    def _level(self, edge):
+        """The button levels the testbench applies before post-reset edge `edge`."""
+        value = 0
+        for clock, levels in self.button_events:
+            if clock <= edge:
+                value = levels
+        return value
+
+    def _buttons_to(self, edge, clear_edge=None, mask=0):
+        """Advance the buttons device through post-reset edge `edge` (inclusive)."""
+        b = self.btn
+        while b["edge"] <= edge:
+            e = b["edge"]
+            pending = b["pending"]
+            if e == clear_edge:
+                pending &= ~mask
+            pending |= b["sync1"] & ~b["last"]
+            b["sync0"], b["sync1"], b["last"], b["pending"] = self._level(e), b["sync0"], b["sync1"], pending
+            b["edge"] = e + 1
+
+    def meip(self):
+        """mip.MEIP during this instruction's EXECUTE (pending as of its FETCH edge)."""
+        self._buttons_to(self.cycle)
+        return self.btn["pending"] != 0
+
     def mtip(self):
         """mip.MTIP as the core sees it during this instruction (registered at its FETCH)."""
         return self.mtime >= self.mtimecmp
 
     def read_csr(self, csr):
         if csr == 0x344:
-            return int(self.mtip()) << 7
+            return (int(self.meip()) << 11) | (int(self.mtip()) << 7)
         if csr in CSR_CONSTANT:
             return CSR_CONSTANT[csr]
         return self.csr[csr] | (MSTATUS_FIXED if csr == 0x300 else 0)
@@ -220,9 +266,12 @@ class Cpu:
         self.new_stale = None
         self.trapped = None
         self.timer_write = None
+        self.btn_clear = None
         start = self.mtime
         mstatus, mie = self.csr[0x300], self.csr[0x304]
         try:
+            if mstatus & 0x8 and mie & 0x800 and self.meip():
+                raise Trap(0x8000000B, 0)    # external interrupt: beats the timer
             if mstatus & 0x8 and mie & 0x80 and self.mtip():
                 raise Trap(0x80000007, 0)    # timer interrupt: before the instruction does anything
             self._execute(w)
@@ -245,6 +294,10 @@ class Cpu:
             self.mtime = (now & ~(MASK << half)) | (value << half)
         else:
             self.mtime = start + clocks(w, self.trapped)
+        n = clocks(w, self.trapped)
+        if self.btn_clear is not None:       # cleared on the store's last edge
+            self._buttons_to(self.cycle + n - 1, clear_edge=self.cycle + 2, mask=self.btn_clear)
+        self.cycle += n
 
     def _execute(self, w):
         if not legal(w):

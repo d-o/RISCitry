@@ -4,7 +4,8 @@
 // instruction arrives with every other ctrl field already off.
 //   interrupt            an enabled pending interrupt (csr_file's irq) beats everything: taken
 //                        before the instruction does anything, so mepc = this instruction and it
-//                        runs after MRET. mcause = interrupt bit + 7 (timer), mtval = 0
+//                        runs after MRET. mcause = interrupt bit + csr_file's irq_cause
+//                        (11 external, 7 timer), mtval = 0
 //   illegal instruction  mtval = the instruction
 //   ECALL / EBREAK       mtval = 0
 //   misaligned target    a taken branch, JAL or JALR whose target has bit 1 set (IALIGN = 32;
@@ -16,7 +17,8 @@ module trap_unit (
     input addr_low[2],       // the load/store address's low bits
     input target_bit1,       // bit 1 of the branch/jump target
     input branch_taken,
-    input interrupt,         // an enabled interrupt is pending (only the timer so far)
+    input interrupt,         // an enabled interrupt is pending
+    input interrupt_cause[4],
     output trap,
     output interrupt_taken,  // the trap is the interrupt (mcause[31])
     output cause[4],
@@ -36,7 +38,7 @@ module trap_unit (
     tval_sel = Cpu.TvalSel.ZERO
     if (interrupt) {
       interrupt_taken = 1
-      cause = Cpu.CAUSE_TIMER_INTERRUPT
+      cause = interrupt_cause
     } else if (ctrl.illegal) {
       tval_sel = Cpu.TvalSel.INSTRUCTION
     } else if (ctrl.ecall) {

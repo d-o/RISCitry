@@ -53,6 +53,7 @@ module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
   computer #(.PROGRAM_ID(PROGRAM_ID), .SIM_RAM(0), .UART_CLK_FREQ({gen_cpu_tb.TB_UART_CLK_FREQ}),
              .UART_BAUD({gen_cpu_tb.TB_UART_BAUD})) dut (
     .clk(clk), .rst(cycle < 2), .io_clk(clk), .io_rst(cycle < 2), .switches(SWITCHES[7:0]),
+    .buttons(BUTTONS),
     .debug_sel(cycle[3:0]),
     .uart_tx(uart_tx), .debug_pc(debug_pc), .debug_reg(debug_reg), .debug_state(debug_state));
 endmodule
@@ -65,11 +66,20 @@ def check_fresh():
         sys.exit("build/source is older than source/: run `alchitry build` first")
 
 
-def run(pid, sw, clocks):
+def buttons_expr(name):
+    """The harness's button levels: each event applies before post-reset edge c, i.e. from
+    cycle 2 + c (cycles 0-1 are reset)."""
+    expr = "4'h0"
+    for c, levels in sorted(programs.BUTTON_EVENTS.get(name, ())):
+        expr = f"(cycle >= {2 + c}) ? 4'h{levels:X} : {expr}"
+    return expr
+
+
+def run(pid, sw, clocks, name=""):
     """Simulate; return one dict of SIGNALS per clock, sampled just after each rising edge."""
     with tempfile.TemporaryDirectory() as tmp:
         harness = Path(tmp) / "xsim_top.v"
-        harness.write_text(HARNESS)
+        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})"))
         vcd = Path(tmp) / "out.vcd"
         files = " ".join(str(p) for p in sorted(VERILOG.glob("*.v"))) + f" {harness}"
         r = subprocess.run([YOSYS, "-q", "-p",
@@ -156,7 +166,7 @@ def final_regs(samples, model):
 
 def check_lockstep(pid, name, words, sw):
     trace, model = expected_trace(name, words, sw)
-    samples = run(pid, sw, len(trace) + 1 + 16)[1:]     # [0] is after the first edge, still in reset
+    samples = run(pid, sw, len(trace) + 1 + 16, name)[1:]     # [0] is after the first edge, still in reset
     errors = []
     for i, (state, pc) in enumerate(trace):
         s = samples[i]
@@ -174,13 +184,13 @@ def check_lockstep(pid, name, words, sw):
 
 def check_uart(pid, name, words, sw, forever=False):
     if forever:
-        n = programs.PRINT_BYTES
+        n = programs.PRINT_BYTES[(name, sw)]
         want = gen_cpu_tb.run_to_bytes(name, words, sw, n).uart_out[:n]
     else:
         model = gen_cpu_tb.run_to_halt(name, words, sw)
         want = model.uart_out
     clocks = len(want) * gen_cpu_tb.UART_CLOCKS_PER_BYTE * 3 + 1000
-    samples = run(pid, sw, clocks)
+    samples = run(pid, sw, clocks, name)
     got, i = [], 0
     line = [s["uart_tx"] for s in samples]
     while i < len(line) - 10 * BIT:          # start bit: sample each bit in its middle

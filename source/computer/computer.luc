@@ -1,4 +1,5 @@
-// The computer: the cpu plus everything it reaches by address (main RAM, UART, switches, timer).
+// The computer: the cpu plus everything it reaches by address (main RAM, UART, switches, timer,
+// buttons).
 // The bus side of everything here runs on the cpu clock; machine.luc decides when that ticks.
 // The UART's serializer also needs a steady clock for its baud rate: io_clk.
 //
@@ -26,6 +27,7 @@ module computer #(
     input io_rst,
     output uart_tx,
     input switches[8],       // read-only switch register (already synchronised)
+    input buttons[4],        // debounced push buttons: interrupt source (buttons.luc synchronises)
     input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
     output debug_reg[32],    // register x[debug_sel]
@@ -37,6 +39,7 @@ module computer #(
     main_ram ram(#WORDS(MemMap.RAM_WORDS), #PROGRAM_ID(PROGRAM_ID), #SIM_MODEL(SIM_RAM));
     uart uart0(#CLK_FREQ(UART_CLK_FREQ), #BAUD(UART_BAUD), .rst(rst));
     timer timer0(.rst(rst));
+    buttons buttons0(.rst(rst));
     // no reset, like the RAM's own read register: the read on reset's last edge (address 0) is
     // the first instruction, and FETCH must see it come from the RAM
     dff read_ram           // the previous clock's read address was in the RAM
@@ -50,6 +53,8 @@ module computer #(
   sig switches_rsel
   sig timer_rsel
   sig timer_wsel
+  sig buttons_rsel
+  sig buttons_wsel
 
   always {
     // --- address decode: reads by the read port, stores by the write port ---
@@ -67,6 +72,14 @@ module computer #(
     timer0.wdata = core.bus_wdata
     timer0.raddr = core.bus_raddr[3:2]
     core.irq_timer = timer0.mtip
+
+    // --- buttons: external interrupt source ---
+    buttons_rsel = core.bus_load && (core.bus_raddr >> MemMap.BUTTONS_ADDR_BITS) == (MemMap.BUTTONS_BASE >> MemMap.BUTTONS_ADDR_BITS)
+    buttons_wsel = (core.bus_waddr >> MemMap.BUTTONS_ADDR_BITS) == (MemMap.BUTTONS_BASE >> MemMap.BUTTONS_ADDR_BITS)
+    buttons0.level = buttons
+    buttons0.clear = buttons_wsel && core.bus_be[0]
+    buttons0.clear_mask = core.bus_wdata[3:0]
+    core.irq_external = buttons0.irq
 
     // --- RAM: word addresses ---
     ram.raddr = core.bus_raddr[MemMap.RAM_ADDR_BITS-1:2]
@@ -87,6 +100,7 @@ module computer #(
     if (uart_rsel && core.bus_raddr[2]) io_read.d = c{31b0, uart0.busy};
     if (switches_rsel) io_read.d = c{24b0, switches};
     if (timer_rsel) io_read.d = timer0.rdata;
+    if (buttons_rsel) io_read.d = buttons0.rdata;
     if (read_ram.q) core.bus_rdata = ram.rdata; else core.bus_rdata = io_read.q;
 
     core.debug_sel = debug_sel

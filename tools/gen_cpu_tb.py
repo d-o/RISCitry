@@ -15,7 +15,7 @@ Programs that print to the UART poll its STATUS register, and rv32sim has no UAR
 loop counts differ and lockstep checking is impossible. Their testbench instead runs the computer
 until it has halted and every expected byte has arrived, decodes the serial line with Alchitry's
 uart_rx, compares the bytes with rv32sim's output, then compares all 16 registers. One that prints
-and never halts (the board's demo) is checked by its first programs.PRINT_BYTES bytes only.
+and never halts (the board's demo) is checked by its first programs.PRINT_BYTES[(name, switches)] bytes only.
 
 A program that reads the switch register gets one testbench per setting in programs.SWITCHES
 (cpu_<name>_sw<value>_tb).
@@ -59,7 +59,14 @@ def writes_rd(word, trapped=False):
 
 
 def new_model(name, words, switches=0):
-    return rv32sim.Cpu(words, traps_ok=name in programs.EXPECTS_TRAPS, switches=switches)
+    return rv32sim.Cpu(words, traps_ok=name in programs.EXPECTS_TRAPS, switches=switches,
+                       button_events=programs.BUTTON_EVENTS.get(name, ()))
+
+
+def button_lines(name, clock, indent):
+    """Testbench lines applying the button events scheduled before post-reset edge `clock`."""
+    return [f"{indent}buttons = 4h{levels:X}   // button event" for c, levels in
+            programs.BUTTON_EVENTS.get(name, ()) if c == clock]
 
 
 def cases():
@@ -135,11 +142,13 @@ def header(name, sw, extra_sigs=()):
         "    sig rst",
         "    sig sel[4]",
         "    sig switches[8]",
+        "    sig buttons[4]",
         *extra_sigs,
         "",
         f"    computer dut(#PROGRAM_ID(Programs.Id.{name}), #SIM_RAM(1), "
         f"#UART_CLK_FREQ({TB_UART_CLK_FREQ}), #UART_BAUD({TB_UART_BAUD}),",
         "                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),",
+        "                 .buttons(buttons),",
         "                 .debug_sel(sel))",
         "",
         "    // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)",
@@ -188,11 +197,18 @@ RESET = [
 ]
 
 
+def button_lines_in_loop(name):
+    """In a free-running loop: apply each button event when the post-reset clock count hits it."""
+    return [f"                if (clock_count == {c}) buttons = 4h{levels:X};   // button event"
+            for c, levels in programs.BUTTON_EVENTS.get(name, ())]
+
+
 def render_uart_testbench(name, words, text, sw, forever=False):
     """Free-run until halted with every byte received; check bytes, then registers. forever: run
     until the first PRINT_BYTES bytes have arrived and check those only."""
     if forever:
-        out = run_to_bytes(name, words, sw, programs.PRINT_BYTES).uart_out[:programs.PRINT_BYTES]
+        n = programs.PRINT_BYTES[(name, sw)]
+        out = run_to_bytes(name, words, sw, n).uart_out[:n]
     else:
         model = run_to_halt(name, words, sw)
         out = model.uart_out
@@ -201,7 +217,7 @@ def render_uart_testbench(name, words, text, sw, forever=False):
     max_clocks = n * UART_CLOCKS_PER_BYTE * 3 + 1000
     expected = ", ".join(f"8h{b:02X}" for b in reversed(out))   # last element is index 0
     shown = "".join(chr(b) if 32 <= b < 127 else f"\\x{b:02x}" for b in out)
-    lines = header(name, sw, ["    sig received[8]", f"    sig expected[{n}][8]"])
+    lines = header(name, sw, ["    sig received[8]", f"    sig expected[{n}][8]", "    sig clock_count[16]"])
     at = next(i for i, l in enumerate(lines) if ".debug_sel(sel))" in l) + 1
     lines.insert(at, f"    uart_rx rx(#CLK_FREQ({TB_UART_CLK_FREQ}), #BAUD({TB_UART_BAUD}), "
                      ".clk(clk), .rst(rst), .rx(dut.uart_tx))")
@@ -211,8 +227,10 @@ def render_uart_testbench(name, words, text, sw, forever=False):
         "        io_clk = 0",
         "        sel = 0",
         f"        switches = 8h{sw:02X}",
+        "        buttons = 0",
         "        rst = 1",
         "        received = 0",
+        "        clock_count = 0",
         f"        expected = {{{expected}}}   // \"{shown}\"",
         "        // hold reset for an extra bit time: uart_tx's output register has no reset and starts",
         "        // low for two clocks, and uart_rx's 3-deep input buffer (not reset either) would",
@@ -227,7 +245,9 @@ def render_uart_testbench(name, words, text, sw, forever=False):
           [f"        // run until halted at {halt_pc:#06x} with all {n} bytes received (at most {max_clocks} clocks)",
            f"        repeat(i, {max_clocks}) {{",
            f"            if (received != {n} || dut.debug_pc != 32h{halt_pc:08X} || dut.debug_state != Cpu.State.FETCH) {{"]),
+        *button_lines_in_loop(name),
         "                $tick_clock()",
+        "                clock_count = clock_count + 1",
         "                if (rx.new_data) {",
         f"                    $assert(received < {n})",
         "                    if (rx.data != expected[received])",
@@ -260,10 +280,11 @@ def render_testbench(name, words, text, sw):
         "        io_clk = 0",
         "        sel = 0",
         f"        switches = 8h{sw:02X}",
+        "        buttons = 0",
         "        rst = 1",
         *RESET,
     ]
-    steps, halted_for = 0, 0
+    steps, halted_for, clock = 0, 0, 0
     while True:
         pc = model.pc
         word = model.fetch()
@@ -271,7 +292,9 @@ def render_testbench(name, words, text, sw):
         steps += 1
         lines.append(f"        // {pc:#06x}: {text.get(pc, 'nop')}")
         for state in STATES[clocks_for(word, model.trapped)]:
+            lines += button_lines(name, clock, "        ")
             lines += ["        $tick_clock()", f"        $expect_state(Cpu.State.{state})"]
+            clock += 1
         lines.append(f"        $expect_pc(32h{model.pc:08X})")
         rd = writes_rd(word, model.trapped)
         if rd is not None:

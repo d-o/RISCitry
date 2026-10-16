@@ -10,7 +10,7 @@ module program_image #(
 
   always {
     word = 0
-    if (PROGRAM_ID == Programs.Id.BOARD && addr < 96) word = Programs.BOARD[addr];
+    if (PROGRAM_ID == Programs.Id.BOARD && addr < 142) word = Programs.BOARD[addr];
     if (PROGRAM_ID == Programs.Id.LARSON && addr < 32) word = Programs.LARSON[addr];
     if (PROGRAM_ID == Programs.Id.ALU && addr < 30) word = Programs.ALU[addr];
     if (PROGRAM_ID == Programs.Id.BRANCHES && addr < 21) word = Programs.BRANCHES[addr];
@@ -25,5 +25,6 @@ module program_image #(
     if (PROGRAM_ID == Programs.Id.CSR && addr < 29) word = Programs.CSR[addr];
     if (PROGRAM_ID == Programs.Id.TRAPS && addr < 31) word = Programs.TRAPS[addr];
     if (PROGRAM_ID == Programs.Id.TIMER && addr < 43) word = Programs.TIMER[addr];
+    if (PROGRAM_ID == Programs.Id.IRQ && addr < 39) word = Programs.IRQ[addr];
   }
 }

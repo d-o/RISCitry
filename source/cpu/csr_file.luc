@@ -16,11 +16,13 @@ module csr_file (
     input trap_cause[4],     // mcause's exception code
     input trap_interrupt,    // ... and its interrupt bit (mcause[31])
     input mtip,              // timer interrupt pending (mip.MTIP, read-only)
+    input meip,              // external interrupt pending (mip.MEIP, read-only)
     input trap_value[32],    // mtval
     output read_data[32],    // the addressed CSR
     output mepc[32],         // MRET's return address
     output mtvec[32],        // the trap handler's address
-    output irq               // an enabled interrupt is pending: MIE && MTIE && MTIP
+    output irq,              // an enabled interrupt is pending: MIE && (MEIE && MEIP || MTIE && MTIP)
+    output irq_cause[4]      // which: external (11) beats timer (7), the spec's priority order
   ) {
 
   .clk(clk), .rst(rst) {
@@ -49,13 +51,14 @@ module csr_file (
       Cpu.CSR_MEPC:    value = c{mepc_word.q, 2b00}
       Cpu.CSR_MCAUSE:  value = mcause.q
       Cpu.CSR_MTVAL:   value = mtval.q
-      Cpu.CSR_MIP:     value = c{24b0, mtip, 7b0}
+      Cpu.CSR_MIP:     value = c{20b0, meip, 3b0, mtip, 7b0}
       default:         value = 0        // mstatush, the ID registers
     }
     read_data = value
     mepc = c{mepc_word.q, 2b00}
     mtvec = c{mtvec_base.q, 2b00}
-    irq = mstatus_mie.q && mie_mtie.q && mtip
+    irq = mstatus_mie.q && ((mie_meie.q && meip) || (mie_mtie.q && mtip))
+    if (mie_meie.q && meip) irq_cause = Cpu.CAUSE_EXTERNAL_INTERRUPT; else irq_cause = Cpu.CAUSE_TIMER_INTERRUPT;
 
     case (op) {
       2b10:    new_value = value | src
