@@ -117,7 +117,7 @@ def legal(w):
 
 
 class Cpu:
-    def __init__(self, words, traps_ok=False, switches=0, button_events=(), timer_rate=1):
+    def __init__(self, words, traps_ok=False, switches=0, button_events=(), timer_rate=1, tick_div=1):
         """words: {byte address: instruction or data word} as assembled. traps_ok: the program
         expects traps (take them as the core does); otherwise any trap raises."""
         self.traps_ok = traps_ok
@@ -131,6 +131,7 @@ class Cpu:
         self.display = 0
         self.csr = {a: 0 for a in CSR_WRITABLE}
         self.rate = timer_rate        # raw clocks (timer ticks) per cpu clock
+        self.tick_div = tick_div      # the timer's timebase word (clocks per tick; 1 in the tests)
         self.mtime = 0                # at the start of the current instruction
         self.mtimecmp = (1 << 64) - 1
         self.timer_write = None       # (word index, value): a store to mtime in this instruction
@@ -198,6 +199,10 @@ class Cpu:
             if size != 4:
                 raise ValueError(f"pc={self.pc:#x}: {size}-byte load from the timer (words only)")
             index = (word_addr - memmap.TIMER_BASE) // 4
+            if index == 4:
+                return self.tick_div
+            if index > 4:
+                raise ValueError(f"pc={self.pc:#x}: load from the timer at {addr:#x}: nothing there")
             value = [self.mtime + 3 * self.rate - 1, self.mtimecmp][index >> 1]   # as of MEM_ACCESS
             return (value >> (32 * (index & 1))) & MASK
         if word_addr not in self.mem:
@@ -226,6 +231,8 @@ class Cpu:
             if size != 4:
                 raise ValueError(f"pc={self.pc:#x}: {size}-byte store to the timer (the core ignores it)")
             index = (word_addr - memmap.TIMER_BASE) // 4
+            if index >= 4:
+                raise ValueError(f"pc={self.pc:#x}: store to the timer at {addr:#x} (read-only; the core ignores it)")
             if index < 2:
                 self.timer_write = (index, value & MASK)
             else:

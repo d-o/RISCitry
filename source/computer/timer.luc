@@ -12,6 +12,10 @@
 // edge). Writes are taken only on enabled clocks (a store's bus signals are held through the
 // disabled ones). mtimecmp is all ones after reset (no interrupt until software sets it).
 //
+// The read-only word at +16 (timebase) is TICK_DIV, clocks per tick: software can size a delay
+// loop from it (25 on the board, 1 in the IDE and the tests), as a platform publishes its
+// timebase frequency.
+//
 // MTIP is registered: the comparison of this clock's values is seen on the next one, which keeps
 // the 64-bit compare off the cpu's trap path. A store to mtimecmp in an instruction's last cycle
 // is therefore seen by the next instruction's EXECUTE.
@@ -25,7 +29,7 @@ module timer #(
     input sel_write,         // a word store to the timer this clock
     input waddr[2],          // word within the timer: 0 mtime, 1 mtimeh, 2 mtimecmp, 3 mtimecmph
     input wdata[32],
-    input raddr[2],          // the word a load reads (registered by the computer)
+    input raddr[3],          // the word a load reads (registered by the computer); 4 = timebase
     output rdata[32],
     output mtip              // timer interrupt pending (mip.MTIP)
   ) {
@@ -61,10 +65,12 @@ module timer #(
     mtip = pending.q
 
     case (raddr) {
-      2d0: rdata = mtime.q[31:0]
-      2d1: rdata = mtime.q[63:32]
-      2d2: rdata = mtimecmp.q[31:0]
-      default: rdata = mtimecmp.q[63:32]
+      3d0: rdata = mtime.q[31:0]
+      3d1: rdata = mtime.q[63:32]
+      3d2: rdata = mtimecmp.q[31:0]
+      3d3: rdata = mtimecmp.q[63:32]
+      3d4: rdata = TICK_DIV      // timebase: clocks per tick, for software that calibrates delays
+      default: rdata = 0
     }
   }
 }

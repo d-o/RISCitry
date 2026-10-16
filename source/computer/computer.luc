@@ -75,10 +75,10 @@ module computer #(
     timer_wsel = (core.bus_waddr >> MemMap.TIMER_ADDR_BITS) == (MemMap.TIMER_BASE >> MemMap.TIMER_ADDR_BITS)
 
     // --- timer: word stores only (sb/sh to it are ignored) ---
-    timer0.sel_write = timer_wsel && core.bus_be == 4b1111
+    timer0.sel_write = timer_wsel && core.bus_be == 4b1111 && !core.bus_waddr[4]   // +16 up: read-only
     timer0.waddr = core.bus_waddr[3:2]
     timer0.wdata = core.bus_wdata
-    timer0.raddr = core.bus_raddr[3:2]
+    timer0.raddr = core.bus_raddr[4:2]
     core.irq_timer = timer0.mtip
 
     // --- buttons: external interrupt source ---

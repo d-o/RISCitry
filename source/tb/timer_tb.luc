@@ -1,7 +1,7 @@
 // timer (hand-written): a free-running timer (TICK_DIV 3) and a STOPTIME one (TICK_DIV 1) side by
 // side on the same inputs. The free one ticks every third clock whether or not ce is set; the
 // STOPTIME one counts enabled clocks only. Both take writes only on enabled clocks, and MTIP
-// follows mtime >= mtimecmp one clock late.
+// follows mtime >= mtimecmp one clock late. The read-only word 4 is TICK_DIV.
 testbench timer_tb {
     sig clk
     sig rst
@@ -9,7 +9,7 @@ testbench timer_tb {
     sig sel_write
     sig waddr[2]
     sig wdata[32]
-    sig raddr[2]
+    sig raddr[3]
 
     timer free(#TICK_DIV(3), .clk(clk), .rst(rst), .ce(ce), .sel_write(sel_write), .waddr(waddr),
                .wdata(wdata), .raddr(raddr))
@@ -23,7 +23,7 @@ testbench timer_tb {
         $silent_tick()
     }
 
-    fun expect(word[2], f[32], s[32]) {
+    fun expect(word[3], f[32], s[32]) {
         raddr = word
         $silent_tick()
         if (free.rdata != f || stop.rdata != s)
@@ -79,5 +79,6 @@ testbench timer_tb {
         sel_write = 0
         ce = 0
         $expect(0, 100, 100)
+        $expect(4, 3, 1)                     // the timebase word: each timer's TICK_DIV
     }
 }

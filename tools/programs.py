@@ -384,10 +384,11 @@ SCROLL_TEXT = "    HELLO FROM AN RV32E SOFT CORE ON THE ALCHITRY CU    "   # 4 s
 #      (the board has the font and scans the digits); each timer interrupt, every
 #      (switches[7:3] << 15) + 128 mtime ticks, moves the text one character and writes the four
 #   7  Larson (spare)
-# Rungs 1-3 step every (switches[7:3] << 13) + 64 (the "dial"): mtime ticks for rungs 2-3 (1 us on
-# the board: dial 31 is 254 ms, ~4 steps a second, whatever the clock switches do), cpu clocks
-# for rung 1 (at the fast setting, 25 MHz, the same dial is 25x quicker; at the slow one, ~24 Hz,
-# it crawls). Timing on the board: 1 tick = 1 us (TICK_DIV 25 at 25 MHz).
+# Rungs 1-3 step every (switches[7:3] << 13) + 64 mtime ticks (the "dial"; 1 us on the board:
+# dial 31 is 254 ms, ~4 steps a second). Rung 1 converts ticks to delay-loop passes with the
+# timer's timebase word (clocks per tick), calibrated for the cpu at full speed: at the fast
+# setting all three keep the same pace; at the slow one (~24 Hz cpu) rung 1 crawls, a million
+# times slower, while rungs 2-3 keep real time as well as a slow cpu can (they overload).
 # The serial port is the Cu's USB (FTDI) at 1 Mbaud, 8N1. Registers: x1 LEDs, x2 device base,
 # x3 string pointer / menu index, x4 menu target / digit count, x5 putc's link, x6 puts/hex's
 # link, x7 STATUS, x8 sweep count, x9 hex shift register, x10 the character.
@@ -452,9 +453,17 @@ BOARD = [
     # pace whatever the clock switches do, and (1) doesn't: the demonstration. At the slow setting
     # (2) and (3) overload instead: a handler takes longer than a period, so they step as fast as
     # the cpu can, which is still slow.
-    "delay_larson:",
-    ("jal", 6, "period"),
-    ("srli", 9, 9, 2),                         # 4 clocks per pass of the delay loop
+    "delay_larson:",                           # calibrated like a BogoMIPS loop: passes = ticks *
+    ("jal", 6, "period"),                      # (clocks per tick) / (4 clocks per pass), so at
+    ("srli", 9, 9, 2),                         # full speed it keeps pace with rungs 2-3
+    ("lui", 2, memmap.TIMER_BASE >> 12),
+    ("lw", 5, 2, memmap.TIMER_TIMEBASE - memmap.TIMER_BASE),   # clocks per tick (no MUL: add it up)
+    ("addi", 4, 0, 0),
+    "calibrate:",
+    ("add", 4, 4, 9),
+    ("addi", 5, 5, -1),
+    ("bne", 5, 0, "calibrate"),
+    ("addi", 9, 4, 0),                         # x9 = passes per step
     ("addi", 1, 0, 1),
     "dsweep:",
     *[("slli", 1, 1, 1), ("jal", 5, "delay")] * 7,
@@ -657,6 +666,7 @@ TIMER = [
     ("addi", 3, 0, "timer_handler"),
     ("csrrw", 0, 0x305, 3),                    # mtvec
     ("lui", 2, T >> 12),                       # x2 = timer base
+    ("lw", 3, 2, memmap.TIMER_TIMEBASE - T),   # x3 = 1: clocks per tick in the testbenches
     ("lw", 4, 2, memmap.TIMER_MTIME - T),      # mtime as of this load's MEM_ACCESS
     ("lw", 5, 2, memmap.TIMER_MTIMEH - T),     # 0
     ("lw", 6, 2, memmap.TIMER_MTIMECMP - T),   # 0xFFFFFFFF after reset
