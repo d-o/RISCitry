@@ -84,7 +84,7 @@ def kind(name, words, sw):
     """"lockstep", "uart" (prints, then halts) or "uart_forever" (prints, never halts)."""
     if name in programs.RUNS_FOREVER:
         model = new_model(name, words, sw)
-        for _ in range(programs.RUNS_FOREVER[name]):
+        for _ in range(programs.forever_steps(name, sw)):
             model.step()
         return "uart_forever" if model.uart_out else "lockstep"
     return "uart" if run_to_halt(name, words, sw).uart_out else "lockstep"
@@ -300,13 +300,13 @@ def render_testbench(name, words, text, sw):
         if rd is not None:
             lines.append(f"        $expect_reg(4d{rd}, 32h{model.x[rd]:08X})")
         if name in programs.RUNS_FOREVER:
-            if steps == programs.RUNS_FOREVER[name]:
+            if steps == programs.forever_steps(name, sw):
                 break
         elif word == asm.HALT:
             halted_for += 1
             if halted_for == 2:            # run halt twice: it must keep pc where it is
                 break
-        if steps > MAX_STEPS:
+        if steps > MAX_STEPS and name not in programs.RUNS_FOREVER:
             raise RuntimeError(f"{name}: no halt after {MAX_STEPS} instructions")
     lines.append("        // final register file")
     lines += [f"        $expect_reg(4d{r}, 32h{model.x[r]:08X})" for r in range(16)]

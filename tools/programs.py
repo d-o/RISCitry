@@ -371,24 +371,30 @@ TRAPS = [
 ]
 
 # What the board boots. A stub at 0 reads the switch register (the middle DIP bank) once after
-# reset and jumps through a table: bits 1:0 pick the program, so change the DIPs and press reset.
+# reset and jumps through a table: bits 2:0 pick the program, so change the DIPs and press reset.
 #   0  Larson scanner on x1 (at its original addresses: its turnaround jal links 0x80 = LED 7)
 #   1  hello: a banner on the serial port, then a Larson sweep on x1 and a numbered line per sweep
 #   2  buttons: a banner, then Larson on x1; each press of a direction button interrupts and the
 #      handler prints "buttons N" (N = the pending mask in hex: 1 up, 2 down, 4 left, 8 right)
-#   3  Larson (spare)
+#   3  the timing ladder, rung 1: Larson with a delay loop between steps
+#   4  rung 2: Larson stepping when a polled mtime passes a deadline
+#   5  rung 3: Larson stepped by the timer interrupt (x13 = direction); the main loop idles
+#   6, 7  Larson (spare)
+# Rungs 1-3 step every (switches[7:3] << 13) + 64 cpu clocks (the "dial"): at the fast clock
+# (3.125 MHz), dial 31 is ~12 steps a second.
 # The serial port is the Cu's USB (FTDI) at 1 Mbaud, 8N1. Registers: x1 LEDs, x2 device base,
 # x3 string pointer / menu index, x4 menu target / digit count, x5 putc's link, x6 puts/hex's
 # link, x7 STATUS, x8 sweep count, x9 hex shift register, x10 the character.
 BOARD = [
     ("lui", 2, memmap.SWITCHES_BASE >> 12),
     ("lw", 3, 2, memmap.SWITCHES_BASE & 0xFFF),
-    ("andi", 3, 3, 3),
+    ("andi", 3, 3, 7),
     ("slli", 3, 3, 2),
     ("lw", 4, 3, "menu"),                      # menu + 4 * choice
     ("jalr", 0, 4, 0),
     "menu:",
-    (".word", "turn", "hello", "buttons_demo", "turn"),
+    (".word", "turn", "hello", "buttons_demo", "delay_larson",
+              "poll_larson", "irq_larson", "turn", "turn"),
     *LARSON[2:],                               # .org 0x48, right/left/turn as on the old ROM
     "hello:",
     ("lui", 2, memmap.UART_BASE >> 12),
@@ -432,6 +438,87 @@ BOARD = [
     ("addi", 3, 0, "crlf"),
     ("jal", 6, "puts"),
     ("mret",),
+    # The timing ladder: the same Larson three ways, each step one dial period apart
+    # (period: switches 7:3). (1) A delay loop: time is counted in instructions. (2) Polling
+    # mtime against a deadline: time comes from a counter, but the cpu still does nothing else.
+    # (3) The timer interrupt: the handler takes one step and moves mtimecmp on; the main loop
+    # is free (wfi, a no-op today). mtime counts cpu clocks, so all three still follow the clock
+    # switches (run/fast); only a real-time mtime would free (2) and (3) from them.
+    "delay_larson:",
+    ("jal", 6, "period"),
+    ("srli", 9, 9, 2),                         # 4 clocks per pass of the delay loop
+    ("addi", 1, 0, 1),
+    "dsweep:",
+    *[("slli", 1, 1, 1), ("jal", 5, "delay")] * 7,
+    *[("srli", 1, 1, 1), ("jal", 5, "delay")] * 7,
+    ("jal", 0, "dsweep"),
+    "delay:",                                  # x9 passes (addi + bne = 4 clocks); returns through x5
+    ("addi", 4, 9, 0),
+    "delay_loop:",
+    ("addi", 4, 4, -1),
+    ("bne", 4, 0, "delay_loop"),
+    ("jalr", 0, 5, 0),
+    "poll_larson:",
+    ("jal", 6, "period"),
+    ("lui", 2, memmap.TIMER_BASE >> 12),
+    ("lw", 7, 2, memmap.TIMER_MTIME - memmap.TIMER_BASE),
+    ("add", 7, 7, 9),                          # x7 = deadline of the first step
+    ("addi", 1, 0, 1),
+    "psweep:",
+    *[("slli", 1, 1, 1), ("jal", 5, "tick")] * 7,
+    *[("srli", 1, 1, 1), ("jal", 5, "tick")] * 7,
+    ("jal", 0, "psweep"),
+    "tick:",                                   # wait for the deadline, then move it on one period
+    ("lw", 4, 2, memmap.TIMER_MTIME - memmap.TIMER_BASE),
+    ("sub", 4, 4, 7),
+    ("blt", 4, 0, "tick"),                     # signed difference: fine across the wrap
+    ("add", 7, 7, 9),                          # from the deadline, not from now: no drift
+    ("jalr", 0, 5, 0),
+    "irq_larson:",
+    ("jal", 6, "period"),
+    ("lui", 2, memmap.TIMER_BASE >> 12),
+    ("addi", 3, 0, "larson_tick"),
+    ("csrrw", 0, 0x305, 3),                    # mtvec
+    ("sw", 0, 2, memmap.TIMER_MTIMECMPH - memmap.TIMER_BASE),  # mtime is still small after boot
+    ("lw", 7, 2, memmap.TIMER_MTIME - memmap.TIMER_BASE),
+    ("add", 7, 7, 9),
+    ("sw", 7, 2, memmap.TIMER_MTIMECMP - memmap.TIMER_BASE),   # first step one period from now
+    ("addi", 1, 0, 1),
+    ("addi", 13, 0, 1),                        # direction: 1 = left
+    ("addi", 8, 0, 0x80),
+    ("csrrs", 0, 0x304, 8),                    # MTIE
+    ("csrrsi", 0, 0x300, 0x08),                # MIE
+    "idle:",
+    ("wfi",),
+    ("jal", 0, "idle"),
+    "larson_tick:",                            # one step per interrupt: where the light is lives
+    ("beq", 13, 0, "tick_right"),              # in x1 and x13 now, not in the pc
+    ("slli", 1, 1, 1),
+    ("addi", 4, 0, 0x80),
+    ("bne", 1, 4, "rearm"),
+    ("addi", 13, 0, 0),
+    ("jal", 0, "rearm"),
+    "tick_right:",
+    ("srli", 1, 1, 1),
+    ("addi", 4, 0, 1),
+    ("bne", 1, 4, "rearm"),
+    ("addi", 13, 0, 1),
+    "rearm:",                                  # mtimecmp += period, 64-bit
+    ("lw", 4, 2, memmap.TIMER_MTIMECMP - memmap.TIMER_BASE),
+    ("add", 5, 4, 9),
+    ("sltu", 4, 5, 4),                         # carry out of the low word
+    ("lw", 8, 2, memmap.TIMER_MTIMECMPH - memmap.TIMER_BASE),
+    ("add", 8, 8, 4),
+    ("sw", 8, 2, memmap.TIMER_MTIMECMPH - memmap.TIMER_BASE),  # high word first: the compare
+    ("sw", 5, 2, memmap.TIMER_MTIMECMP - memmap.TIMER_BASE),   # only ever moves later
+    ("mret",),
+    "period:",                                 # x9 = clocks per step = (switches[7:3] << 13) + 64;
+    ("lui", 2, memmap.SWITCHES_BASE >> 12),    # returns through x6
+    ("lw", 9, 2, memmap.SWITCHES_BASE & 0xFFF),
+    ("srli", 9, 9, 3),
+    ("slli", 9, 9, 13),
+    ("addi", 9, 9, 64),
+    ("jalr", 0, 6, 0),
     "puts:",                                   # print the .string at x3; returns through x6
     ("lbu", 10, 3, 0),
     ("beq", 10, 0, "puts_end"),
@@ -673,10 +760,16 @@ PROGRAMS = {
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
 # checked by its first PRINT_BYTES bytes instead.
 RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160}
+# ... per switch setting where that differs: the timing ladder, a full sweep at the dial's minimum
+FOREVER_STEPS = {("BOARD", 3): 600, ("BOARD", 4): 600, ("BOARD", 5): 600}
+
+
+def forever_steps(name, sw):
+    return FOREVER_STEPS.get((name, sw), RUNS_FOREVER[name])
 PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered lines
                ("BOARD", 2): 50}       # the banner and two presses
 # Programs that read the switch register: one testbench per setting.
-SWITCHES = {"BOARD": [0, 1, 2]}
+SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
 EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD"}
 # Button presses for programs that use the buttons device: (post-reset clock, levels), levels =

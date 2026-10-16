@@ -146,7 +146,7 @@ def expected_trace(name, words, sw):
         states = gen_cpu_tb.STATES[gen_cpu_tb.clocks_for(word, model.trapped)]
         trace += [(s, None) for s in states[:-1]] + [(states[-1], model.pc)]
         if name in programs.RUNS_FOREVER:
-            if steps == programs.RUNS_FOREVER[name]:
+            if steps == programs.forever_steps(name, sw):
                 return trace, model
         elif word == asm.HALT:
             halted_for += 1
