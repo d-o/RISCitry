@@ -455,6 +455,8 @@ CSR = [
     ("csrrs", 10, 0x304, 0),                   # x10 = 0x888 (MSIE, MTIE, MEIE)
     ("csrrw", 11, 0x301, 8),                   # x11 = misa; the write is ignored
     ("csrrs", 11, 0x301, 0),                   # still 0x40000010
+    ("csrrw", 0, 0x342, 8),                    # mcause: all 32 bits kept ...
+    ("csrrs", 3, 0x342, 0),                    # ... x3 = 0xFFFFFFFF
     ("addi", 12, 0, "back"),
     ("addi", 12, 12, 3),
     ("csrrw", 0, 0x341, 12),                   # mepc = back + 3: reads back aligned
