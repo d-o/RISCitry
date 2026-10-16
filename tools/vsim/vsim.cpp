@@ -39,7 +39,8 @@ static const double BOARD_W = 65.0, BOARD_H = 45.0;   // both boards' artwork, m
 
 struct Options {
     std::string jar = "/usr/lib/alchitry/alchitry-labs/lib/app/Alchitry Labs V2-2.0.57.jar";
-    double scale = 11.0;       // pixels per mm
+    double scale = 0;          // pixels per mm (default 16 stacked, 11 side by side)
+    bool side_by_side = false; // the Cu beside the Io instead of under it
     bool throttle = true;      // never run faster than the real board
     bool echo = true;          // serial bytes to stdout
     int time_scale = 1;        // the design was built with its timing this many times shorter
@@ -53,11 +54,14 @@ struct Options {
 // Artwork: an SVG from the jar → RGBA pixels → SDL texture.
 
 static SDL_Texture* load_svg(SDL_Renderer* r, const Options& o, const char* name, int w, int h) {
-    // 96 dpi is ImageMagick's SVG unit; render at about the target size, then force it exactly.
+    // Render at 300 dpi, then force the exact size. The perl drops io.svg's path1, a blurred
+    // shadow along the cut-out on the Io's right edge: ImageMagick ignores the blur filter and
+    // fills the shape black, which hides the Cu's LEDs and reset button underneath.
     char cmd[1024];
     snprintf(cmd, sizeof cmd,
-             "unzip -p '%s' 'boards/%s' | convert -background none -density 300 svg:- "
-             "-resize %dx%d! -depth 8 RGBA:-", o.jar.c_str(), name, w, h);
+             "unzip -p '%s' 'boards/%s' | perl -0pe 's/<path\\s[^>]*id=\"path1\"[^>]*\\/>//s' | "
+             "convert -background none -density 300 svg:- -resize %dx%d! -depth 8 RGBA:-",
+             o.jar.c_str(), name, w, h);
     FILE* p = popen(cmd, "r");
     if (!p) { perror("popen"); exit(1); }
     std::vector<unsigned char> px((size_t)w * h * 4);
@@ -146,6 +150,7 @@ int main(int argc, char** argv) {
         if (a == "--scale" && i + 1 < argc) o.scale = atof(argv[++i]);
         else if (a == "--jar" && i + 1 < argc) o.jar = argv[++i];
         else if (a == "--unthrottled") o.throttle = false;
+        else if (a == "--side-by-side") o.side_by_side = true;
         else if (a == "--quiet") o.echo = false;
         else if (a == "--time-scale" && i + 1 < argc) o.time_scale = atoi(argv[++i]);
         else if (a == "--headless" && i + 1 < argc) o.headless = strtoull(argv[++i], nullptr, 0);
@@ -155,7 +160,7 @@ int main(int argc, char** argv) {
             o.snapshot_clocks = strtoull(argv[++i], nullptr, 0);
         }
         else if (a == "--help") {
-            printf("vsim [--scale PX_PER_MM] [--jar ALCHITRY_JAR] [--unthrottled] [--quiet]\n"
+            printf("vsim [--scale PX_PER_MM] [--side-by-side] [--jar ALCHITRY_JAR] [--unthrottled] [--quiet]\n"
                    "     [--dips HEX] [--headless CLOCKS] [--snapshot FILE.bmp CLOCKS]\n");
             return 0;
         }
@@ -202,10 +207,12 @@ int main(int argc, char** argv) {
     if (pty >= 0) fprintf(stderr, "vsim: serial on %s\n", pty_path.c_str());
 
     if (SDL_Init(SDL_INIT_VIDEO)) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
+    if (o.scale <= 0) o.scale = o.side_by_side ? 11.0 : 16.0;
     const double s = o.scale;
+    const int boards_w = o.side_by_side ? 2 : 1;
     const int bw = (int)lround(BOARD_W * s), bh = (int)lround(BOARD_H * s);
     SDL_Window* win = SDL_CreateWindow("vsim", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-                                       2 * bw, bh, 0);
+                                       boards_w * bw, bh, 0);
     SDL_Renderer* ren = SDL_CreateRenderer(win, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
     SDL_SetRenderDrawBlendMode(ren, SDL_BLENDMODE_BLEND);
 
@@ -221,8 +228,10 @@ int main(int argc, char** argv) {
         seg_tex[k] = load_svg(ren, o, n, dw, dh);
     }
 
-    // Layout, mm, from IoBoard.kt and AlchitryBoard.kt. The Cu is on the left, the Io on the right.
-    const double IOX = BOARD_W;
+    // Layout, mm, from IoBoard.kt and AlchitryBoard.kt. Stacked like the real boards (and the
+    // Alchitry board view): the Io drawn over the Cu, whose LEDs and reset button show through
+    // the cut-out on the Io's right edge. --side-by-side puts the Io to the right instead.
+    const double IOX = o.side_by_side ? BOARD_W : 0.0;
     Rect cu_led[8], cu_done = {2.089, 26.866, 1.820, 1.268}, cu_reset = {59.080, 30.125, 4.838, 4.750};
     for (int i = 0; i < 8; i++) cu_led[i] = {61.089, 10.366 + 2.0 * i, 1.820, 1.268};
     Rect io_led[24], dip[24], digit[4], button[5];
@@ -348,9 +357,18 @@ int main(int argc, char** argv) {
         // Draw
         SDL_SetRenderDrawColor(ren, 30, 30, 30, 255);
         SDL_RenderClear(ren);
-        SDL_Rect cu_dst = {0, 0, bw, bh}, io_dst = {bw, 0, bw, bh};
+        SDL_Rect cu_dst = {0, 0, bw, bh}, io_dst = {(int)lround(IOX * s), 0, bw, bh};
         SDL_RenderCopy(ren, cu_tex, nullptr, &cu_dst);
-        SDL_RenderCopy(ren, io_tex, nullptr, &io_dst);
+
+        auto draw_pressed = [&](const Rect& r) {
+            // the IDE's pressed button: a filled circle, radius 0.243 of the width
+            double cx = (r.x + r.w / 2) * s, cy = (r.y + r.h / 2) * s, rad = 0.243386 * r.w * s;
+            SDL_SetRenderDrawColor(ren, 0xAB, 0x6E, 0x1D, 255);
+            for (int dy = -(int)rad; dy <= (int)rad; dy++) {
+                int dx = (int)sqrt(rad * rad - dy * dy);
+                SDL_RenderDrawLine(ren, (int)(cx - dx), (int)(cy + dy), (int)(cx + dx), (int)(cy + dy));
+            }
+        };
 
         auto draw_led = [&](const Rect& r, float level) {
             if (level <= 0.003f) return;
@@ -363,9 +381,11 @@ int main(int argc, char** argv) {
             SDL_SetRenderDrawColor(ren, 0x5F, 0xFF, 0x00, (Uint8)(level * 255));
             SDL_RenderFillRect(ren, &q);
         };
-        for (int i = 0; i < 24; i++) draw_led(io_led[i], led_level[i]);
         for (int i = 0; i < 8; i++) draw_led(cu_led[i], led_level[24 + i]);
         draw_led(cu_done, 1.0f);
+        if (reset_held) draw_pressed(cu_reset);
+        SDL_RenderCopy(ren, io_tex, nullptr, &io_dst);      // over the Cu when stacked
+        for (int i = 0; i < 24; i++) draw_led(io_led[i], led_level[i]);
 
         for (int d = 0; d < 4; d++) {
             SDL_Rect q = px(digit[d]);
@@ -385,20 +405,10 @@ int main(int argc, char** argv) {
             SDL_RenderFillRect(ren, &q);
         }
 
-        auto draw_pressed = [&](const Rect& r) {
-            // the IDE's pressed button: a filled circle, radius 0.243 of the width
-            double cx = (r.x + r.w / 2) * s, cy = (r.y + r.h / 2) * s, rad = 0.243386 * r.w * s;
-            SDL_SetRenderDrawColor(ren, 0xAB, 0x6E, 0x1D, 255);
-            for (int dy = -(int)rad; dy <= (int)rad; dy++) {
-                int dx = (int)sqrt(rad * rad - dy * dy);
-                SDL_RenderDrawLine(ren, (int)(cx - dx), (int)(cy + dy), (int)(cx + dx), (int)(cy + dy));
-            }
-        };
         for (int i = 0; i < 5; i++) if (buttons[i]) draw_pressed(button[i]);
-        if (reset_held) draw_pressed(cu_reset);
 
         if (!o.snapshot.empty() && clocks >= o.snapshot_clocks) {
-            SDL_Surface* shot = SDL_CreateRGBSurfaceWithFormat(0, 2 * bw, bh, 32, SDL_PIXELFORMAT_ARGB8888);
+            SDL_Surface* shot = SDL_CreateRGBSurfaceWithFormat(0, boards_w * bw, bh, 32, SDL_PIXELFORMAT_ARGB8888);
             SDL_RenderReadPixels(ren, nullptr, SDL_PIXELFORMAT_ARGB8888, shot->pixels, shot->pitch);
             SDL_SaveBMP(shot, o.snapshot.c_str());
             SDL_FreeSurface(shot);
