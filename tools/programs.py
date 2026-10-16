@@ -382,10 +382,12 @@ SCROLL_TEXT = "    HELLO FROM AN RV32E SOFT CORE ON THE ALCHITRY CU    "   # 4 s
 #   5  rung 3: Larson stepped by the timer interrupt (x13 = direction); the main loop idles
 #   6  scroll: SCROLL_TEXT across the 7-segment display. The display device holds four characters
 #      (the board has the font and scans the digits); each timer interrupt, every
-#      (switches[7:3] << 15) + 128 cpu clocks, moves the text one character and writes the four
+#      (switches[7:3] << 15) + 128 mtime ticks, moves the text one character and writes the four
 #   7  Larson (spare)
-# Rungs 1-3 step every (switches[7:3] << 13) + 64 cpu clocks (the "dial"): at the fast clock
-# (3.125 MHz), dial 31 is ~12 steps a second.
+# Rungs 1-3 step every (switches[7:3] << 13) + 64 (the "dial"): mtime ticks for rungs 2-3 (1 us on
+# the board: dial 31 is 254 ms, ~4 steps a second, whatever the clock switches do), cpu clocks
+# for rung 1 (at the fast setting, 25 MHz, the same dial is 25x quicker; at the slow one, ~24 Hz,
+# it crawls). Timing on the board: 1 tick = 1 us (TICK_DIV 25 at 25 MHz).
 # The serial port is the Cu's USB (FTDI) at 1 Mbaud, 8N1. Registers: x1 LEDs, x2 device base,
 # x3 string pointer / menu index, x4 menu target / digit count, x5 putc's link, x6 puts/hex's
 # link, x7 STATUS, x8 sweep count, x9 hex shift register, x10 the character.
@@ -446,8 +448,10 @@ BOARD = [
     # (period: switches 7:3). (1) A delay loop: time is counted in instructions. (2) Polling
     # mtime against a deadline: time comes from a counter, but the cpu still does nothing else.
     # (3) The timer interrupt: the handler takes one step and moves mtimecmp on; the main loop
-    # is free (wfi, a no-op today). mtime counts cpu clocks, so all three still follow the clock
-    # switches (run/fast); only a real-time mtime would free (2) and (3) from them.
+    # waits in wfi. mtime counts real time (since single-clock step 4), so (2) and (3) keep their
+    # pace whatever the clock switches do, and (1) doesn't: the demonstration. At the slow setting
+    # (2) and (3) overload instead: a handler takes longer than a period, so they step as fast as
+    # the cpu can, which is still slow.
     "delay_larson:",
     ("jal", 6, "period"),
     ("srli", 9, 9, 2),                         # 4 clocks per pass of the delay loop
@@ -641,8 +645,9 @@ CSR = [
     ("halt",),
 ]
 
-# The machine timer and its interrupt. mtime counts cpu clocks, so every value read here and every
-# interrupt's position is exact (rv32sim counts the same clocks). Reads of mtime/mtimeh/mtimecmp,
+# The machine timer and its interrupt. mtime ticks every clock in the testbenches (TICK_DIV 1, ce
+# every clock), so every value read here and every interrupt's position is exact (rv32sim counts
+# the same clocks). Reads of mtime/mtimeh/mtimecmp,
 # the 64-bit carry, MTIP visible in mip while MIE = 0 (no interrupt), then three timer interrupts
 # 150 ticks apart: the handler records mcause (0x80000007) and mepc, and moves mtimecmp on. (It
 # was 40: with the timer at 3 ticks per cpu clock, the _ce3 test, the handler took longer than
