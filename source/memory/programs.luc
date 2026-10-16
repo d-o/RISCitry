@@ -2,7 +2,7 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS, TIMER, IRQ }
+    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS, TIMER, IRQ, PRESS }
 
     const BOARD = {
         32h00000046,  // 0x0234: (data)
@@ -581,5 +581,25 @@ global Programs {
         32h80003137,  // 0x0008: lui x2, 0x80003
         32h30519073,  // 0x0004: csrrw x0, 0x305
         32h06C00193  // 0x0000: addi x3, x0, irq_handler
+    }
+    const PRESS = {
+        32h30200073,  // 0x0044: mret
+        32h00170713,  // 0x0040: addi x14, x14, 1
+        32h00A12023,  // 0x003c: sw x10, 0(x2)
+        32h00012503,  // 0x0038: lw x10, 0(x2)
+        32h0000006F,  // 0x0034: halt
+        32h30047073,  // 0x0030: csrrci x0, 0x300
+        32hFE039EE3,  // 0x002c: bne x7, x0, press_more
+        32hFFF38393,  // 0x0028: addi x7, x7, -1
+        32h01400393,  // 0x0024: addi x7, x0, 20
+        32h00671063,  // 0x0020: bne x14, x6, press_wait
+        32h00300313,  // 0x001c: addi x6, x0, 3
+        32h30046073,  // 0x0018: csrrsi x0, 0x300
+        32h30442073,  // 0x0014: csrrs x0, 0x304
+        32h00B41413,  // 0x0010: slli x8, x8, 11
+        32h00100413,  // 0x000c: addi x8, x0, 1
+        32h80003137,  // 0x0008: lui x2, 0x80003
+        32h30519073,  // 0x0004: csrrw x0, 0x305
+        32h03800193  // 0x0000: addi x3, x0, press_handler
     }
 }

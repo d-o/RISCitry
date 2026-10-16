@@ -611,6 +611,26 @@ module main_ram_bram #(
       lane0[37] = 8'h23; lane1[37] = 8'hA4; lane2[37] = 8'hB1; lane3[37] = 8'h00;
       lane0[38] = 8'h73; lane1[38] = 8'h00; lane2[38] = 8'h20; lane3[38] = 8'h30;
     end
+    if (PROGRAM_ID == 16) begin   // PRESS
+      lane0[0] = 8'h93; lane1[0] = 8'h01; lane2[0] = 8'h80; lane3[0] = 8'h03;
+      lane0[1] = 8'h73; lane1[1] = 8'h90; lane2[1] = 8'h51; lane3[1] = 8'h30;
+      lane0[2] = 8'h37; lane1[2] = 8'h31; lane2[2] = 8'h00; lane3[2] = 8'h80;
+      lane0[3] = 8'h13; lane1[3] = 8'h04; lane2[3] = 8'h10; lane3[3] = 8'h00;
+      lane0[4] = 8'h13; lane1[4] = 8'h14; lane2[4] = 8'hB4; lane3[4] = 8'h00;
+      lane0[5] = 8'h73; lane1[5] = 8'h20; lane2[5] = 8'h44; lane3[5] = 8'h30;
+      lane0[6] = 8'h73; lane1[6] = 8'h60; lane2[6] = 8'h04; lane3[6] = 8'h30;
+      lane0[7] = 8'h13; lane1[7] = 8'h03; lane2[7] = 8'h30; lane3[7] = 8'h00;
+      lane0[8] = 8'h63; lane1[8] = 8'h10; lane2[8] = 8'h67; lane3[8] = 8'h00;
+      lane0[9] = 8'h93; lane1[9] = 8'h03; lane2[9] = 8'h40; lane3[9] = 8'h01;
+      lane0[10] = 8'h93; lane1[10] = 8'h83; lane2[10] = 8'hF3; lane3[10] = 8'hFF;
+      lane0[11] = 8'hE3; lane1[11] = 8'h9E; lane2[11] = 8'h03; lane3[11] = 8'hFE;
+      lane0[12] = 8'h73; lane1[12] = 8'h70; lane2[12] = 8'h04; lane3[12] = 8'h30;
+      lane0[13] = 8'h6F; lane1[13] = 8'h00; lane2[13] = 8'h00; lane3[13] = 8'h00;
+      lane0[14] = 8'h03; lane1[14] = 8'h25; lane2[14] = 8'h01; lane3[14] = 8'h00;
+      lane0[15] = 8'h23; lane1[15] = 8'h20; lane2[15] = 8'hA1; lane3[15] = 8'h00;
+      lane0[16] = 8'h13; lane1[16] = 8'h07; lane2[16] = 8'h17; lane3[16] = 8'h00;
+      lane0[17] = 8'h73; lane1[17] = 8'h00; lane2[17] = 8'h20; lane3[17] = 8'h30;
+    end
   end
 
 endmodule

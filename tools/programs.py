@@ -608,6 +608,41 @@ IRQ = [
     ("mret",),
 ]
 
+# A second press of the same button around the handler's clear, timed to the clock (BUTTON_EVENTS,
+# worked out with rv32sim; the handler is lw pending / sw it back to clear / count / mret):
+#  (A) press at 20: interrupt at 22, handler lw at 24, sw at 28, which clears on edge 30. Re-press
+#      at 28: its rising edge is detected on edge 30 too, and "set wins" keeps the bit: a second
+#      interrupt (35). Clear-wins would lose it.
+#  (B) press at 108: interrupt at 110, lw at 112 (reads as of edge 113), sw at 116 (clears on 118).
+#      Re-press at 115: its edge (117) finds the bit already set, so nothing changes, and the clear
+#      removes both presses: merged, no interrupt for it. This is the press a pending *bit* can't
+#      keep: from a button's first press until the handler clears it, further presses of that
+#      button are absorbed (see notes 2026-10-16 for what would keep them).
+# Four presses, three interrupts; the program then waits to show no fourth arrives.
+PRESS = [
+    ("addi", 3, 0, "press_handler"),
+    ("csrrw", 0, 0x305, 3),
+    ("lui", 2, B >> 12),
+    ("addi", 8, 0, 1),
+    ("slli", 8, 8, 11),
+    ("csrrs", 0, 0x304, 8),                    # MEIE
+    ("csrrsi", 0, 0x300, 0x08),                # MIE
+    ("addi", 6, 0, 3),
+    "press_wait:",
+    ("bne", 14, 6, "press_wait"),
+    ("addi", 7, 0, 20),
+    "press_more:",                             # time for a fourth interrupt that mustn't come
+    ("addi", 7, 7, -1),
+    ("bne", 7, 0, "press_more"),
+    ("csrrci", 0, 0x300, 0x08),
+    ("halt",),
+    "press_handler:",
+    ("lw", 10, 2, 0),
+    ("sw", 10, 2, 0),
+    ("addi", 14, 14, 1),
+    ("mret",),
+]
+
 PROGRAMS = {
     "BOARD": BOARD,
     "LARSON": LARSON,
@@ -625,6 +660,7 @@ PROGRAMS = {
     "TRAPS": TRAPS,
     "TIMER": TIMER,
     "IRQ": IRQ,
+    "PRESS": PRESS,
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
@@ -635,11 +671,13 @@ PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1, 2]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
-EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "BOARD"}
+EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD"}
 # Button presses for programs that use the buttons device: (post-reset clock, levels), levels =
 # up | down << 1 | left << 2 | right << 3, applied before that clock's rising edge.
 BUTTON_EVENTS = {
     "IRQ": [(30, 0x1), (50, 0x0), (150, 0xC), (170, 0x0), (300, 0x2)],
+    "PRESS": [(20, 0x1), (25, 0x0), (28, 0x1), (33, 0x0),      # (A) set wins on the clear edge
+              (108, 0x1), (113, 0x0), (115, 0x1), (120, 0x0)],  # (B) merged before the clear
     "BOARD": [(2000, 0x4), (2100, 0x0), (3000, 0x9), (3100, 0x0)],   # only menu entry 2 listens
 }
 
