@@ -370,6 +370,8 @@ TRAPS = [
     *TRAP_HANDLER,
 ]
 
+SCROLL_TEXT = "    HELLO FROM AN RV32E SOFT CORE ON THE ALCHITRY CU    "   # 4 spaces each end
+
 # What the board boots. A stub at 0 reads the switch register (the middle DIP bank) once after
 # reset and jumps through a table: bits 2:0 pick the program, so change the DIPs and press reset.
 #   0  Larson scanner on x1 (at its original addresses: its turnaround jal links 0x80 = LED 7)
@@ -379,7 +381,10 @@ TRAPS = [
 #   3  the timing ladder, rung 1: Larson with a delay loop between steps
 #   4  rung 2: Larson stepping when a polled mtime passes a deadline
 #   5  rung 3: Larson stepped by the timer interrupt (x13 = direction); the main loop idles
-#   6, 7  Larson (spare)
+#   6  scroll: SCROLL_TEXT across the 7-segment display. The display device holds four characters
+#      (the board has the font and scans the digits); each timer interrupt, every
+#      (switches[7:3] << 15) + 128 cpu clocks, moves the text one character and writes the four
+#   7  Larson (spare)
 # Rungs 1-3 step every (switches[7:3] << 13) + 64 cpu clocks (the "dial"): at the fast clock
 # (3.125 MHz), dial 31 is ~12 steps a second.
 # The serial port is the Cu's USB (FTDI) at 1 Mbaud, 8N1. Registers: x1 LEDs, x2 device base,
@@ -394,7 +399,7 @@ BOARD = [
     ("jalr", 0, 4, 0),
     "menu:",
     (".word", "turn", "hello", "buttons_demo", "delay_larson",
-              "poll_larson", "irq_larson", "turn", "turn"),
+              "poll_larson", "irq_larson", "scroll_demo", "turn"),
     *LARSON[2:],                               # .org 0x48, right/left/turn as on the old ROM
     "hello:",
     ("lui", 2, memmap.UART_BASE >> 12),
@@ -519,6 +524,44 @@ BOARD = [
     ("slli", 9, 9, 13),
     ("addi", 9, 9, 64),
     ("jalr", 0, 6, 0),
+    "scroll_demo:",
+    ("lui", 2, memmap.SWITCHES_BASE >> 12),
+    ("lw", 9, 2, memmap.SWITCHES_BASE & 0xFFF),
+    ("srli", 9, 9, 3),
+    ("slli", 9, 9, 15),
+    ("addi", 9, 9, 128),                       # x9 = clocks per scroll step: (dial << 15) + 128
+    ("lui", 3, memmap.DISPLAY_BASE >> 12),     # x3 = display
+    ("addi", 12, 0, "scroll_text"),            # x12 = the first character shown
+    ("jal", 6, "show"),
+    ("lui", 2, memmap.TIMER_BASE >> 12),
+    ("addi", 4, 0, "scroll_tick"),
+    ("csrrw", 0, 0x305, 4),                    # mtvec
+    ("sw", 0, 2, memmap.TIMER_MTIMECMPH - memmap.TIMER_BASE),
+    ("lw", 7, 2, memmap.TIMER_MTIME - memmap.TIMER_BASE),
+    ("add", 7, 7, 9),
+    ("sw", 7, 2, memmap.TIMER_MTIMECMP - memmap.TIMER_BASE),
+    ("addi", 8, 0, 0x80),
+    ("csrrs", 0, 0x304, 8),                    # MTIE
+    ("csrrsi", 0, 0x300, 0x08),                # MIE
+    ("jal", 0, "idle"),
+    "scroll_tick:",                            # one character on
+    ("addi", 12, 12, 1),
+    ("lbu", 4, 12, 3),
+    ("bne", 4, 0, "scroll_show"),              # the window ran past the end: back to the start
+    ("addi", 12, 0, "scroll_text"),
+    "scroll_show:",
+    ("jal", 6, "show"),
+    ("jal", 0, "rearm"),                       # mtimecmp += x9, mret (x4, x5, x8 are free here)
+    "show:",                                   # the four characters at x12 to the display (byte
+    ("lbu", 4, 12, 0),                         # k = digit k from the left); returns through x6
+    ("sb", 4, 3, 0),
+    ("lbu", 4, 12, 1),
+    ("sb", 4, 3, 1),
+    ("lbu", 4, 12, 2),
+    ("sb", 4, 3, 2),
+    ("lbu", 4, 12, 3),
+    ("sb", 4, 3, 3),
+    ("jalr", 0, 6, 0),
     "puts:",                                   # print the .string at x3; returns through x6
     ("lbu", 10, 3, 0),
     ("beq", 10, 0, "puts_end"),
@@ -555,6 +598,8 @@ BOARD = [
     (".string", "\r\n"),
     "digits:",
     (".string", "0123456789ABCDEF"),
+    "scroll_text:",
+    (".string", SCROLL_TEXT),
 ]
 
 # Zicsr and MRET: read the constant CSRs, write/set/clear mscratch (rd gets the old value each
@@ -761,15 +806,18 @@ PROGRAMS = {
 # checked by its first PRINT_BYTES bytes instead.
 RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160}
 # ... per switch setting where that differs: the timing ladder, a full sweep at the dial's minimum
-FOREVER_STEPS = {("BOARD", 3): 600, ("BOARD", 4): 600, ("BOARD", 5): 600}
+FOREVER_STEPS = {("BOARD", 3): 600, ("BOARD", 4): 600, ("BOARD", 5): 600,
+                 ("BOARD", 6): 400}    # scroll: four steps
 
 
 def forever_steps(name, sw):
     return FOREVER_STEPS.get((name, sw), RUNS_FOREVER[name])
+
+
 PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered lines
                ("BOARD", 2): 50}       # the banner and two presses
 # Programs that read the switch register: one testbench per setting.
-SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5]}
+SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
 EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD"}
 # Button presses for programs that use the buttons device: (post-reset clock, levels), levels =

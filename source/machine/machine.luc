@@ -41,7 +41,9 @@ module machine #(
     output halted,           // stopped, waiting for run or step
     output busy,             // finishing a step, or the instruction in progress when run went off
     output in_reset,         // the cpu is being held in reset
-    output uart_tx           // the computer's serial out
+    output uart_tx,          // the computer's serial out
+    output display_chars[32],   // the computer's 7-segment display text (lane 0 = leftmost) ...
+    output display_owned     // ... once the program has written it
   ) {
 
   .clk(clk), .rst(rst) {
@@ -72,6 +74,8 @@ module machine #(
     comp.io_clk = clk
     comp.io_rst = rst
     uart_tx = comp.uart_tx
+    display_chars = comp.display_chars
+    display_owned = comp.display_owned
     phase.d = phase.q + 1
 
     resetting = reset_edges.q != 0

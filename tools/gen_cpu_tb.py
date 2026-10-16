@@ -186,6 +186,12 @@ def header(name, sw, extra_sigs=()):
         "        $assert(dut.debug_reg == value)",
         "    }",
         "",
+        "    fun expect_display(value[33]) {   // owned, the four characters",
+        "        if (c{dut.display_owned, dut.display_chars} != value)",
+        '            $print("display: got %h want %h", c{dut.display_owned, dut.display_chars}, value)',
+        "        $assert(c{dut.display_owned, dut.display_chars} == value)",
+        "    }",
+        "",
     ]
 
 
@@ -296,6 +302,8 @@ def render_testbench(name, words, text, sw):
             lines += ["        $tick_clock()", f"        $expect_state(Cpu.State.{state})"]
             clock += 1
         lines.append(f"        $expect_pc(32h{model.pc:08X})")
+        if word & 0x7F == 0x23:            # after every store: only stores move the display
+            lines.append(f"        $expect_display(33h{model.display:09X})")
         rd = writes_rd(word, model.trapped)
         if rd is not None:
             lines.append(f"        $expect_reg(4d{rd}, 32h{model.x[rd]:08X})")
@@ -308,8 +316,9 @@ def render_testbench(name, words, text, sw):
                 break
         if steps > MAX_STEPS and name not in programs.RUNS_FOREVER:
             raise RuntimeError(f"{name}: no halt after {MAX_STEPS} instructions")
-    lines.append("        // final register file")
+    lines.append("        // final register file and display")
     lines += [f"        $expect_reg(4d{r}, 32h{model.x[r]:08X})" for r in range(16)]
+    lines.append(f"        $expect_display(33h{model.display:09X})")
     lines += ["    }", "}"]
     return lines, f"{steps} instructions"
 

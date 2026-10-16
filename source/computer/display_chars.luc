@@ -1,0 +1,33 @@
+// The 7-segment display's text: four character registers the program writes by address. The
+// board turns them into segments (font) and scans the digits (text_display.luc), on its own
+// clock, so the program only says what to show, not how.
+// Byte lane k is digit k counted from the left, so a string's bytes land in reading order: four
+// sb (or one sw of four characters) set the whole display. Read: the four characters.
+// The first store takes the display from the front panel (which shows the pc until then); only
+// reset gives it back.
+module display_chars (
+    input clk,
+    input rst,
+    input write,             // a store to the device this clock ...
+    input be[4],             // ... to these byte lanes
+    input wdata[32],
+    output chars[32],        // lane 0 (bits 7:0) = the leftmost digit
+    output owned
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff text[4][8]
+    dff taken
+  }
+
+  always {
+    if (write) {
+      taken.d = 1
+      repeat(i, 4) {
+        if (be[i]) text.d[i] = wdata[i*8+:8];
+      }
+    }
+    chars = c{text.q[3], text.q[2], text.q[1], text.q[0]}
+    owned = taken.q
+  }
+}

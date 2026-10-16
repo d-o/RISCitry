@@ -35,7 +35,8 @@ YOSYS = "/usr/lib/alchitry/alchitry-labs/lib/app/tools/oss-cad-suite/bin/yosys"
 VERILOG = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "source"
 STATE = {"FETCH": 0, "EXECUTE": 1, "MEM_ACCESS": 2, "WRITEBACK": 3}   # control_unit's enum order
 BIT = gen_cpu_tb.TB_UART_CLK_FREQ // gen_cpu_tb.TB_UART_BAUD
-SIGNALS = ["cycle", "debug_pc", "debug_state", "debug_reg", "uart_tx"]
+SIGNALS = ["cycle", "debug_pc", "debug_state", "debug_reg", "uart_tx",
+           "display_chars", "display_owned"]
 KEEPS_WRITING = {"LARSON", "BOARD", "ILLEGAL"}    # run forever changing registers: no final register check
 
 HARNESS = f"""
@@ -45,7 +46,9 @@ module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
     output [31:0] debug_pc,
     output [1:0] debug_state,
     output [31:0] debug_reg,
-    output uart_tx
+    output uart_tx,
+    output [31:0] display_chars,
+    output display_owned
   );
   reg [15:0] cycle = 0;
   always @(posedge clk) cycle <= cycle + 1;
@@ -55,7 +58,8 @@ module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
     .clk(clk), .rst(cycle < 2), .io_clk(clk), .io_rst(cycle < 2), .switches(SWITCHES[7:0]),
     .buttons(BUTTONS),
     .debug_sel(cycle[3:0]),
-    .uart_tx(uart_tx), .debug_pc(debug_pc), .debug_reg(debug_reg), .debug_state(debug_state));
+    .uart_tx(uart_tx), .debug_pc(debug_pc), .debug_reg(debug_reg), .debug_state(debug_state),
+    .display_chars(display_chars), .display_owned(display_owned));
 endmodule
 """
 
@@ -135,16 +139,17 @@ def parse_vcd(text):
 
 
 def expected_trace(name, words, sw):
-    """[(state, pc or None)] per clock from the release of reset, and the model at the end."""
+    """[(state, pc or None, display or None)] per clock from the release of reset (pc and display
+    at each instruction's last clock), and the model at the end."""
     model = gen_cpu_tb.new_model(name, words, sw)
-    trace = [("FETCH", 0)]
+    trace = [("FETCH", 0, 0)]
     steps, halted_for = 0, 0
     while True:
         word = model.fetch()
         model.step()
         steps += 1
         states = gen_cpu_tb.STATES[gen_cpu_tb.clocks_for(word, model.trapped)]
-        trace += [(s, None) for s in states[:-1]] + [(states[-1], model.pc)]
+        trace += [(s, None, None) for s in states[:-1]] + [(states[-1], model.pc, model.display)]
         if name in programs.RUNS_FOREVER:
             if steps == programs.forever_steps(name, sw):
                 return trace, model
@@ -168,11 +173,15 @@ def check_lockstep(pid, name, words, sw):
     trace, model = expected_trace(name, words, sw)
     samples = run(pid, sw, len(trace) + 1 + 16, name)[1:]     # [0] is after the first edge, still in reset
     errors = []
-    for i, (state, pc) in enumerate(trace):
+    for i, (state, pc, display) in enumerate(trace):
         s = samples[i]
         if s["debug_state"] != STATE[state] or (pc is not None and s["debug_pc"] != pc):
             errors.append(f"clock {i}: state {s['debug_state']} pc {s['debug_pc']:08x}, "
                           f"want {STATE[state]} ({state}) {'' if pc is None else f'{pc:08x}'}")
+            break
+        shown = s["display_owned"] << 32 | s["display_chars"]
+        if display is not None and shown != display:
+            errors.append(f"clock {i}: display {shown:09x}, want {display:09x}")
             break
         if s["uart_tx"] != 1:
             errors.append(f"clock {i}: uart_tx low in a program that doesn't print")

@@ -1,0 +1,83 @@
+// Four characters on the Io's multiplexed 7-segment LEDs: the font and the scan, in hardware.
+// One digit lit at a time, switching every 2^DIV clocks (like hex_display). Outputs are active
+// high; the top module inverts them for the Io.
+// chars: lane 0 (bits 7:0) is the leftmost digit. ASCII: digits, letters (lower case shown as
+// upper case; b d n r t u come out lower case, K M V W X are approximations, as on any 7-segment
+// display), space and a little punctuation; anything else is blank.
+// seg bits: [0] a (top), [1] b, [2] c, [3] d (bottom), [4] e, [5] f, [6] g (middle), [7] point.
+module text_display #(
+    DIV = 16 : DIV >= 0
+  ) (
+    input clk,
+    input rst,
+    input chars[32],
+    output seg[8],
+    output sel[4]
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff scan[DIV + 2]
+  }
+
+  sig digit[2]               // 0 = rightmost
+  sig ch[8]
+  sig up[7]                  // ch folded to upper case
+
+  always {
+    scan.d = scan.q + 1
+    digit = scan.q[DIV+1:DIV]
+    ch = chars[(3 - digit)*8+:8]
+    up = ch[6:0]
+    if (ch[6:0] >= 7h61 && ch[6:0] <= 7h7A) up = ch[6:0] - 7h20;
+
+    seg = 0
+    case (up) {
+      7h30: seg = 8h3F   // 0
+      7h31: seg = 8h06
+      7h32: seg = 8h5B
+      7h33: seg = 8h4F
+      7h34: seg = 8h66
+      7h35: seg = 8h6D
+      7h36: seg = 8h7D
+      7h37: seg = 8h07
+      7h38: seg = 8h7F
+      7h39: seg = 8h6F   // 9
+      7h41: seg = 8h77   // A
+      7h42: seg = 8h7C   // b
+      7h43: seg = 8h39   // C
+      7h44: seg = 8h5E   // d
+      7h45: seg = 8h79   // E
+      7h46: seg = 8h71   // F
+      7h47: seg = 8h3D   // G
+      7h48: seg = 8h76   // H
+      7h49: seg = 8h30   // I
+      7h4A: seg = 8h1E   // J
+      7h4B: seg = 8h75   // K (approximation)
+      7h4C: seg = 8h38   // L
+      7h4D: seg = 8h37   // M (approximation)
+      7h4E: seg = 8h54   // n
+      7h4F: seg = 8h3F   // O
+      7h50: seg = 8h73   // P
+      7h51: seg = 8h67   // q
+      7h52: seg = 8h50   // r
+      7h53: seg = 8h6D   // S
+      7h54: seg = 8h78   // t
+      7h55: seg = 8h3E   // U
+      7h56: seg = 8h1C   // v (approximation)
+      7h57: seg = 8h2A   // W (approximation)
+      7h58: seg = 8h76   // X (as H)
+      7h59: seg = 8h6E   // y
+      7h5A: seg = 8h5B   // Z (as 2)
+      7h2D: seg = 8h40   // -
+      7h5F: seg = 8h08   // _
+      7h3D: seg = 8h48   // =
+      7h27: seg = 8h20   // '
+      7h3F: seg = 8h53   // ?
+      7h2E: seg = 8h80   // .
+      default: seg = 0   // space and everything else: blank
+    }
+
+    sel = 0
+    sel[digit] = 1
+  }
+}

@@ -1,0 +1,48 @@
+// text_display (hand-written): the scan visits digits right to left, one per clock with DIV = 0,
+// each showing its character (lane 0 = leftmost) through the font; lower case folds to upper
+// case and characters outside the font are blank.
+testbench text_display_tb {
+    sig clk
+    sig rst
+    sig chars[32]
+
+    text_display dut(#DIV(0), .clk(clk), .rst(rst), .chars(chars))
+
+    fun tick_clock() {
+        clk = 1
+        $tick()
+        clk = 0
+        $tick()
+    }
+
+    fun expect(sel[4], seg[8]) {
+        if (dut.sel != sel || dut.seg != seg)
+            $print("sel %b seg %h, want sel %b seg %h", dut.sel, dut.seg, sel, seg)
+        $assert(dut.sel == sel && dut.seg == seg)
+    }
+
+    test font_and_scan {
+        clk = 0
+        rst = 1
+        chars = 32h6F4C4548              // "HELo", H leftmost
+        $tick_clock()
+        rst = 0
+        $tick()
+        $expect(4b0001, 8h3F)            // rightmost: 'o' as O
+        $tick_clock()
+        $expect(4b0010, 8h38)            // L
+        $tick_clock()
+        $expect(4b0100, 8h79)            // E
+        $tick_clock()
+        $expect(4b1000, 8h76)            // leftmost: H
+        chars = 32h2339202D              // "- 9#"
+        $tick_clock()
+        $expect(4b0001, 8h00)            // '#': not in the font, blank
+        $tick_clock()
+        $expect(4b0010, 8h6F)            // 9
+        $tick_clock()
+        $expect(4b0100, 8h00)            // space
+        $tick_clock()
+        $expect(4b1000, 8h40)            // -
+    }
+}

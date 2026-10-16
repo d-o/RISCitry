@@ -12,4 +12,6 @@ global MemMap {
     const TIMER_ADDR_BITS = 4
     const BUTTONS_BASE = 32h80003000    // pending [3:0], overrun [7:4], levels [11:8]; write 1s to clear
     const BUTTONS_ADDR_BITS = 2
+    const DISPLAY_BASE = 32h80004000    // four characters, byte k = digit k from the left
+    const DISPLAY_ADDR_BITS = 2
 }

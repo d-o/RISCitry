@@ -28,6 +28,9 @@ different number of times, so UART programs are checked by their output and fina
 
 The switch register reads back `switches` (bits 7:0, the rest 0); storing to it raises.
 
+The 7-segment display (display_chars.luc): self.display = owned << 32 | the four characters (byte
+k = digit k from the left), after the current instruction. Any store writes its lanes and sets owned.
+
 Time: the machine timer's mtime counts the core's clocks (timer.luc), so the model counts them too,
 with the core's clocks per instruction (clocks(): 2, store 3, load 4, a trap 2). self.mtime is its
 value at the start of an instruction (FETCH). A load of the timer reads it as of MEM_ACCESS (start
@@ -115,6 +118,7 @@ class Cpu:
         self.x = [0] * 16
         self.mem = {}                 # word-aligned byte address -> word, preloaded or written
         self.uart_out = []
+        self.display = 0
         self.csr = {a: 0 for a in CSR_WRITABLE}
         self.mtime = 0                # at the start of the current instruction
         self.mtimecmp = (1 << 64) - 1
@@ -159,6 +163,8 @@ class Cpu:
             return "timer"
         if memmap.BUTTONS_BASE <= addr < memmap.BUTTONS_BASE + memmap.BUTTONS_BYTES:
             return "buttons"
+        if memmap.DISPLAY_BASE <= addr < memmap.DISPLAY_BASE + memmap.DISPLAY_BYTES:
+            return "display"
         raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} is unmapped")
 
     def _load(self, addr, size):
@@ -169,6 +175,8 @@ class Cpu:
             return 0                                 # never busy: no timing in this model
         if self._region(addr) == "switches":
             return (self.switches >> shift) & ((1 << (8 * size)) - 1)
+        if self._region(addr) == "display":
+            return ((self.display & MASK) >> shift) & ((1 << (8 * size)) - 1)
         if self._region(addr) == "buttons":
             self._buttons_to(self.cycle + 1)                        # as of MEM_ACCESS
             value = (self.btn["sync1"] << 8) | (self.btn["overrun"] << 4) | self.btn["pending"]
@@ -193,6 +201,10 @@ class Cpu:
             return
         if self._region(addr) == "switches":
             raise ValueError(f"pc={self.pc:#x}: store to the switch register {addr:#x} (read-only)")
+        if self._region(addr) == "display":
+            mask = ((1 << (8 * size)) - 1) << shift
+            self.display = (1 << 32) | (self.display & MASK & ~mask) | ((value << shift) & mask)
+            return
         if self._region(addr) == "buttons":
             if shift == 0:                           # byte lane 0 carries the clear mask
                 self.btn_clear = value & 0xFF
