@@ -716,7 +716,7 @@ module main_ram_bram #(
       lane0[24] = 8'h73; lane1[24] = 8'h20; lane2[24] = 8'h44; lane3[24] = 8'h30;
       lane0[25] = 8'h73; lane1[25] = 8'h25; lane2[25] = 8'h40; lane3[25] = 8'h34;
       lane0[26] = 8'h03; lane1[26] = 8'h22; lane2[26] = 8'h01; lane3[26] = 8'h00;
-      lane0[27] = 8'h13; lane1[27] = 8'h02; lane2[27] = 8'h82; lane3[27] = 8'h02;
+      lane0[27] = 8'h13; lane1[27] = 8'h02; lane2[27] = 8'h62; lane3[27] = 8'h09;
       lane0[28] = 8'h23; lane1[28] = 8'h24; lane2[28] = 8'h41; lane3[28] = 8'h00;
       lane0[29] = 8'h13; lane1[29] = 8'h03; lane2[29] = 8'h30; lane3[29] = 8'h00;
       lane0[30] = 8'h73; lane1[30] = 8'h60; lane2[30] = 8'h04; lane3[30] = 8'h30;
@@ -728,7 +728,7 @@ module main_ram_bram #(
       lane0[36] = 8'h73; lane1[36] = 8'h26; lane2[36] = 8'h10; lane3[36] = 8'h34;
       lane0[37] = 8'h13; lane1[37] = 8'h07; lane2[37] = 8'h17; lane3[37] = 8'h00;
       lane0[38] = 8'h83; lane1[38] = 8'h25; lane2[38] = 8'h81; lane3[38] = 8'h00;
-      lane0[39] = 8'h93; lane1[39] = 8'h85; lane2[39] = 8'h85; lane3[39] = 8'h02;
+      lane0[39] = 8'h93; lane1[39] = 8'h85; lane2[39] = 8'h65; lane3[39] = 8'h09;
       lane0[40] = 8'h23; lane1[40] = 8'h24; lane2[40] = 8'hB1; lane3[40] = 8'h00;
       lane0[41] = 8'hF3; lane1[41] = 8'h27; lane2[41] = 8'h00; lane3[41] = 8'h30;
       lane0[42] = 8'h73; lane1[42] = 8'h00; lane2[42] = 8'h20; lane3[42] = 8'h30;

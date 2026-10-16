@@ -38,6 +38,12 @@ value at the start of an instruction (FETCH). A load of the timer reads it as of
 start of each instruction: MIE && MTIE && mtime >= mtimecmp (both as of that instruction's FETCH:
 the core registers the comparison), and taken before the instruction does anything (mcause
 0x80000007, mepc = pc, 2 clocks). Timing is exact only for programs without UART polling.
+timer_rate R: the hardware timer runs on every clock (real time, timer.luc) while the cpu is
+enabled on one clock in R (ce; the _ce3 testbenches). Counting from the start of an instruction
+(R raw clocks per cpu clock): a load reads mtime at start + 3R - 1 (the clock before MEM_ACCESS's
+enabled edge), a store replaces a half on that edge (the other half then holds start + 3R - 1),
+MTIP in EXECUTE is the compare of start + 2R - 2 (registered one raw clock before EXECUTE's enabled
+edge), and the next instruction starts at start + nR. R = 1 gives the formulas above.
 
 Buttons (buttons.luc): button_events = [(clock, levels)], levels applied before post-reset edge
 `clock` (edge 0 is the first instruction's FETCH edge). Modelled edge by edge like the hardware:
@@ -107,7 +113,7 @@ def legal(w):
 
 
 class Cpu:
-    def __init__(self, words, traps_ok=False, switches=0, button_events=()):
+    def __init__(self, words, traps_ok=False, switches=0, button_events=(), timer_rate=1):
         """words: {byte address: instruction or data word} as assembled. traps_ok: the program
         expects traps (take them as the core does); otherwise any trap raises."""
         self.traps_ok = traps_ok
@@ -120,6 +126,7 @@ class Cpu:
         self.uart_out = []
         self.display = 0
         self.csr = {a: 0 for a in CSR_WRITABLE}
+        self.rate = timer_rate        # raw clocks (timer ticks) per cpu clock
         self.mtime = 0                # at the start of the current instruction
         self.mtimecmp = (1 << 64) - 1
         self.timer_write = None       # (word index, value): a store to mtime in this instruction
@@ -185,7 +192,7 @@ class Cpu:
             if size != 4:
                 raise ValueError(f"pc={self.pc:#x}: {size}-byte load from the timer (words only)")
             index = (word_addr - memmap.TIMER_BASE) // 4
-            value = [self.mtime + 2, self.mtimecmp][index >> 1]     # as of MEM_ACCESS
+            value = [self.mtime + 3 * self.rate - 1, self.mtimecmp][index >> 1]   # as of MEM_ACCESS
             return (value >> (32 * (index & 1))) & MASK
         if word_addr not in self.mem:
             raise ValueError(f"pc={self.pc:#x}: load from {word_addr:#x}: neither program nor stored")
@@ -256,7 +263,7 @@ class Cpu:
 
     def mtip(self):
         """mip.MTIP as the core sees it during this instruction (registered at its FETCH)."""
-        return self.mtime >= self.mtimecmp
+        return self.mtime + 2 * self.rate - 2 >= self.mtimecmp
 
     def read_csr(self, csr):
         if csr == 0x344:
@@ -304,13 +311,13 @@ class Cpu:
             self.csr[0x343] = trap.tval & MASK
             self.pc = self.csr[0x305]
             self.stale = None
-        if self.timer_write:                 # replaced on the store's last edge (start + 2)
+        if self.timer_write:                 # replaced on the store's last edge
             index, value = self.timer_write
-            now = start + 2
+            now = start + 3 * self.rate - 1
             half = 32 * index
             self.mtime = (now & ~(MASK << half)) | (value << half)
         else:
-            self.mtime = start + clocks(w, self.trapped)
+            self.mtime = start + clocks(w, self.trapped) * self.rate
         n = clocks(w, self.trapped)
         if self.btn_clear is not None:       # cleared on the store's last edge
             self._buttons_to(self.cycle + n - 1, clear_edge=self.cycle + 2, mask=self.btn_clear)

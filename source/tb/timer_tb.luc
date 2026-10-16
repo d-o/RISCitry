@@ -1,0 +1,83 @@
+// timer (hand-written): a free-running timer (TICK_DIV 3) and a STOPTIME one (TICK_DIV 1) side by
+// side on the same inputs. The free one ticks every third clock whether or not ce is set; the
+// STOPTIME one counts enabled clocks only. Both take writes only on enabled clocks, and MTIP
+// follows mtime >= mtimecmp one clock late.
+testbench timer_tb {
+    sig clk
+    sig rst
+    sig ce
+    sig sel_write
+    sig waddr[2]
+    sig wdata[32]
+    sig raddr[2]
+
+    timer free(#TICK_DIV(3), .clk(clk), .rst(rst), .ce(ce), .sel_write(sel_write), .waddr(waddr),
+               .wdata(wdata), .raddr(raddr))
+    timer stop(#TICK_DIV(1), #STOPTIME(1), .clk(clk), .rst(rst), .ce(ce), .sel_write(sel_write),
+               .waddr(waddr), .wdata(wdata), .raddr(raddr))
+
+    fun tick_clock() {
+        clk = 1
+        $silent_tick()
+        clk = 0
+        $silent_tick()
+    }
+
+    fun expect(word[2], f[32], s[32]) {
+        raddr = word
+        $silent_tick()
+        if (free.rdata != f || stop.rdata != s)
+            $print("word %d: free %h want %h, stop %h want %h", word, free.rdata, f, stop.rdata, s)
+        $assert(free.rdata == f && stop.rdata == s)
+    }
+
+    test counting_and_writes {
+        clk = 0
+        rst = 1
+        ce = 0
+        sel_write = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        $tick_clock()
+        rst = 0
+        repeat(i, 9) { $tick_clock(); }
+        $expect(0, 3, 0)                     // 9 clocks, ce off: free 9/3, stop none
+        sel_write = 1                        // a store with ce off: ignored
+        waddr = 2
+        wdata = 5
+        $tick_clock()                        // clock 10
+        sel_write = 0
+        $expect(2, 32hFFFFFFFF, 32hFFFFFFFF)
+        ce = 1                               // the same store enabled: taken by both
+        sel_write = 1
+        $tick_clock()                        // clock 11 (stop counts it: 1)
+        waddr = 3                            // mtimecmp high = 0: mtimecmp = 5
+        wdata = 0
+        $tick_clock()                        // clock 12 (free: 4; stop: 2)
+        sel_write = 0
+        ce = 0
+        $expect(2, 5, 5)
+        $expect(3, 0, 0)
+        $expect(0, 4, 2)
+        $assert(!free.mtip && !stop.mtip)
+        repeat(i, 3) { $tick_clock(); }      // clock 15: free mtime 5 (MTIP next clock)
+        $expect(0, 5, 2)
+        $assert(!free.mtip)
+        $tick_clock()
+        $assert(free.mtip && !stop.mtip)     // registered: one clock after mtime reached mtimecmp
+        ce = 1
+        repeat(i, 3) { $tick_clock(); }      // stop: 2 -> 5 (MTIP next clock)
+        $expect(0, 6, 5)
+        $assert(!stop.mtip)
+        $tick_clock()
+        $assert(stop.mtip)
+        sel_write = 1                        // write mtime low: replaces it on that edge
+        waddr = 0
+        wdata = 100
+        $tick_clock()
+        sel_write = 0
+        ce = 0
+        $expect(0, 100, 100)
+    }
+}

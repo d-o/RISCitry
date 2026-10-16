@@ -17,8 +17,11 @@ io_clk = clk with the testbenches' UART timing. Then:
     and the final register file; one that never halts: its first programs.PRINT_BYTES bytes.
 A program that reads the switch register runs once per setting in programs.SWITCHES.
 
-Usage: python3 tools/xsim_computer.py [VERILOG_DIR] [--only CASE,CASE...]
+Usage: python3 tools/xsim_computer.py [VERILOG_DIR] [--only CASE,CASE...] [--ce N]
   CASE is a testbench case name as gen_cpu_tb names them, e.g. timer, board_sw6 (a quick pass).
+  --ce N: enable the computer on one clock in N (as the _ce3 testbenches do): the trace must be
+  the normal one stretched, with the timer (free-running) ticking N times per cpu clock. Lockstep
+  programs only.
   Default build/source, after `alchitry build` (it refuses stale Verilog). Another directory
   (e.g. a mutated copy, to check this script can fail) is used as is.
 """
@@ -35,6 +38,11 @@ ROOT = Path(__file__).resolve().parent.parent
 YOSYS = "/usr/lib/alchitry/alchitry-labs/lib/app/tools/oss-cad-suite/bin/yosys"
 ARGS = sys.argv[1:]
 ONLY = None
+CE_EVERY = 1
+if "--ce" in ARGS:
+    i = ARGS.index("--ce")
+    CE_EVERY = int(ARGS[i + 1])
+    del ARGS[i:i + 2]
 if "--only" in ARGS:
     i = ARGS.index("--only")
     ONLY = set(ARGS[i + 1].split(","))
@@ -63,7 +71,7 @@ module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
   computer #(.PROGRAM_ID(PROGRAM_ID), .SIM_RAM(0), .UART_CLK_FREQ({gen_cpu_tb.TB_UART_CLK_FREQ}),
              .UART_BAUD({gen_cpu_tb.TB_UART_BAUD})) dut (
     .clk(clk), .rst(cycle < 2), .io_clk(clk), .io_rst(cycle < 2), .switches(SWITCHES[7:0]),
-    .buttons(BUTTONS), .ce(1'b1),
+    .buttons(BUTTONS), .ce(CE_EXPR),
     .debug_sel(cycle[3:0]),
     .uart_tx(uart_tx), .debug_pc(debug_pc), .debug_reg(debug_reg), .debug_state(debug_state),
     .display_chars(display_chars), .display_owned(display_owned));
@@ -82,7 +90,7 @@ def buttons_expr(name):
     cycle 2 + c (cycles 0-1 are reset)."""
     expr = "4'h0"
     for c, levels in sorted(programs.BUTTON_EVENTS.get(name, ())):
-        expr = f"(cycle >= {2 + c}) ? 4'h{levels:X} : {expr}"
+        expr = f"(cycle >= {2 + c * CE_EVERY}) ? 4'h{levels:X} : {expr}"
     return expr
 
 
@@ -90,7 +98,9 @@ def run(pid, sw, clocks, name=""):
     """Simulate; return one dict of SIGNALS per clock, sampled just after each rising edge."""
     with tempfile.TemporaryDirectory() as tmp:
         harness = Path(tmp) / "xsim_top.v"
-        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})"))
+        # in reset (cycles 0-1) ce = 1, as in the testbenches: the RAM reads instruction 0 then
+        ce = "1'b1" if CE_EVERY == 1 else f"(cycle < 2) || ((cycle - 2) % {CE_EVERY} == {CE_EVERY - 1})"
+        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})").replace("CE_EXPR", ce))
         vcd = Path(tmp) / "out.vcd"
         files = " ".join(str(p) for p in sorted(VERILOG.glob("*.v"))) + f" {harness}"
         r = subprocess.run([YOSYS, "-q", "-p",
@@ -148,7 +158,7 @@ def parse_vcd(text):
 def expected_trace(name, words, sw):
     """[(state, pc or None, display or None)] per clock from the release of reset (pc and display
     at each instruction's last clock), and the model at the end."""
-    model = gen_cpu_tb.new_model(name, words, sw)
+    model = gen_cpu_tb.new_model(name, words, sw, timer_rate=CE_EVERY)
     trace = [("FETCH", 0, 0)]
     steps, halted_for = 0, 0
     while True:
@@ -164,6 +174,8 @@ def expected_trace(name, words, sw):
             halted_for += 1
             if halted_for == 2:
                 return trace, model
+        if steps > 20000:            # e.g. TIMER with --ce: its handler can't keep up in real time
+            raise RuntimeError(f"{name}: no halt in the model after {steps} instructions")
 
 
 def final_regs(samples, model):
@@ -178,6 +190,11 @@ def final_regs(samples, model):
 
 def check_lockstep(pid, name, words, sw):
     trace, model = expected_trace(name, words, sw)
+    if CE_EVERY > 1:                 # each cpu clock: N - 1 disabled clocks (nothing moves), then it
+        stretched = [trace[0]]
+        for state, pc, display in trace[1:]:
+            stretched += [(stretched[-1][0], None, None)] * (CE_EVERY - 1) + [(state, pc, display)]
+        trace = stretched
     samples = run(pid, sw, len(trace) + 1 + 16, name)[1:]     # [0] is after the first edge, still in reset
     errors = []
     for i, (state, pc, display) in enumerate(trace):
@@ -241,6 +258,8 @@ def main():
             continue
         words = asm.assemble(programs.PROGRAMS[name])
         k = gen_cpu_tb.kind(name, words, sw)
+        if CE_EVERY > 1 and k != "lockstep":
+            continue
         if k == "lockstep":
             errors, size = check_lockstep(ids.index(name), name, words, sw)
         else:

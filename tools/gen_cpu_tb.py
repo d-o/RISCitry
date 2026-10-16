@@ -58,9 +58,9 @@ def writes_rd(word, trapped=False):
     return (word >> 7) & 31 if word & 0x7F in WRITES_RD or zicsr else None
 
 
-def new_model(name, words, switches=0):
+def new_model(name, words, switches=0, timer_rate=1):
     return rv32sim.Cpu(words, traps_ok=name in programs.EXPECTS_TRAPS, switches=switches,
-                       button_events=programs.BUTTON_EVENTS.get(name, ()))
+                       button_events=programs.BUTTON_EVENTS.get(name, ()), timer_rate=timer_rate)
 
 
 def button_lines(name, clock, indent):
@@ -138,12 +138,15 @@ def run_to_halt(name, words, sw=0):
 # CE_EVERY. The trace must be the ce = 1 trace stretched: nothing moves on a disabled clock (the
 # state is checked after each one) and every enabled clock does exactly what a clock did before.
 # Chosen to cover the RAM and its read register (MEMORY), the prefetch (SELFMOD), the timer and
-# the buttons with interrupts (TIMER, IRQ).
-CE_CASES = ["MEMORY", "SELFMOD", "TIMER", "IRQ"]
+# the buttons with interrupts (TIMER, IRQ). The timer is the exception to "nothing moves": it
+# counts real time, every clock, so TIMER reads it at three ticks per cpu clock; TIMER runs again
+# with the timer in STOPTIME mode (counting cpu clocks only: suffix _ce3s). IRQ sets mtimecmp to 0,
+# so it can't tell the two modes apart.
+CE_CASES = [("MEMORY", 0), ("SELFMOD", 0), ("TIMER", 0), ("TIMER", 1), ("IRQ", 0)]   # (name, STOPTIME)
 CE_EVERY = 3
 
 
-def header(name, sw, extra_sigs=(), suffix=""):
+def header(name, sw, extra_sigs=(), suffix="", stoptime=0):
     return [
         f"testbench cpu_{case_name(name, sw)}{suffix}_tb {{",
         "    sig clk",
@@ -156,7 +159,8 @@ def header(name, sw, extra_sigs=(), suffix=""):
         *extra_sigs,
         "",
         f"    computer dut(#PROGRAM_ID(Programs.Id.{name}), #SIM_RAM(1), "
-        f"#UART_CLK_FREQ({TB_UART_CLK_FREQ}), #UART_BAUD({TB_UART_BAUD}),",
+        f"#UART_CLK_FREQ({TB_UART_CLK_FREQ}), #UART_BAUD({TB_UART_BAUD}),"
+        + (" #TIMER_STOPTIME(1)," if stoptime else ""),
         "                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),",
         "                 .buttons(buttons), .ce(ce),",
         "                 .debug_sel(sel))",
@@ -289,9 +293,12 @@ def render_uart_testbench(name, words, text, sw, forever=False):
     return lines, f"{n} bytes"
 
 
-def render_testbench(name, words, text, sw, ce_every=1):
-    model = new_model(name, words, sw)
-    lines = header(name, sw, suffix="" if ce_every == 1 else f"_ce{ce_every}") + [
+def render_testbench(name, words, text, sw, ce_every=1, stoptime=0):
+    # the timer runs on every clock (real time), so with ce on one clock in N it ticks N times
+    # per cpu clock; in STOPTIME mode it counts cpu clocks
+    model = new_model(name, words, sw, timer_rate=1 if stoptime else ce_every)
+    suffix = "" if ce_every == 1 else f"_ce{ce_every}" + ("s" if stoptime else "")
+    lines = header(name, sw, suffix=suffix, stoptime=stoptime) + [
         "    test run {",
         "        clk = 0",
         "        io_clk = 0",
@@ -360,10 +367,11 @@ def main():
             tb, size = render_uart_testbench(name, words, text, sw, forever=k == "uart_forever")
         out += [""] + tb
         summary.append(f"{case_name(name, sw)}: {size}")
-        if name in CE_CASES:
-            tb, size = render_testbench(name, words, text, sw, ce_every=CE_EVERY)
-            out += [""] + tb
-            summary.append(f"{case_name(name, sw)}_ce{CE_EVERY}: {size}")
+        for ce_name, stoptime in CE_CASES:
+            if ce_name == name:
+                tb, size = render_testbench(name, words, text, sw, ce_every=CE_EVERY, stoptime=stoptime)
+                out += [""] + tb
+                summary.append(f"{case_name(name, sw)}_ce{CE_EVERY}{'s' if stoptime else ''}: {size}")
     (ROOT / "source" / "tb" / "cpu_tb.luc").write_text("\n".join(out) + "\n")
     print("wrote programs.luc, memory_map.luc and cpu_tb.luc (" + ", ".join(summary) + ")")
 

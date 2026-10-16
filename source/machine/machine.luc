@@ -31,7 +31,8 @@ module machine #(
     SLOW_BITS = 20 : SLOW_BITS > 1,              // run: a cpu clock every 2^SLOW_BITS clocks
     FAST_BITS = 1 : FAST_BITS > 0 && FAST_BITS < SLOW_BITS,   // steps and resets: every 2^FAST_BITS
     CLK_FREQ = 25_000_000 : CLK_FREQ > 0,        // clk's frequency (the UART's baud comes from it)
-    UART_BAUD = 1_000_000 : UART_BAUD > 0 && UART_BAUD <= CLK_FREQ / 2
+    UART_BAUD = 1_000_000 : UART_BAUD > 0 && UART_BAUD <= CLK_FREQ / 2,
+    TICK_DIV = 25 : TICK_DIV >= 1 && TICK_DIV <= 256   // clocks per mtime tick (25 MHz / 25 = 1 us)
   ) (
     input clk,
     input rst,
@@ -76,7 +77,7 @@ module machine #(
 
   .clk(clk) {
     computer comp(#PROGRAM_ID(PROGRAM_ID), #SIM_RAM(SIM_RAM), #UART_CLK_FREQ(CLK_FREQ),
-                  #UART_BAUD(UART_BAUD), .rst(cpu_rst.q));
+                  #UART_BAUD(UART_BAUD), #TIMER_TICK_DIV(TICK_DIV), .rst(cpu_rst.q));
   }
 
   always {

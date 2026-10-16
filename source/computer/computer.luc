@@ -19,7 +19,9 @@ module computer #(
     PROGRAM_ID = 0,          // the program main RAM starts with: a Programs.Id
     SIM_RAM = 0 : SIM_RAM == 0 || SIM_RAM == 1,  // 1 in testbenches: main RAM uses its Lucid model
     UART_CLK_FREQ = 100_000_000 : UART_CLK_FREQ > 0,   // io_clk frequency
-    UART_BAUD = 1_000_000 : UART_BAUD > 0 && UART_BAUD <= UART_CLK_FREQ / 2
+    UART_BAUD = 1_000_000 : UART_BAUD > 0 && UART_BAUD <= UART_CLK_FREQ / 2,
+    TIMER_TICK_DIV = 1 : TIMER_TICK_DIV >= 1 && TIMER_TICK_DIV <= 256,   // clocks per mtime tick
+    TIMER_STOPTIME = 0 : TIMER_STOPTIME == 0 || TIMER_STOPTIME == 1      // 1: mtime counts cpu clocks only
   ) (
     input clk,
     input rst,
@@ -41,7 +43,7 @@ module computer #(
     cpu core(.rst(rst), .ce(ce));
     main_ram ram(#WORDS(MemMap.RAM_WORDS), #PROGRAM_ID(PROGRAM_ID), #SIM_MODEL(SIM_RAM), .ce(ce));
     uart uart0(#CLK_FREQ(UART_CLK_FREQ), #BAUD(UART_BAUD), .rst(rst), .ce(ce));
-    timer timer0(.rst(rst), .ce(ce));
+    timer timer0(#TICK_DIV(TIMER_TICK_DIV), #STOPTIME(TIMER_STOPTIME), .rst(rst), .ce(ce));
     buttons buttons0(.rst(rst), .ce(ce));
     display_chars display0(.rst(rst), .ce(ce));
     // no reset, like the RAM's own read register: the read on reset's last edge (address 0) is

@@ -641,7 +641,9 @@ CSR = [
 # The machine timer and its interrupt. mtime counts cpu clocks, so every value read here and every
 # interrupt's position is exact (rv32sim counts the same clocks). Reads of mtime/mtimeh/mtimecmp,
 # the 64-bit carry, MTIP visible in mip while MIE = 0 (no interrupt), then three timer interrupts
-# 40 clocks apart: the handler records mcause (0x80000007) and mepc, and moves mtimecmp on.
+# 150 ticks apart: the handler records mcause (0x80000007) and mepc, and moves mtimecmp on. (It
+# was 40: with the timer at 3 ticks per cpu clock, the _ce3 test, the handler took longer than
+# that and was interrupted again at every mret.)
 T = memmap.TIMER_BASE
 TIMER = [
     ("addi", 3, 0, "timer_handler"),
@@ -666,8 +668,8 @@ TIMER = [
     ("csrrs", 0, 0x304, 8),                    # MTIE = 1, but MIE = 0: no interrupt
     ("csrrs", 10, 0x344, 0),                   # still pending
     ("lw", 4, 2, memmap.TIMER_MTIME - T),
-    ("addi", 4, 4, 40),
-    ("sw", 4, 2, memmap.TIMER_MTIMECMP - T),   # first interrupt ~40 clocks from now
+    ("addi", 4, 4, 150),
+    ("sw", 4, 2, memmap.TIMER_MTIMECMP - T),   # first interrupt ~150 ticks from now
     ("addi", 6, 0, 3),
     ("csrrsi", 0, 0x300, 0x08),                # MIE = 1
     "spin:",
@@ -680,8 +682,8 @@ TIMER = [
     ("csrrs", 12, 0x341, 0),                   # where the spin loop was interrupted
     ("addi", 14, 14, 1),
     ("lw", 11, 2, memmap.TIMER_MTIMECMP - T),
-    ("addi", 11, 11, 40),
-    ("sw", 11, 2, memmap.TIMER_MTIMECMP - T),  # next interrupt 40 clocks after this one was due
+    ("addi", 11, 11, 150),
+    ("sw", 11, 2, memmap.TIMER_MTIMECMP - T),  # next interrupt 150 ticks after this one was due
     ("csrrs", 15, 0x300, 0),                   # 0x1880 inside the handler
     ("mret",),
 ]
