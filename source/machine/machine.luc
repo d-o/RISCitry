@@ -148,6 +148,7 @@ module machine #(
     comp.debug_sel = debug_sel
     comp.switches = switches
     comp.buttons = buttons
+    comp.plat_irq = 2b0
     debug_pc = comp.debug_pc
     debug_reg = comp.debug_reg
   }

@@ -60,6 +60,10 @@ it writes as 1 (a press on that same edge wins); a press while its bit is still 
 button's overrun bit (bits 7:4, cleared the same way). MEIP = any pending, seen in EXECUTE as of the
 FETCH edge; a load reads pending (and the synchronised levels) as of MEM_ACCESS. External
 interrupts beat the timer (cause 0x8000000B vs 0x80000007).
+Platform lines (mip/mie bits 16, 17; causes 0x80000010/0x80000011; the vectored table's slots 16, 17):
+plat_events = [(clock, levels)], 2 bits, levels applied like the buttons' (before post-reset edge
+`clock` * rate) but straight into the csr_file, no synchroniser: a level is seen by the EXECUTE
+whose enabled edge it reaches. Priority after the standard ones: line 0, then line 1.
 The buttons run on every raw clock, ce or not (always on, 2026-10-17): with timer_rate R an event at
 clock c applies before raw edge c * R, and the cpu sees the device as it was one raw clock before
 its own (enabled) edge, so a press between two cpu clocks is caught. R = 1 is the old model.
@@ -68,7 +72,7 @@ import memmap
 
 # The CSRs the core implements (mirrors cpu_defs.luc / csr_file.luc): address -> mask of the bits
 # that are writable. Others read as their constant (misa) or 0.
-CSR_WRITABLE = {0x300: 0x88, 0x304: 0x888, 0x305: 0xFFFFFFFD, 0x340: 0xFFFFFFFF,
+CSR_WRITABLE = {0x300: 0x88, 0x304: 0x30888, 0x305: 0xFFFFFFFD, 0x340: 0xFFFFFFFF,
                 0x341: 0xFFFFFFFC, 0x342: 0xFFFFFFFF, 0x343: 0xFFFFFFFF}
 CSR_CONSTANT = {0x301: 0x40000010, 0x310: 0, 0x344: 0, 0xF11: 0, 0xF12: 0, 0xF13: 0, 0xF14: 0}
 MSTATUS_FIXED = 0x1800        # MPP = 3: machine mode is the only mode
@@ -124,7 +128,8 @@ def legal(w):
 
 
 class Cpu:
-    def __init__(self, words, traps_ok=False, switches=0, button_events=(), timer_rate=1, tick_div=1):
+    def __init__(self, words, traps_ok=False, switches=0, button_events=(), timer_rate=1, tick_div=1,
+                 plat_events=()):
         """words: {byte address: instruction or data word} as assembled. traps_ok: the program
         expects traps (take them as the core does); otherwise any trap raises."""
         self.traps_ok = traps_ok
@@ -145,6 +150,7 @@ class Cpu:
         self.timer_write = None       # (word index, value): a store to mtime in this instruction
         self.cycle = 0                # post-reset edges before the current instruction
         self.button_events = sorted(button_events)
+        self.plat_events = sorted(plat_events)
         self.btn = {"edge": 0, "sync0": 0, "sync1": 0, "last": 0, "pending": 0, "overrun": 0}
         self.btn_clear = None         # mask written by a store in this instruction
         self.stall = 0                # the last step's WFI wait, in extra EXECUTE clocks
@@ -291,6 +297,16 @@ class Cpu:
         self._buttons_to(self._sampled_by(self.cycle + 1 + stall))
         return self.btn["pending"] != 0
 
+    def plat(self, stall=0):
+        """The platform lines (2 bits) during this instruction's EXECUTE: the level at its enabled
+        edge, or at the stall-th extra EXECUTE clock's (a WFI)."""
+        edge = (self.cycle + 1 + stall) * self.rate + self.rate - 1
+        value = 0
+        for clock, levels in self.plat_events:
+            if clock * self.rate <= edge:
+                value = levels
+        return value
+
     def mtip(self, stall=0):
         """mip.MTIP as the core sees it during this instruction's EXECUTE (registered one raw
         clock before EXECUTE's enabled edge), or its stall-th extra EXECUTE clock (a WFI)."""
@@ -302,7 +318,7 @@ class Cpu:
 
     def read_csr(self, csr):
         if csr == 0x344:
-            return (int(self.meip()) << 11) | (int(self.mtip()) << 7)
+            return (self.plat() << 16) | (int(self.meip()) << 11) | (int(self.mtip()) << 7)
         if csr in CSR_CONSTANT:
             return CSR_CONSTANT[csr]
         return self.csr[csr] | (MSTATUS_FIXED if csr == 0x300 else 0)
@@ -335,7 +351,12 @@ class Cpu:
                     raise Trap(0x8000000B, 0)    # external interrupt: beats the timer
                 if mstatus & 0x8 and mie & 0x80 and self.mtip(self.stall):
                     raise Trap(0x80000007, 0)    # timer interrupt: before the instruction does anything
-                if w != WFI or (mie & 0x800 and self.meip(self.stall)) or (mie & 0x80 and self.mtip(self.stall)):
+                if mstatus & 0x8 and (mie >> 16) & self.plat(self.stall) & 1:
+                    raise Trap(0x80000010, 0)    # platform line 0
+                if mstatus & 0x8 and (mie >> 16) & self.plat(self.stall) & 2:
+                    raise Trap(0x80000011, 0)    # platform line 1
+                if w != WFI or (mie & 0x800 and self.meip(self.stall)) or (mie & 0x80 and self.mtip(self.stall)) \
+                        or (mie >> 16) & self.plat(self.stall):
                     break                        # (a WFI ends on an interrupt enabled in mie, whatever MIE)
                 self.stall += 1
                 if self.stall > 1_000_000:
@@ -353,7 +374,7 @@ class Cpu:
             self.csr[0x343] = trap.tval & MASK
             self.pc = self.csr[0x305] & ~3
             if self.csr[0x305] & 1 and trap.cause & 0x80000000:       # vectored: BASE | cause << 2
-                self.pc |= (trap.cause & 0xF) << 2
+                self.pc |= (trap.cause & 0x1F) << 2
             self.stale = None
         if self.timer_write:                 # replaced on the store's last edge
             index, value = self.timer_write

@@ -817,7 +817,9 @@ PRESS = [
 # BASE. (a) the timer (cause 7, slot 0x11C), (b) ECALL (cause 11, slot 0x100: the exception slot,
 # which the *external* interrupt's number 11 must not be confused with), (c) a button press
 # (BUTTON_EVENTS; external, cause 11, slot 0x12C). Each handler ORs its mcause into a register, so
-# the cause and the slot both reach the final registers.
+# the cause and the slot both reach the final registers. Then the platform lines (PLAT_EVENTS, causes
+# 16 and 17, slots 0x140 and 0x144; BASE is 128-byte aligned for 32 slots): (d) line 0 masked is
+# visible in mip and not taken, unmasked it is; (e) both at once go in order, 16 then 17.
 VEC = 0x100
 VECTORED = [
     ("addi", 3, 0, VEC | 1),
@@ -841,6 +843,28 @@ VECTORED = [
     ("csrrs", 0, 0x304, 8),                    # MEIE
     "vec_button_wait:",
     ("beq", 15, 0, "vec_button_wait"),         # (c) the button's external interrupt
+    # (d) platform line 0 (PLAT_EVENTS: high from clock 500 to 560) while its mie bit is clear: mip
+    # shows it (x1), nothing is taken; unmasking takes it at once (slot 16) and the handler masks it
+    "vec_plat_wait0:",
+    ("csrrs", 1, 0x344, 0),
+    ("srli", 6, 1, 16),
+    ("andi", 6, 6, 1),
+    ("beq", 6, 0, "vec_plat_wait0"),
+    ("addi", 8, 0, 1),
+    ("slli", 8, 8, 16),
+    ("csrrs", 0, 0x304, 8),                    # unmask line 0
+    # (e) both lines high from clock 600: unmask both; the lower cause goes first (slot 16), its
+    # handler masks it, MRET, then slot 17. x4 logs the order (0x16 then 0x17 appended per taken slot)
+    "vec_plat_wait1:",
+    ("csrrs", 1, 0x344, 0),
+    ("srli", 6, 1, 17),
+    ("andi", 6, 6, 1),
+    ("beq", 6, 0, "vec_plat_wait1"),
+    ("addi", 8, 0, 3),
+    ("slli", 8, 8, 16),
+    ("csrrs", 0, 0x304, 8),                    # unmask both
+    ("addi", 0, 0, 0),                         # the interrupts land here, not on the halt (the
+    ("addi", 0, 0, 0),                         # generators count a fetched halt as halted)
     ("halt",),
     (".org", VEC),
     ("jal", 0, "vec_exception"),               # slot 0: exceptions
@@ -848,6 +872,9 @@ VECTORED = [
     ("jal", 0, "vec_timer"),                   # slot 7
     (".org", VEC + 4 * 11),
     ("jal", 0, "vec_external"),                # slot 11
+    (".org", VEC + 4 * 16),
+    ("jal", 0, "vec_plat0"),                   # slot 16: platform line 0
+    ("jal", 0, "vec_plat1"),                   # slot 17: platform line 1
     "vec_timer:",
     ("csrrs", 10, 0x342, 0),                   # x10 = 0x80000007
     ("sw", 5, 2, memmap.TIMER_MTIMECMPH - T),  # disarm
@@ -864,6 +891,24 @@ VECTORED = [
     ("lw", 6, 11, 0),
     ("sw", 6, 11, 0),                          # clear the press
     ("addi", 15, 15, 1),
+    ("mret",),
+    "vec_plat0:",
+    ("csrrs", 2, 0x342, 0),                    # x2 = 0x80000010
+    ("addi", 5, 0, 1),
+    ("slli", 5, 5, 16),
+    ("csrrc", 0, 0x304, 5),                    # mask line 0 (a level: it would take it again)
+    ("addi", 6, 0, 0x16),
+    ("slli", 4, 4, 8),
+    ("or", 4, 4, 6),
+    ("mret",),
+    "vec_plat1:",
+    ("csrrs", 3, 0x342, 0),                    # x3 = 0x80000011
+    ("addi", 5, 0, 1),
+    ("slli", 5, 5, 17),
+    ("csrrc", 0, 0x304, 5),
+    ("addi", 6, 0, 0x17),
+    ("slli", 4, 4, 8),
+    ("or", 4, 4, 6),
     ("mret",),
 ]
 
@@ -970,6 +1015,11 @@ BUTTON_EVENTS = {
     "BOARD": [(100, 0x4), (110, 0x0), (140, 0x4), (150, 0x0), (3000, 0x9), (3100, 0x0)],
     "VECTORED": [(400, 0x1), (420, 0x0)],
     "WFI": [(240, 0x1), (260, 0x0)],          # wakes (c), whose WFI starts at clock 192
+}
+# The platform interrupt lines (mip/mie bits 16, 17): (post-reset clock, levels), line 0 | line 1 << 1,
+# straight into the cpu. A test input until the UART drives them.
+PLAT_EVENTS = {
+    "VECTORED": [(500, 0x1), (560, 0x0), (600, 0x3), (700, 0x0)],
 }
 
 # The program the board runs (instantiated by the top module).

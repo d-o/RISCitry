@@ -31,6 +31,7 @@ module computer #(
     output uart_tx,
     input switches[8],       // read-only switch register (already synchronised)
     input buttons[4],        // debounced push buttons: interrupt source (buttons.luc synchronises)
+    input plat_irq[2],       // platform interrupt lines (causes 16, 17): a test input until the UART drives them
     output display_chars[32],   // the 7-segment display's four characters (lane 0 = leftmost) ...
     output display_owned,    // ... once the program has written them: until then the board shows the pc
     input debug_sel[4],      // which register debug_reg shows
@@ -89,6 +90,7 @@ module computer #(
     buttons0.clear = buttons_wsel && core.bus_be[0]
     buttons0.clear_mask = core.bus_wdata[7:0]
     core.irq_external = buttons0.irq
+    core.irq_plat = plat_irq
 
     // --- 7-segment display: four characters, one per byte lane ---
     display_rsel = core.bus_load && (core.bus_raddr >> MemMap.DISPLAY_ADDR_BITS) == (MemMap.DISPLAY_BASE >> MemMap.DISPLAY_ADDR_BITS)

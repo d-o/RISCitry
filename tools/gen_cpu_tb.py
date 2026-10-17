@@ -69,6 +69,7 @@ def writes_rd(word, trapped=False):
 def new_model(name, words, switches=0, timer_rate=1, tick_div=1):
     return rv32sim.Cpu(words, traps_ok=name in programs.EXPECTS_TRAPS, switches=switches,
                        button_events=programs.BUTTON_EVENTS.get(name, ()), timer_rate=timer_rate,
+                       plat_events=programs.PLAT_EVENTS.get(name, ()),
                        tick_div=tick_div)
 
 
@@ -164,6 +165,7 @@ def header(name, sw, extra_sigs=(), suffix="", stoptime=0):
         "    sig sel[4]",
         "    sig switches[8]",
         "    sig buttons[4]",
+        "    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)",
         "    sig ce                 // the computer's clock enable",
         *extra_sigs,
         "",
@@ -171,7 +173,7 @@ def header(name, sw, extra_sigs=(), suffix="", stoptime=0):
         f"#UART_CLK_FREQ({TB_UART_CLK_FREQ}), #UART_BAUD({TB_UART_BAUD}),"
         + (" #TIMER_STOPTIME(1)," if stoptime else ""),
         "                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),",
-        "                 .buttons(buttons), .ce(ce),",
+        "                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),",
         "                 .debug_sel(sel))",
         "",
         "    // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)",
@@ -227,10 +229,21 @@ RESET = [
 ]
 
 
+def plat_lines(name, clock, indent):
+    """Testbench lines applying the platform-line events scheduled before post-reset edge `clock`."""
+    return [f"{indent}plat_irq = 2h{levels:X}   // platform line event" for c, levels in
+            programs.PLAT_EVENTS.get(name, ()) if c == clock]
+
+
 def button_lines_in_loop(name):
     """In a free-running loop: apply each button event when the post-reset clock count hits it."""
     return [f"                if (clock_count == {c}) buttons = 4h{levels:X};   // button event"
             for c, levels in programs.BUTTON_EVENTS.get(name, ())]
+
+
+def plat_lines_in_loop(name):
+    return [f"                if (clock_count == {c}) plat_irq = 2h{levels:X};   // platform line event"
+            for c, levels in programs.PLAT_EVENTS.get(name, ())]
 
 
 def render_uart_testbench(name, words, text, sw, forever=False):
@@ -258,6 +271,7 @@ def render_uart_testbench(name, words, text, sw, forever=False):
         "        sel = 0",
         f"        switches = 8h{sw:02X}",
         "        buttons = 0",
+        "        plat_irq = 0",
         "        ce = 1",
         "        rst = 1",
         "        received = 0",
@@ -277,6 +291,7 @@ def render_uart_testbench(name, words, text, sw, forever=False):
            f"        repeat(i, {max_clocks}) {{",
            f"            if (received != {n} || dut.debug_pc != 32h{halt_pc:08X} || dut.debug_state != Cpu.State.FETCH) {{"]),
         *button_lines_in_loop(name),
+        *plat_lines_in_loop(name),
         "                $tick_clock()",
         "                clock_count = clock_count + 1",
         "                if (rx.new_data) {",
@@ -315,6 +330,7 @@ def render_testbench(name, words, text, sw, ce_every=1, stoptime=0):
         "        sel = 0",
         f"        switches = 8h{sw:02X}",
         "        buttons = 0",
+        "        plat_irq = 0",
         "        ce = 1",
         "        rst = 1",
         *RESET,
@@ -329,6 +345,7 @@ def render_testbench(name, words, text, sw, ce_every=1, stoptime=0):
         lines.append(f"        // {pc:#06x}: {text.get(pc, 'nop')}")
         for state in states_after(model):
             lines += button_lines(name, clock, "        ")
+            lines += plat_lines(name, clock, "        ")
             if ce_every > 1:               # disabled clocks first: nothing may move
                 for _ in range(ce_every - 1):
                     lines += ["        ce = 0", "        $tick_clock()", f"        $expect_state(Cpu.State.{shown})"]

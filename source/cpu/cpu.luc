@@ -28,6 +28,7 @@ module cpu (
     output bus_be[4],        // byte lanes to write this clock; 0 when not storing
     input irq_timer,         // machine timer interrupt request (mip.MTIP)
     input irq_external,      // machine external interrupt request (mip.MEIP)
+    input irq_plat[2],       // platform interrupt requests (mip bits 17:16)
     input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
     output debug_reg[32],    // register x[debug_sel]
@@ -146,11 +147,11 @@ module cpu (
     pc_unit.pc_src = control.pc_src;
     if (ctrl.jalr) target = alu_unit.result; else target = pc_unit.pc + imm;
     pc_unit.target_address = target;
-    // vectored mtvec: an interrupt enters at BASE | cause << 2 (the cause ORed into BASE[5:2], so BASE
-    // must be 64-byte aligned, as the spec asks of a vectored table); exceptions go to BASE
+    // vectored mtvec: an interrupt enters at BASE | cause << 2 (the cause ORed into BASE[6:2], so BASE
+    // must be 128-byte aligned: 32 four-byte slots, causes 0-31); exceptions go to BASE
     // (AND-OR, not an if with a partial write: that put X on the RAM read address at project load, and the
     // Alchitry sim crashed at start-up in ~40% of runs, 2026-10-17)
-    vector_pc = c{csrs.mtvec[31:6], csrs.mtvec[5:2] | (traps.cause & 4x{csrs.mtvec_vectored & traps.interrupt_taken}), csrs.mtvec[1:0]};
+    vector_pc = c{csrs.mtvec[31:7], csrs.mtvec[6:2] | (traps.cause & 5x{csrs.mtvec_vectored & traps.interrupt_taken}), csrs.mtvec[1:0]};
     if (control.mret) pc_unit.vector = csrs.mepc; else pc_unit.vector = vector_pc;
 
     // --- traps: decided in EXECUTE (trap_unit), recorded by csr_file on the edge control takes it ---
@@ -162,6 +163,7 @@ module cpu (
     traps.interrupt = csrs.irq;
     csrs.mtip = irq_timer;
     csrs.meip = irq_external;
+    csrs.plat = irq_plat;
     traps.interrupt_cause = csrs.irq_cause;
     csrs.trap = control.take_trap;
     // an interrupt that ends a WFI returns to the instruction after it (the spec), anything else

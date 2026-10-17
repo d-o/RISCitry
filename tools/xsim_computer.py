@@ -79,7 +79,7 @@ module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
   computer #(.PROGRAM_ID(PROGRAM_ID), .SIM_RAM(0), .UART_CLK_FREQ({gen_cpu_tb.TB_UART_CLK_FREQ}),
              .UART_BAUD({gen_cpu_tb.TB_UART_BAUD}), .TIMER_TICK_DIV(TICKDIV)) dut (
     .clk(clk), .rst(cycle < 2), .io_clk(clk), .io_rst(cycle < 2), .switches(SWITCHES[7:0]),
-    .buttons(BUTTONS), .ce(CE_EXPR),
+    .buttons(BUTTONS), .plat_irq(PLATIRQ), .ce(CE_EXPR),
     .debug_sel(cycle[3:0]),
     .uart_tx(uart_tx), .debug_pc(debug_pc), .debug_reg(debug_reg), .debug_state(debug_state),
     .display_chars(display_chars), .display_owned(display_owned));
@@ -102,13 +102,21 @@ def buttons_expr(name):
     return expr
 
 
+def plat_expr(name):
+    """The platform lines: like the buttons, each event applies from cycle 2 + c * CE_EVERY."""
+    expr = "2'h0"
+    for c, levels in sorted(programs.PLAT_EVENTS.get(name, ())):
+        expr = f"(cycle >= {2 + c * CE_EVERY}) ? 2'h{levels:X} : {expr}"
+    return expr
+
+
 def run(pid, sw, clocks, name=""):
     """Simulate; return one dict of SIGNALS per clock, sampled just after each rising edge."""
     with tempfile.TemporaryDirectory() as tmp:
         harness = Path(tmp) / "xsim_top.v"
         # in reset (cycles 0-1) ce = 1, as in the testbenches: the RAM reads instruction 0 then
         ce = "1'b1" if CE_EVERY == 1 else f"(cycle < 2) || ((cycle - 2) % {CE_EVERY} == {CE_EVERY - 1})"
-        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})").replace("CE_EXPR", ce)
+        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})").replace("PLATIRQ", f"({plat_expr(name)})").replace("CE_EXPR", ce)
                            .replace("TICKDIV", str(TICK_DIV)))
         vcd = Path(tmp) / "out.vcd"
         files = " ".join(str(p) for p in sorted(VERILOG.glob("*.v"))) + f" {harness}"

@@ -14,18 +14,19 @@ module csr_file (
     input mret,              // MRET's pc-writing edge: MIE = MPIE, MPIE = 1
     input trap,              // a trap is taken on this edge: record it, MPIE = MIE, MIE = 0
     input trap_pc[32],       // the trapping instruction's address (mepc)
-    input trap_cause[4],     // mcause's exception code
+    input trap_cause[5],     // mcause's exception code
     input trap_interrupt,    // ... and its interrupt bit (mcause[31])
     input mtip,              // timer interrupt pending (mip.MTIP, read-only)
     input meip,              // external interrupt pending (mip.MEIP, read-only)
+    input plat[2],           // platform interrupt lines (mip bits 17:16, read-only)
     input trap_value[32],    // mtval
     output read_data[32],    // the addressed CSR
     output mepc[32],         // MRET's return address
     output mtvec[32],        // the trap handler's address (mtvec's BASE)
-    output mtvec_vectored,   // mtvec.MODE = 1: interrupts jump to BASE | cause << 2
+    output mtvec_vectored,   // mtvec.MODE = 1: interrupts jump to BASE | cause << 2 (BASE 128-byte aligned)
     output irq,              // an enabled interrupt is pending: MIE && (MEIE && MEIP || MTIE && MTIP)
     output wake,             // ...the same without MIE: what ends a WFI (the spec: regardless of MIE)
-    output irq_cause[4]      // which: external (11) beats timer (7), the spec's priority order
+    output irq_cause[5]      // which: external (11), timer (7), then platform 16, 17 (standard ones first)
   ) {
 
   .clk(clk), .rst(rst) {
@@ -34,6 +35,7 @@ module csr_file (
     dff mie_msie             // mie: software, timer, external interrupt enables
     dff mie_mtie
     dff mie_meie
+    dff mie_plat[2]          // mie[17:16]
     dff mtvec_base[30]       // mtvec[31:2]
     dff mtvec_mode           // mtvec[0]: 0 direct, 1 vectored (mtvec[1] is reserved: reads 0)
     dff mscratch[32]
@@ -51,23 +53,27 @@ module csr_file (
     case (addr) {
       Cpu.CSR_MSTATUS: value = c{19b0, 2b11, 3b0, mstatus_mpie.q, 3b0, mstatus_mie.q, 3b0}
       Cpu.CSR_MISA:    value = Cpu.MISA_VALUE
-      Cpu.CSR_MIE:     value = c{20b0, mie_meie.q, 3b0, mie_mtie.q, 3b0, mie_msie.q, 3b0}
+      Cpu.CSR_MIE:     value = c{14b0, mie_plat.q, 4b0, mie_meie.q, 3b0, mie_mtie.q, 3b0, mie_msie.q, 3b0}
       Cpu.CSR_MTVEC:   value = c{mtvec_base.q, 1b0, mtvec_mode.q}
       Cpu.CSR_MSCRATCH: value = mscratch.q
       Cpu.CSR_MEPC:    value = c{mepc_word.q, 2b00}
       Cpu.CSR_MCAUSE:  value = mcause.q
       Cpu.CSR_MTVAL:   value = mtval.q
-      Cpu.CSR_MIP:     value = c{20b0, meip, 3b0, mtip, 7b0}
+      Cpu.CSR_MIP:     value = c{14b0, plat, 4b0, meip, 3b0, mtip, 7b0}
       default:         value = 0        // mstatush, the ID registers
     }
     read_data = value
     mepc = c{mepc_word.q, 2b00}
     mtvec = c{mtvec_base.q, 2b00}
     mtvec_vectored = mtvec_mode.q
-    pending_enabled = (mie_meie.q && meip) || (mie_mtie.q && mtip)
+    pending_enabled = (mie_meie.q && meip) || (mie_mtie.q && mtip) || ((mie_plat.q & plat) != 0)
     wake = pending_enabled
     irq = mstatus_mie.q && pending_enabled
-    if (mie_meie.q && meip) irq_cause = Cpu.CAUSE_EXTERNAL_INTERRUPT; else irq_cause = Cpu.CAUSE_TIMER_INTERRUPT;
+    irq_cause = Cpu.CAUSE_TIMER_INTERRUPT
+    if (mie_plat.q[1] && plat[1]) irq_cause = Cpu.CAUSE_PLAT1
+    if (mie_plat.q[0] && plat[0]) irq_cause = Cpu.CAUSE_PLAT0
+    if (mie_mtie.q && mtip) irq_cause = Cpu.CAUSE_TIMER_INTERRUPT
+    if (mie_meie.q && meip) irq_cause = Cpu.CAUSE_EXTERNAL_INTERRUPT
 
     case (op) {
       2b10:    new_value = value | src
@@ -84,6 +90,7 @@ module csr_file (
           mie_msie.d = new_value[3]
           mie_mtie.d = new_value[7]
           mie_meie.d = new_value[11]
+          mie_plat.d = new_value[17:16]
         Cpu.CSR_MTVEC:
           mtvec_base.d = new_value[31:2]
           mtvec_mode.d = new_value[0]
@@ -102,7 +109,7 @@ module csr_file (
 
     if (trap) {
       mepc_word.d = trap_pc[31:2]
-      mcause.d = c{trap_interrupt, 27b0, trap_cause}
+      mcause.d = c{trap_interrupt, 26b0, trap_cause}
       mtval.d = trap_value
       mstatus_mpie.d = mstatus_mie.q
       mstatus_mie.d = 0
@@ -114,6 +121,7 @@ module csr_file (
       mie_msie.d = mie_msie.q
       mie_mtie.d = mie_mtie.q
       mie_meie.d = mie_meie.q
+      mie_plat.d = mie_plat.q
       mtvec_base.d = mtvec_base.q
       mtvec_mode.d = mtvec_mode.q
       mscratch.d = mscratch.q

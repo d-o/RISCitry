@@ -8,11 +8,12 @@ testbench cpu_board_sw0_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -63,6 +64,7 @@ testbench cpu_board_sw0_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -385,6 +387,7 @@ testbench cpu_board_sw1_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[100][8]
@@ -392,7 +395,7 @@ testbench cpu_board_sw1_tb {
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
@@ -444,6 +447,7 @@ testbench cpu_board_sw1_tb {
         sel = 0
         switches = 8h01
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         received = 0
@@ -492,6 +496,7 @@ testbench cpu_board_sw2_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[57][8]
@@ -499,7 +504,7 @@ testbench cpu_board_sw2_tb {
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
@@ -551,6 +556,7 @@ testbench cpu_board_sw2_tb {
         sel = 0
         switches = 8h02
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         received = 0
@@ -599,11 +605,12 @@ testbench cpu_board_sw3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -654,6 +661,7 @@ testbench cpu_board_sw3_tb {
         sel = 0
         switches = 8h03
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -4651,11 +4659,12 @@ testbench cpu_board_sw4_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -4706,6 +4715,7 @@ testbench cpu_board_sw4_tb {
         sel = 0
         switches = 8h04
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -9450,11 +9460,12 @@ testbench cpu_board_sw5_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -9505,6 +9516,7 @@ testbench cpu_board_sw5_tb {
         sel = 0
         switches = 8h05
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -16546,11 +16558,12 @@ testbench cpu_board_sw6_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -16601,6 +16614,7 @@ testbench cpu_board_sw6_tb {
         sel = 0
         switches = 8h06
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -22070,11 +22084,12 @@ testbench cpu_larson_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.LARSON), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -22125,6 +22140,7 @@ testbench cpu_larson_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -22397,11 +22413,12 @@ testbench cpu_alu_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.ALU), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -22452,6 +22469,7 @@ testbench cpu_alu_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -22703,11 +22721,12 @@ testbench cpu_branches_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BRANCHES), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -22758,6 +22777,7 @@ testbench cpu_branches_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -22957,11 +22977,12 @@ testbench cpu_jumps_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.JUMPS), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -23012,6 +23033,7 @@ testbench cpu_jumps_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -23144,11 +23166,12 @@ testbench cpu_memory_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.MEMORY), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -23199,6 +23222,7 @@ testbench cpu_memory_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -23389,11 +23413,12 @@ testbench cpu_memory_ce3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.MEMORY), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -23444,6 +23469,7 @@ testbench cpu_memory_ce3_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -23991,11 +24017,12 @@ testbench cpu_bytes_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BYTES), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -24046,6 +24073,7 @@ testbench cpu_bytes_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -24388,6 +24416,7 @@ testbench cpu_uart_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[4][8]
@@ -24395,7 +24424,7 @@ testbench cpu_uart_tb {
 
     computer dut(#PROGRAM_ID(Programs.Id.UART), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
@@ -24447,6 +24476,7 @@ testbench cpu_uart_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         received = 0
@@ -24508,6 +24538,7 @@ testbench cpu_string_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[16][8]
@@ -24515,7 +24546,7 @@ testbench cpu_string_tb {
 
     computer dut(#PROGRAM_ID(Programs.Id.STRING), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
@@ -24567,6 +24598,7 @@ testbench cpu_string_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         received = 0
@@ -24628,11 +24660,12 @@ testbench cpu_table_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.TABLE), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -24683,6 +24716,7 @@ testbench cpu_table_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -24976,11 +25010,12 @@ testbench cpu_selfmod_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.SELFMOD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -25031,6 +25066,7 @@ testbench cpu_selfmod_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -25237,11 +25273,12 @@ testbench cpu_selfmod_ce3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.SELFMOD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -25292,6 +25329,7 @@ testbench cpu_selfmod_ce3_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -25876,11 +25914,12 @@ testbench cpu_illegal_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.ILLEGAL), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -25931,6 +25970,7 @@ testbench cpu_illegal_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -27058,11 +27098,12 @@ testbench cpu_csr_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.CSR), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -27113,6 +27154,7 @@ testbench cpu_csr_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -27202,7 +27244,7 @@ testbench cpu_csr_tb {
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
         $expect_pc(32h00000030)
-        $expect_reg(4d10, 32h00000888)
+        $expect_reg(4d10, 32h00030888)
         // 0x0030: csrrw x11, 0x301
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
@@ -27365,7 +27407,7 @@ testbench cpu_csr_tb {
         $expect_reg(4d7, 32h0000012C)
         $expect_reg(4d8, 32hFFFFFFFF)
         $expect_reg(4d9, 32hFFFFFFFD)
-        $expect_reg(4d10, 32h00000888)
+        $expect_reg(4d10, 32h00030888)
         $expect_reg(4d11, 32h40000010)
         $expect_reg(4d12, 32h00000063)
         $expect_reg(4d13, 32h00000060)
@@ -27382,11 +27424,12 @@ testbench cpu_traps_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.TRAPS), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -27437,6 +27480,7 @@ testbench cpu_traps_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -28075,11 +28119,12 @@ testbench cpu_timer_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.TIMER), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -28130,6 +28175,7 @@ testbench cpu_timer_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -29954,11 +30000,12 @@ testbench cpu_timer_ce3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.TIMER), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -30009,6 +30056,7 @@ testbench cpu_timer_ce3_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -32643,11 +32691,12 @@ testbench cpu_timer_ce3s_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.TIMER), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1), #TIMER_STOPTIME(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -32698,6 +32747,7 @@ testbench cpu_timer_ce3s_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -38407,11 +38457,12 @@ testbench cpu_irq_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.IRQ), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -38462,6 +38513,7 @@ testbench cpu_irq_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -39582,11 +39634,12 @@ testbench cpu_irq_ce3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.IRQ), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -39637,6 +39690,7 @@ testbench cpu_irq_ce3_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -43098,11 +43152,12 @@ testbench cpu_press_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.PRESS), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -43153,6 +43208,7 @@ testbench cpu_press_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -43906,11 +43962,12 @@ testbench cpu_wfi_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.WFI), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -43961,6 +44018,7 @@ testbench cpu_wfi_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -44697,11 +44755,12 @@ testbench cpu_wfi_ce3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.WFI), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -44752,6 +44811,7 @@ testbench cpu_wfi_ce3_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -47402,11 +47462,12 @@ testbench cpu_vectored_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.VECTORED), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -47457,6 +47518,7 @@ testbench cpu_vectored_tb {
         sel = 0
         switches = 8h00
         buttons = 0
+        plat_irq = 0
         ce = 1
         rst = 1
         $tick_clock()
@@ -47729,32 +47791,32 @@ testbench cpu_vectored_tb {
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000130)
+        $expect_pc(32h00000148)
         $expect_reg(4d0, 32h00000000)
-        // 0x0130: csrrs x10, 0x342
+        // 0x0148: csrrs x10, 0x342
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000134)
+        $expect_pc(32h0000014C)
         $expect_reg(4d10, 32h80000007)
-        // 0x0134: sw x5, 12(x2)
+        // 0x014c: sw x5, 12(x2)
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.MEM_ACCESS)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000138)
+        $expect_pc(32h00000150)
         $expect_display(33h000000000)
-        // 0x0138: addi x14, x14, 1
+        // 0x0150: addi x14, x14, 1
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h0000013C)
+        $expect_pc(32h00000154)
         $expect_reg(4d14, 32h00000001)
-        // 0x013c: mret
+        // 0x0154: mret
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
@@ -47777,37 +47839,37 @@ testbench cpu_vectored_tb {
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000140)
+        $expect_pc(32h00000158)
         $expect_reg(4d0, 32h00000000)
-        // 0x0140: csrrs x12, 0x342
+        // 0x0158: csrrs x12, 0x342
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000144)
+        $expect_pc(32h0000015C)
         $expect_reg(4d12, 32h0000000B)
-        // 0x0144: csrrs x7, 0x341
+        // 0x015c: csrrs x7, 0x341
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000148)
+        $expect_pc(32h00000160)
         $expect_reg(4d7, 32h00000038)
-        // 0x0148: addi x7, x7, 4
+        // 0x0160: addi x7, x7, 4
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h0000014C)
+        $expect_pc(32h00000164)
         $expect_reg(4d7, 32h0000003C)
-        // 0x014c: csrrw x0, 0x341
+        // 0x0164: csrrw x0, 0x341
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000150)
+        $expect_pc(32h00000168)
         $expect_reg(4d0, 32h00000000)
-        // 0x0150: mret
+        // 0x0168: mret
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
@@ -48704,16 +48766,16 @@ testbench cpu_vectored_tb {
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000154)
+        $expect_pc(32h0000016C)
         $expect_reg(4d0, 32h00000000)
-        // 0x0154: csrrs x13, 0x342
+        // 0x016c: csrrs x13, 0x342
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000158)
+        $expect_pc(32h00000170)
         $expect_reg(4d13, 32h8000000B)
-        // 0x0158: lw x6, 0(x11)
+        // 0x0170: lw x6, 0(x11)
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
@@ -48722,25 +48784,25 @@ testbench cpu_vectored_tb {
         $expect_state(Cpu.State.WRITEBACK)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h0000015C)
+        $expect_pc(32h00000174)
         $expect_reg(4d6, 32h00000101)
-        // 0x015c: sw x6, 0(x11)
+        // 0x0174: sw x6, 0(x11)
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.MEM_ACCESS)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000160)
+        $expect_pc(32h00000178)
         $expect_display(33h000000000)
-        // 0x0160: addi x15, x15, 1
+        // 0x0178: addi x15, x15, 1
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000164)
+        $expect_pc(32h0000017C)
         $expect_reg(4d15, 32h00000001)
-        // 0x0164: mret
+        // 0x017c: mret
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
@@ -48753,30 +48815,833 @@ testbench cpu_vectored_tb {
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
         $expect_pc(32h0000004C)
-        // 0x004c: halt
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00000000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0058: beq x6, x0, vec_plat_wait0
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
         $expect_pc(32h0000004C)
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00000000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0058: beq x6, x0, vec_plat_wait0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00000000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0058: beq x6, x0, vec_plat_wait0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00000000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0058: beq x6, x0, vec_plat_wait0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00000000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0058: beq x6, x0, vec_plat_wait0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00000000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0058: beq x6, x0, vec_plat_wait0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00000000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0058: beq x6, x0, vec_plat_wait0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00000000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0058: beq x6, x0, vec_plat_wait0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00000000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0058: beq x6, x0, vec_plat_wait0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00000000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0058: beq x6, x0, vec_plat_wait0
+        plat_irq = 2h1   // platform line event
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        // 0x004c: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_reg(4d1, 32h00010000)
+        // 0x0050: srli x6, x1, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d6, 32h00000001)
+        // 0x0054: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d6, 32h00000001)
+        // 0x0058: beq x6, x0, vec_plat_wait0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000005C)
+        // 0x005c: addi x8, x0, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000060)
+        $expect_reg(4d8, 32h00000001)
+        // 0x0060: slli x8, x8, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000064)
+        $expect_reg(4d8, 32h00010000)
+        // 0x0064: csrrs x0, 0x304
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
         $expect_reg(4d0, 32h00000000)
-        // 0x004c: halt
+        // 0x0068: csrrs x1, 0x344
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h0000004C)
+        $expect_pc(32h00000140)
+        // 0x0140: jal x0, vec_plat0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000180)
+        $expect_reg(4d0, 32h00000000)
+        // 0x0180: csrrs x2, 0x342
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000184)
+        $expect_reg(4d2, 32h80000010)
+        // 0x0184: addi x5, x0, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000188)
+        $expect_reg(4d5, 32h00000001)
+        // 0x0188: slli x5, x5, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000018C)
+        $expect_reg(4d5, 32h00010000)
+        // 0x018c: csrrc x0, 0x304
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000190)
+        $expect_reg(4d0, 32h00000000)
+        // 0x0190: addi x6, x0, 22
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000194)
+        $expect_reg(4d6, 32h00000016)
+        // 0x0194: slli x4, x4, 8
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000198)
+        $expect_reg(4d4, 32h00005100)
+        // 0x0198: or x4, x4, x6
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000019C)
+        $expect_reg(4d4, 32h00005116)
+        // 0x019c: mret
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        // 0x0068: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000006C)
+        $expect_reg(4d1, 32h00010000)
+        // 0x006c: srli x6, x1, 17
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000070)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0070: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000074)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0074: beq x6, x0, vec_plat_wait1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        // 0x0068: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000006C)
+        $expect_reg(4d1, 32h00010000)
+        // 0x006c: srli x6, x1, 17
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000070)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0070: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000074)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0074: beq x6, x0, vec_plat_wait1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        // 0x0068: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000006C)
+        $expect_reg(4d1, 32h00010000)
+        // 0x006c: srli x6, x1, 17
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000070)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0070: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000074)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0074: beq x6, x0, vec_plat_wait1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        // 0x0068: csrrs x1, 0x344
+        plat_irq = 2h0   // platform line event
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000006C)
+        $expect_reg(4d1, 32h00000000)
+        // 0x006c: srli x6, x1, 17
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000070)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0070: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000074)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0074: beq x6, x0, vec_plat_wait1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        // 0x0068: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000006C)
+        $expect_reg(4d1, 32h00000000)
+        // 0x006c: srli x6, x1, 17
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000070)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0070: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000074)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0074: beq x6, x0, vec_plat_wait1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        // 0x0068: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000006C)
+        $expect_reg(4d1, 32h00000000)
+        // 0x006c: srli x6, x1, 17
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000070)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0070: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000074)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0074: beq x6, x0, vec_plat_wait1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        // 0x0068: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000006C)
+        $expect_reg(4d1, 32h00000000)
+        // 0x006c: srli x6, x1, 17
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000070)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0070: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000074)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0074: beq x6, x0, vec_plat_wait1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        // 0x0068: csrrs x1, 0x344
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000006C)
+        $expect_reg(4d1, 32h00000000)
+        // 0x006c: srli x6, x1, 17
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000070)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0070: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000074)
+        $expect_reg(4d6, 32h00000000)
+        // 0x0074: beq x6, x0, vec_plat_wait1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000068)
+        // 0x0068: csrrs x1, 0x344
+        plat_irq = 2h3   // platform line event
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000006C)
+        $expect_reg(4d1, 32h00030000)
+        // 0x006c: srli x6, x1, 17
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000070)
+        $expect_reg(4d6, 32h00000001)
+        // 0x0070: andi x6, x6, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000074)
+        $expect_reg(4d6, 32h00000001)
+        // 0x0074: beq x6, x0, vec_plat_wait1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000078)
+        // 0x0078: addi x8, x0, 3
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000007C)
+        $expect_reg(4d8, 32h00000003)
+        // 0x007c: slli x8, x8, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000080)
+        $expect_reg(4d8, 32h00030000)
+        // 0x0080: csrrs x0, 0x304
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000084)
+        $expect_reg(4d0, 32h00000000)
+        // 0x0084: addi x0, x0, 0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000140)
+        // 0x0140: jal x0, vec_plat0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000180)
+        $expect_reg(4d0, 32h00000000)
+        // 0x0180: csrrs x2, 0x342
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000184)
+        $expect_reg(4d2, 32h80000010)
+        // 0x0184: addi x5, x0, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000188)
+        $expect_reg(4d5, 32h00000001)
+        // 0x0188: slli x5, x5, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000018C)
+        $expect_reg(4d5, 32h00010000)
+        // 0x018c: csrrc x0, 0x304
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000190)
+        $expect_reg(4d0, 32h00000000)
+        // 0x0190: addi x6, x0, 22
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000194)
+        $expect_reg(4d6, 32h00000016)
+        // 0x0194: slli x4, x4, 8
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000198)
+        $expect_reg(4d4, 32h00511600)
+        // 0x0198: or x4, x4, x6
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000019C)
+        $expect_reg(4d4, 32h00511616)
+        // 0x019c: mret
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000084)
+        // 0x0084: addi x0, x0, 0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000144)
+        // 0x0144: jal x0, vec_plat1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h000001A0)
+        $expect_reg(4d0, 32h00000000)
+        // 0x01a0: csrrs x3, 0x342
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h000001A4)
+        $expect_reg(4d3, 32h80000011)
+        // 0x01a4: addi x5, x0, 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h000001A8)
+        $expect_reg(4d5, 32h00000001)
+        // 0x01a8: slli x5, x5, 17
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h000001AC)
+        $expect_reg(4d5, 32h00020000)
+        // 0x01ac: csrrc x0, 0x304
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h000001B0)
+        $expect_reg(4d0, 32h00000000)
+        // 0x01b0: addi x6, x0, 23
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h000001B4)
+        $expect_reg(4d6, 32h00000017)
+        // 0x01b4: slli x4, x4, 8
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h000001B8)
+        $expect_reg(4d4, 32h51161600)
+        // 0x01b8: or x4, x4, x6
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h000001BC)
+        $expect_reg(4d4, 32h51161617)
+        // 0x01bc: mret
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000084)
+        // 0x0084: addi x0, x0, 0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000088)
+        $expect_reg(4d0, 32h00000000)
+        // 0x0088: addi x0, x0, 0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000008C)
+        $expect_reg(4d0, 32h00000000)
+        // 0x008c: halt
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000008C)
+        $expect_reg(4d0, 32h00000000)
+        // 0x008c: halt
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000008C)
         $expect_reg(4d0, 32h00000000)
         // final register file and display
         $expect_reg(4d0, 32h00000000)
-        $expect_reg(4d1, 32h00000000)
-        $expect_reg(4d2, 32h80002000)
-        $expect_reg(4d3, 32h00000101)
-        $expect_reg(4d4, 32h00000051)
-        $expect_reg(4d5, 32hFFFFFFFF)
-        $expect_reg(4d6, 32h00000101)
+        $expect_reg(4d1, 32h00030000)
+        $expect_reg(4d2, 32h80000010)
+        $expect_reg(4d3, 32h80000011)
+        $expect_reg(4d4, 32h51161617)
+        $expect_reg(4d5, 32h00020000)
+        $expect_reg(4d6, 32h00000017)
         $expect_reg(4d7, 32h0000003C)
-        $expect_reg(4d8, 32h00000800)
+        $expect_reg(4d8, 32h00030000)
         $expect_reg(4d9, 32h00000101)
         $expect_reg(4d10, 32h80000007)
         $expect_reg(4d11, 32h80003000)

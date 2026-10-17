@@ -17,14 +17,14 @@ global Cpu {
     // writing one whose address starts 2b11 (read-only). csr_file.luc holds them.
     const CSR_MSTATUS = 12h300     // MIE [3], MPIE [7]; MPP [12:11] reads 3 (M is the only mode)
     const CSR_MISA = 12h301        // read-only here: RV32E
-    const CSR_MIE = 12h304         // MSIE [3], MTIE [7], MEIE [11]
+    const CSR_MIE = 12h304         // MSIE [3], MTIE [7], MEIE [11], platform enables [16], [17]
     const CSR_MTVEC = 12h305       // BASE in [31:2], MODE in [0] (0 direct, 1 vectored), bit 1 reads 0
     const CSR_MSTATUSH = 12h310    // all zero (little-endian, nothing to set)
     const CSR_MSCRATCH = 12h340
     const CSR_MEPC = 12h341        // bits [1:0] read 0 (IALIGN = 32)
     const CSR_MCAUSE = 12h342
     const CSR_MTVAL = 12h343
-    const CSR_MIP = 12h344         // MTIP [7] from the timer, MEIP [11] from the buttons; read-only
+    const CSR_MIP = 12h344         // MTIP [7] from the timer, MEIP [11] from the buttons, platform lines [16], [17]; read-only
     const CSR_MVENDORID = 12hF11   // the ID registers read 0
     const CSR_MARCHID = 12hF12
     const CSR_MIMPID = 12hF13
@@ -62,14 +62,16 @@ global Cpu {
     }
 
     // mcause exception codes (trap_unit.luc)
-    const CAUSE_FETCH_MISALIGNED = 4d0    // a taken branch or jump to an address with bit 1 set
-    const CAUSE_ILLEGAL = 4d2
-    const CAUSE_BREAKPOINT = 4d3
-    const CAUSE_LOAD_MISALIGNED = 4d4
-    const CAUSE_STORE_MISALIGNED = 4d6
-    const CAUSE_ECALL_M = 4d11
-    const CAUSE_TIMER_INTERRUPT = 4d7      // with mcause[31] = 1
-    const CAUSE_EXTERNAL_INTERRUPT = 4d11  // with mcause[31] = 1
+    const CAUSE_FETCH_MISALIGNED = 5d0    // a taken branch or jump to an address with bit 1 set
+    const CAUSE_ILLEGAL = 5d2
+    const CAUSE_BREAKPOINT = 5d3
+    const CAUSE_LOAD_MISALIGNED = 5d4
+    const CAUSE_STORE_MISALIGNED = 5d6
+    const CAUSE_ECALL_M = 5d11
+    const CAUSE_TIMER_INTERRUPT = 5d7      // with mcause[31] = 1
+    const CAUSE_EXTERNAL_INTERRUPT = 5d11  // with mcause[31] = 1
+    const CAUSE_PLAT0 = 5d16               // platform interrupts (causes >= 16 are the spec's platform range):
+    const CAUSE_PLAT1 = 5d17               // mie/mip bits 16 and 17, each its own vector slot
 
     // What mtval gets on a trap
     enum TvalSel { ZERO, INSTRUCTION, ADDRESS, TARGET }
