@@ -52,6 +52,7 @@ module machine #(
     output cpu_clock,        // toggles on every cpu clock (a ce pulse is too short to see)
     output halted,           // stopped, waiting for run or step
     output busy,             // finishing a step, or the instruction in progress when run went off
+    output sleeping,         // running, but the cpu waits in a WFI and gets no clock pulses (never with busy: that needs run off)
     output in_reset,         // the cpu is being held in reset
     output uart_tx,          // the computer's serial out
     output display_chars[32],   // the computer's 7-segment display text (lane 0 = leftmost) ...
@@ -139,6 +140,7 @@ module machine #(
     }
 
     halted = stopped
+    sleeping = asleep
     busy = active.q && !run
     in_reset = cpu_rst.q
     cpu_clock = clock_led.q

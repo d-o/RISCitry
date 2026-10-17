@@ -43,7 +43,7 @@ testbench machine_tb {
         $assert(dut.debug_pc == pc)
         $assert(dut.cpu_state == state)
         $assert(dut.halted)
-        $assert(!dut.busy)
+        $assert(!dut.busy && !dut.sleeping)
         $assert(dut.uart_tx)       // MEMORY doesn't print: serial line idle high
         $assert(!dut.display_owned && dut.display_chars == 0)   // nor use the display
     }
@@ -163,7 +163,7 @@ testbench machine_tb {
         step = 0
         repeat(i, 64) {
             $tick_clock()
-            $assert(!dut.halted)    // the stopped light stays off while running
+            $assert(!dut.halted && !dut.sleeping)    // the stopped and sleep lights stay off while running (no WFI)
         }
         repeat(i, 40) { $settle(); }
         run = 0

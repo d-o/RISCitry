@@ -41,6 +41,7 @@ testbench machine_sleep_tb {
     fun expect_asleep(pc[32]) {
         light = dut.cpu_clock
         $assert(!dut.halted && !dut.busy && !dut.in_reset)   // running, not in reset
+        $assert(dut.sleeping)      // ... and the sleep light is on
         $assert(dut.uart_tx && !dut.display_owned && dut.display_chars == 0)   // WFI prints nothing
         repeat(i, 80) {
             $tick_clock()
