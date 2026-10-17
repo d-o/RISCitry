@@ -637,8 +637,8 @@ CSR = [
     ("csrrci", 6, 0x340, 0x03),                # x6 = 0x12F; mscratch = 0x12C
     ("csrrs", 7, 0x340, 0),                    # x7 = 0x12C (x0 source: read only)
     ("addi", 8, 0, -1),
-    ("csrrw", 0, 0x305, 8),                    # mtvec: direct mode only
-    ("csrrs", 9, 0x305, 0),                    # x9 = 0xFFFFFFFC
+    ("csrrw", 0, 0x305, 8),                    # mtvec: MODE 1 kept, bit 1 reserved
+    ("csrrs", 9, 0x305, 0),                    # x9 = 0xFFFFFFFD
     ("csrrw", 0, 0x304, 8),
     ("csrrs", 10, 0x304, 0),                   # x10 = 0x888 (MSIE, MTIE, MEIE)
     ("csrrw", 11, 0x301, 8),                   # x11 = misa; the write is ignored
@@ -813,6 +813,60 @@ PRESS = [
     ("mret",),
 ]
 
+# Vectored mtvec (MODE = 1, BASE 0x100): an interrupt enters at BASE | cause << 2, an exception at
+# BASE. (a) the timer (cause 7, slot 0x11C), (b) ECALL (cause 11, slot 0x100: the exception slot,
+# which the *external* interrupt's number 11 must not be confused with), (c) a button press
+# (BUTTON_EVENTS; external, cause 11, slot 0x12C). Each handler ORs its mcause into a register, so
+# the cause and the slot both reach the final registers.
+VEC = 0x100
+VECTORED = [
+    ("addi", 3, 0, VEC | 1),
+    ("csrrw", 0, 0x305, 3),                    # mtvec = BASE | MODE 1
+    ("csrrs", 9, 0x305, 0),                    # x9 = 0x101
+    ("lui", 2, T >> 12),                       # x2 = timer
+    ("lui", 11, B >> 12),                      # x11 = buttons
+    ("addi", 5, 0, -1),
+    ("sw", 0, 2, memmap.TIMER_MTIMECMPH - T),
+    ("addi", 8, 0, 0x80),
+    ("csrrs", 0, 0x304, 8),                    # MTIE
+    ("lw", 4, 2, memmap.TIMER_MTIME - T),
+    ("addi", 4, 4, 60),
+    ("sw", 4, 2, memmap.TIMER_MTIMECMP - T),
+    ("csrrsi", 0, 0x300, 0x08),                # MIE
+    "vec_timer_wait:",
+    ("beq", 14, 0, "vec_timer_wait"),          # (a) the timer interrupt
+    ("ecall",),                                # (b) an exception: the BASE slot
+    ("addi", 8, 0, 1),
+    ("slli", 8, 8, 11),
+    ("csrrs", 0, 0x304, 8),                    # MEIE
+    "vec_button_wait:",
+    ("beq", 15, 0, "vec_button_wait"),         # (c) the button's external interrupt
+    ("halt",),
+    (".org", VEC),
+    ("jal", 0, "vec_exception"),               # slot 0: exceptions
+    (".org", VEC + 4 * 7),
+    ("jal", 0, "vec_timer"),                   # slot 7
+    (".org", VEC + 4 * 11),
+    ("jal", 0, "vec_external"),                # slot 11
+    "vec_timer:",
+    ("csrrs", 10, 0x342, 0),                   # x10 = 0x80000007
+    ("sw", 5, 2, memmap.TIMER_MTIMECMPH - T),  # disarm
+    ("addi", 14, 14, 1),
+    ("mret",),
+    "vec_exception:",
+    ("csrrs", 12, 0x342, 0),                   # x12 = 11
+    ("csrrs", 7, 0x341, 0),
+    ("addi", 7, 7, 4),
+    ("csrrw", 0, 0x341, 7),                    # return after the ECALL
+    ("mret",),
+    "vec_external:",
+    ("csrrs", 13, 0x342, 0),                   # x13 = 0x8000000B
+    ("lw", 6, 11, 0),
+    ("sw", 6, 11, 0),                          # clear the press
+    ("addi", 15, 15, 1),
+    ("mret",),
+]
+
 # WFI: the cpu waits in EXECUTE until an interrupt enabled in mie is pending. (a) MIE = 1: the timer
 # interrupt (60 ticks ahead) wakes it and is taken with mepc = the WFI + 4. (b) MIE = 0: the timer
 # wakes it and it just completes (mip shows MTIP). (c) MIE = 1, MEIE only: a button press
@@ -882,6 +936,7 @@ PROGRAMS = {
     "IRQ": IRQ,
     "PRESS": PRESS,
     "WFI": WFI_TEST,
+    "VECTORED": VECTORED,
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
@@ -901,7 +956,7 @@ PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
-EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI"}
+EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED"}
 # Button presses for programs that use the buttons device: (post-reset clock, levels), levels =
 # up | down << 1 | left << 2 | right << 3, applied before that clock's rising edge.
 BUTTON_EVENTS = {
@@ -913,6 +968,7 @@ BUTTON_EVENTS = {
     # handler prints "buttons 4 lost 4". Then up + right together, which in the printing test
     # lands inside that first handler's output and in the model after it: "buttons 9" either way.
     "BOARD": [(100, 0x4), (110, 0x0), (140, 0x4), (150, 0x0), (3000, 0x9), (3100, 0x0)],
+    "VECTORED": [(400, 0x1), (420, 0x0)],
     "WFI": [(240, 0x1), (260, 0x0)],          # wakes (c), whose WFI starts at clock 192
 }
 

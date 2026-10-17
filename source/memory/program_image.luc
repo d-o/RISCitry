@@ -28,5 +28,6 @@ module program_image #(
     if (PROGRAM_ID == Programs.Id.IRQ && addr < 39) word = Programs.IRQ[addr];
     if (PROGRAM_ID == Programs.Id.PRESS && addr < 22) word = Programs.PRESS[addr];
     if (PROGRAM_ID == Programs.Id.WFI && addr < 41) word = Programs.WFI[addr];
+    if (PROGRAM_ID == Programs.Id.VECTORED && addr < 90) word = Programs.VECTORED[addr];
   }
 }

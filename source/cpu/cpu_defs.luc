@@ -18,7 +18,7 @@ global Cpu {
     const CSR_MSTATUS = 12h300     // MIE [3], MPIE [7]; MPP [12:11] reads 3 (M is the only mode)
     const CSR_MISA = 12h301        // read-only here: RV32E
     const CSR_MIE = 12h304         // MSIE [3], MTIE [7], MEIE [11]
-    const CSR_MTVEC = 12h305       // direct mode only: bits [1:0] read 0
+    const CSR_MTVEC = 12h305       // BASE in [31:2], MODE in [0] (0 direct, 1 vectored), bit 1 reads 0
     const CSR_MSTATUSH = 12h310    // all zero (little-endian, nothing to set)
     const CSR_MSCRATCH = 12h340
     const CSR_MEPC = 12h341        // bits [1:0] read 0 (IALIGN = 32)

@@ -68,7 +68,7 @@ import memmap
 
 # The CSRs the core implements (mirrors cpu_defs.luc / csr_file.luc): address -> mask of the bits
 # that are writable. Others read as their constant (misa) or 0.
-CSR_WRITABLE = {0x300: 0x88, 0x304: 0x888, 0x305: 0xFFFFFFFC, 0x340: 0xFFFFFFFF,
+CSR_WRITABLE = {0x300: 0x88, 0x304: 0x888, 0x305: 0xFFFFFFFD, 0x340: 0xFFFFFFFF,
                 0x341: 0xFFFFFFFC, 0x342: 0xFFFFFFFF, 0x343: 0xFFFFFFFF}
 CSR_CONSTANT = {0x301: 0x40000010, 0x310: 0, 0x344: 0, 0xF11: 0, 0xF12: 0, 0xF13: 0, 0xF14: 0}
 MSTATUS_FIXED = 0x1800        # MPP = 3: machine mode is the only mode
@@ -351,7 +351,9 @@ class Cpu:
             self.csr[0x341] = (self.pc + 4) & MASK if w == WFI else self.pc   # after a WFI: the next one
             self.csr[0x342] = trap.cause
             self.csr[0x343] = trap.tval & MASK
-            self.pc = self.csr[0x305]
+            self.pc = self.csr[0x305] & ~3
+            if self.csr[0x305] & 1 and trap.cause & 0x80000000:       # vectored: BASE | cause << 2
+                self.pc |= (trap.cause & 0xF) << 2
             self.stale = None
         if self.timer_write:                 # replaced on the store's last edge
             index, value = self.timer_write

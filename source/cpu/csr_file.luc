@@ -21,7 +21,8 @@ module csr_file (
     input trap_value[32],    // mtval
     output read_data[32],    // the addressed CSR
     output mepc[32],         // MRET's return address
-    output mtvec[32],        // the trap handler's address
+    output mtvec[32],        // the trap handler's address (mtvec's BASE)
+    output mtvec_vectored,   // mtvec.MODE = 1: interrupts jump to BASE | cause << 2
     output irq,              // an enabled interrupt is pending: MIE && (MEIE && MEIP || MTIE && MTIP)
     output wake,             // ...the same without MIE: what ends a WFI (the spec: regardless of MIE)
     output irq_cause[4]      // which: external (11) beats timer (7), the spec's priority order
@@ -33,7 +34,8 @@ module csr_file (
     dff mie_msie             // mie: software, timer, external interrupt enables
     dff mie_mtie
     dff mie_meie
-    dff mtvec_base[30]       // mtvec[31:2]; MODE = 0 (direct)
+    dff mtvec_base[30]       // mtvec[31:2]
+    dff mtvec_mode           // mtvec[0]: 0 direct, 1 vectored (mtvec[1] is reserved: reads 0)
     dff mscratch[32]
     dff mepc_word[30]        // mepc[31:2]
     dff mcause[32]
@@ -50,7 +52,7 @@ module csr_file (
       Cpu.CSR_MSTATUS: value = c{19b0, 2b11, 3b0, mstatus_mpie.q, 3b0, mstatus_mie.q, 3b0}
       Cpu.CSR_MISA:    value = Cpu.MISA_VALUE
       Cpu.CSR_MIE:     value = c{20b0, mie_meie.q, 3b0, mie_mtie.q, 3b0, mie_msie.q, 3b0}
-      Cpu.CSR_MTVEC:   value = c{mtvec_base.q, 2b00}
+      Cpu.CSR_MTVEC:   value = c{mtvec_base.q, 1b0, mtvec_mode.q}
       Cpu.CSR_MSCRATCH: value = mscratch.q
       Cpu.CSR_MEPC:    value = c{mepc_word.q, 2b00}
       Cpu.CSR_MCAUSE:  value = mcause.q
@@ -61,6 +63,7 @@ module csr_file (
     read_data = value
     mepc = c{mepc_word.q, 2b00}
     mtvec = c{mtvec_base.q, 2b00}
+    mtvec_vectored = mtvec_mode.q
     pending_enabled = (mie_meie.q && meip) || (mie_mtie.q && mtip)
     wake = pending_enabled
     irq = mstatus_mie.q && pending_enabled
@@ -81,7 +84,9 @@ module csr_file (
           mie_msie.d = new_value[3]
           mie_mtie.d = new_value[7]
           mie_meie.d = new_value[11]
-        Cpu.CSR_MTVEC:    mtvec_base.d = new_value[31:2]
+        Cpu.CSR_MTVEC:
+          mtvec_base.d = new_value[31:2]
+          mtvec_mode.d = new_value[0]
         Cpu.CSR_MSCRATCH: mscratch.d = new_value
         Cpu.CSR_MEPC:     mepc_word.d = new_value[31:2]
         Cpu.CSR_MCAUSE:   mcause.d = new_value
@@ -110,6 +115,7 @@ module csr_file (
       mie_mtie.d = mie_mtie.q
       mie_meie.d = mie_meie.q
       mtvec_base.d = mtvec_base.q
+      mtvec_mode.d = mtvec_mode.q
       mscratch.d = mscratch.q
       mepc_word.d = mepc_word.q
       mcause.d = mcause.q

@@ -66,6 +66,7 @@ module cpu (
   sig imm[32];               // ... and its immediate
   sig pc_plus_4[32];
   sig target[32];            // branch/JAL target (pc + imm) or JALR's rs1 + imm (bit 0 not yet cleared)
+  sig vector_pc[32];         // where a trap enters: mtvec BASE, or the interrupt's slot in a vectored table
 
   always {
     // --- fetch: the instruction arrives in FETCH; hold it for the rest of the instruction ---
@@ -145,7 +146,11 @@ module cpu (
     pc_unit.pc_src = control.pc_src;
     if (ctrl.jalr) target = alu_unit.result; else target = pc_unit.pc + imm;
     pc_unit.target_address = target;
-    if (control.mret) pc_unit.vector = csrs.mepc; else pc_unit.vector = csrs.mtvec;
+    // vectored mtvec: an interrupt enters at BASE | cause << 2 (the cause ORed into BASE[5:2], so BASE
+    // must be 64-byte aligned, as the spec asks of a vectored table); exceptions go to BASE
+    vector_pc = csrs.mtvec;
+    if (csrs.mtvec_vectored && traps.interrupt_taken) vector_pc[5:2] = csrs.mtvec[5:2] | traps.cause;
+    if (control.mret) pc_unit.vector = csrs.mepc; else pc_unit.vector = vector_pc;
 
     // --- traps: decided in EXECUTE (trap_unit), recorded by csr_file on the edge control takes it ---
     traps.ctrl = ctrl;

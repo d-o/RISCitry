@@ -2,7 +2,7 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS, TIMER, IRQ, PRESS, WFI }
+    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS, TIMER, IRQ, PRESS, WFI, VECTORED }
 
     const BOARD = {
         32h00000020,  // 0x04fc: (data)
@@ -830,5 +830,97 @@ global Programs {
         32h80002137,  // 0x0008: lui x2, 0x80002
         32h30519073,  // 0x0004: csrrw x0, 0x305
         32h08000193  // 0x0000: addi x3, x0, wfi_handler
+    }
+    const VECTORED = {
+        32h30200073,  // 0x0164: mret
+        32h00178793,  // 0x0160: addi x15, x15, 1
+        32h0065A023,  // 0x015c: sw x6, 0(x11)
+        32h0005A303,  // 0x0158: lw x6, 0(x11)
+        32h342026F3,  // 0x0154: csrrs x13, 0x342
+        32h30200073,  // 0x0150: mret
+        32h34139073,  // 0x014c: csrrw x0, 0x341
+        32h00438393,  // 0x0148: addi x7, x7, 4
+        32h341023F3,  // 0x0144: csrrs x7, 0x341
+        32h34202673,  // 0x0140: csrrs x12, 0x342
+        32h30200073,  // 0x013c: mret
+        32h00170713,  // 0x0138: addi x14, x14, 1
+        32h00512623,  // 0x0134: sw x5, 12(x2)
+        32h34202573,  // 0x0130: csrrs x10, 0x342
+        32h0280006F,  // 0x012c: jal x0, vec_external
+        32h00000013,  // 0x0128: (nop)
+        32h00000013,  // 0x0124: (nop)
+        32h00000013,  // 0x0120: (nop)
+        32h0140006F,  // 0x011c: jal x0, vec_timer
+        32h00000013,  // 0x0118: (nop)
+        32h00000013,  // 0x0114: (nop)
+        32h00000013,  // 0x0110: (nop)
+        32h00000013,  // 0x010c: (nop)
+        32h00000013,  // 0x0108: (nop)
+        32h00000013,  // 0x0104: (nop)
+        32h0400006F,  // 0x0100: jal x0, vec_exception
+        32h00000013,  // 0x00fc: (nop)
+        32h00000013,  // 0x00f8: (nop)
+        32h00000013,  // 0x00f4: (nop)
+        32h00000013,  // 0x00f0: (nop)
+        32h00000013,  // 0x00ec: (nop)
+        32h00000013,  // 0x00e8: (nop)
+        32h00000013,  // 0x00e4: (nop)
+        32h00000013,  // 0x00e0: (nop)
+        32h00000013,  // 0x00dc: (nop)
+        32h00000013,  // 0x00d8: (nop)
+        32h00000013,  // 0x00d4: (nop)
+        32h00000013,  // 0x00d0: (nop)
+        32h00000013,  // 0x00cc: (nop)
+        32h00000013,  // 0x00c8: (nop)
+        32h00000013,  // 0x00c4: (nop)
+        32h00000013,  // 0x00c0: (nop)
+        32h00000013,  // 0x00bc: (nop)
+        32h00000013,  // 0x00b8: (nop)
+        32h00000013,  // 0x00b4: (nop)
+        32h00000013,  // 0x00b0: (nop)
+        32h00000013,  // 0x00ac: (nop)
+        32h00000013,  // 0x00a8: (nop)
+        32h00000013,  // 0x00a4: (nop)
+        32h00000013,  // 0x00a0: (nop)
+        32h00000013,  // 0x009c: (nop)
+        32h00000013,  // 0x0098: (nop)
+        32h00000013,  // 0x0094: (nop)
+        32h00000013,  // 0x0090: (nop)
+        32h00000013,  // 0x008c: (nop)
+        32h00000013,  // 0x0088: (nop)
+        32h00000013,  // 0x0084: (nop)
+        32h00000013,  // 0x0080: (nop)
+        32h00000013,  // 0x007c: (nop)
+        32h00000013,  // 0x0078: (nop)
+        32h00000013,  // 0x0074: (nop)
+        32h00000013,  // 0x0070: (nop)
+        32h00000013,  // 0x006c: (nop)
+        32h00000013,  // 0x0068: (nop)
+        32h00000013,  // 0x0064: (nop)
+        32h00000013,  // 0x0060: (nop)
+        32h00000013,  // 0x005c: (nop)
+        32h00000013,  // 0x0058: (nop)
+        32h00000013,  // 0x0054: (nop)
+        32h00000013,  // 0x0050: (nop)
+        32h0000006F,  // 0x004c: halt
+        32h00078063,  // 0x0048: beq x15, x0, vec_button_wait
+        32h30442073,  // 0x0044: csrrs x0, 0x304
+        32h00B41413,  // 0x0040: slli x8, x8, 11
+        32h00100413,  // 0x003c: addi x8, x0, 1
+        32h00000073,  // 0x0038: ecall
+        32h00070063,  // 0x0034: beq x14, x0, vec_timer_wait
+        32h30046073,  // 0x0030: csrrsi x0, 0x300
+        32h00412423,  // 0x002c: sw x4, 8(x2)
+        32h03C20213,  // 0x0028: addi x4, x4, 60
+        32h00012203,  // 0x0024: lw x4, 0(x2)
+        32h30442073,  // 0x0020: csrrs x0, 0x304
+        32h08000413,  // 0x001c: addi x8, x0, 128
+        32h00012623,  // 0x0018: sw x0, 12(x2)
+        32hFFF00293,  // 0x0014: addi x5, x0, -1
+        32h800035B7,  // 0x0010: lui x11, 0x80003
+        32h80002137,  // 0x000c: lui x2, 0x80002
+        32h305024F3,  // 0x0008: csrrs x9, 0x305
+        32h30519073,  // 0x0004: csrrw x0, 0x305
+        32h10100193  // 0x0000: addi x3, x0, 0x101
     }
 }
