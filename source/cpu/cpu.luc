@@ -148,8 +148,9 @@ module cpu (
     pc_unit.target_address = target;
     // vectored mtvec: an interrupt enters at BASE | cause << 2 (the cause ORed into BASE[5:2], so BASE
     // must be 64-byte aligned, as the spec asks of a vectored table); exceptions go to BASE
-    vector_pc = csrs.mtvec;
-    if (csrs.mtvec_vectored && traps.interrupt_taken) vector_pc[5:2] = csrs.mtvec[5:2] | traps.cause;
+    // (AND-OR, not an if with a partial write: that put X on the RAM read address at project load, and the
+    // Alchitry sim crashed at start-up in ~40% of runs, 2026-10-17)
+    vector_pc = c{csrs.mtvec[31:6], csrs.mtvec[5:2] | (traps.cause & 4x{csrs.mtvec_vectored & traps.interrupt_taken}), csrs.mtvec[1:0]};
     if (control.mret) pc_unit.vector = csrs.mepc; else pc_unit.vector = vector_pc;
 
     // --- traps: decided in EXECUTE (trap_unit), recorded by csr_file on the edge control takes it ---
