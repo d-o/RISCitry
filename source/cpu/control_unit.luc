@@ -12,7 +12,8 @@
 // WFI waits in EXECUTE (no side effects, pc held) until wake: an interrupt enabled in mie is
 // pending. With MIE set that interrupt is then taken as a trap (cpu.luc makes mepc = pc + 4, the
 // instruction after the WFI, as the spec says); with MIE clear the WFI just completes. The timer
-// counts real time, so it ticks on while the cpu waits.
+// counts real time, so it ticks on while the cpu waits. `sleeping` says so to the machine, which
+// then stops giving the cpu clock pulses until wake (the buttons and the timer run on every clock).
 module control_unit (
     input clk,
     input rst,
@@ -29,6 +30,7 @@ module control_unit (
     output csr_write,          // a CSR instruction writes its CSR on this edge
     output mret,               // MRET takes effect on this edge (pc = mepc, MIE = MPIE)
     output take_trap,          // a trap is taken on this edge (pc = mtvec; csr_file records it)
+    output sleeping,           // a WFI is waiting: clock pulses would change nothing (machine.luc stops them)
     output current_state[Cpu.STATE_BITS]   // a Cpu.State; FETCH = between instructions
   ) {
 
@@ -44,6 +46,7 @@ module control_unit (
     mret = 0
     take_trap = 0
     current_state = state.q
+    sleeping = state.q == Cpu.State.EXECUTE && ctrl.wfi && !wake
 
     case (state.q) {
       Cpu.State.FETCH:

@@ -199,6 +199,7 @@ def header(name, sw, extra_sigs=(), suffix="", stoptime=0):
         "        if (dut.debug_state != state)",
         '            $print("state: got %d want %d", dut.debug_state, state)',
         "        $assert(dut.debug_state == state)",
+        "        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps",
         "    }",
         "",
         "    fun expect_reg(r[4], value[32]) {",

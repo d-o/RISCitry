@@ -36,7 +36,8 @@ module computer #(
     input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
     output debug_reg[32],    // register x[debug_sel]
-    output debug_state[Cpu.STATE_BITS]   // the cpu's control state; FETCH = between instructions
+    output debug_state[Cpu.STATE_BITS],  // the cpu's control state; FETCH = between instructions
+    output sleeping          // the cpu waits in a WFI (see cpu.luc)
   ) {
 
   .clk(clk) {
@@ -125,6 +126,7 @@ module computer #(
     debug_pc = core.debug_pc
     debug_reg = core.debug_reg
     debug_state = core.debug_state
+    sleeping = core.sleeping
 
     if (!ce) {        // disabled clock: hold everything
       read_ram.d = read_ram.q

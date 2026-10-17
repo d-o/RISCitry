@@ -40,6 +40,7 @@ testbench cpu_board_sw0_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -420,6 +421,7 @@ testbench cpu_board_sw1_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -524,6 +526,7 @@ testbench cpu_board_sw2_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -624,6 +627,7 @@ testbench cpu_board_sw3_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -4671,6 +4675,7 @@ testbench cpu_board_sw4_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -9465,6 +9470,7 @@ testbench cpu_board_sw5_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -16558,6 +16564,7 @@ testbench cpu_board_sw6_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -22079,6 +22086,7 @@ testbench cpu_larson_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -22405,6 +22413,7 @@ testbench cpu_alu_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -22710,6 +22719,7 @@ testbench cpu_branches_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -22963,6 +22973,7 @@ testbench cpu_jumps_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -23149,6 +23160,7 @@ testbench cpu_memory_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -23393,6 +23405,7 @@ testbench cpu_memory_ce3_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -23994,6 +24007,7 @@ testbench cpu_bytes_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -24394,6 +24408,7 @@ testbench cpu_uart_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -24513,6 +24528,7 @@ testbench cpu_string_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -24628,6 +24644,7 @@ testbench cpu_table_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -24975,6 +24992,7 @@ testbench cpu_selfmod_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -25235,6 +25253,7 @@ testbench cpu_selfmod_ce3_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -25873,6 +25892,7 @@ testbench cpu_illegal_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -27054,6 +27074,7 @@ testbench cpu_csr_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -27377,6 +27398,7 @@ testbench cpu_traps_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -28069,6 +28091,7 @@ testbench cpu_timer_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -29947,6 +29970,7 @@ testbench cpu_timer_ce3_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -32635,6 +32659,7 @@ testbench cpu_timer_ce3s_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -38398,6 +38423,7 @@ testbench cpu_irq_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -39572,6 +39598,7 @@ testbench cpu_irq_ce3_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -43087,6 +43114,7 @@ testbench cpu_press_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -43894,6 +43922,7 @@ testbench cpu_wfi_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {
@@ -44684,6 +44713,7 @@ testbench cpu_wfi_ce3_tb {
         if (dut.debug_state != state)
             $print("state: got %d want %d", dut.debug_state, state)
         $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
     }
 
     fun expect_reg(r[4], value[32]) {

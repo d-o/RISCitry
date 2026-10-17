@@ -23,6 +23,9 @@
 // 2026-10-16). The whole sequencer is on that edge, not just ce: split across both edges, its
 // bookkeeping (moved, active) saw the decisions half a clock late and a clock step never ended.
 // iCE40 flip-flops can clock on either edge of the same global clock.
+// Sleep: with run on and the cpu waiting in a WFI nothing a pulse could do would change anything,
+// so the sequencer stops pulsing (the cpu-clock light freezes) until the timer or a button wakes it;
+// both run on every clock. Stepping still pulses, so a step through a WFI behaves as before.
 // After rst, ce pulses twice with cpu_rst held (the RAM's read register, which has no reset,
 // reads the first instruction on the second), so a short reset pulse is enough even when stopped.
 module machine #(
@@ -56,6 +59,7 @@ module machine #(
   ) {
 
   sig resetting
+  sig asleep                       // running, but the cpu waits for an interrupt: no pulses
   sig at_fetch
   sig stopped
   sig clk_n                        // clk inverted: the falling edge
@@ -94,6 +98,12 @@ module machine #(
     at_fetch = comp.debug_state == Cpu.State.FETCH
     if (fast || resetting || (active.q && !run)) tick.d = &phase.q[FAST_BITS-1:0]; else tick.d = &phase.q;
 
+    // Sleep: running (not stepping, not in reset) with the cpu waiting in a WFI, no pulses; the
+    // timer and the buttons run on every clock and end the wait. tick stays set, so the first
+    // clock after the wake pulses at once instead of waiting out the slow period.
+    asleep = run && !resetting && comp.sleeping
+    if (asleep) tick.d = 1
+
     stopped = !ce.q && !run && !resetting && !active.q
     was_stopped.d = stopped
 
@@ -104,7 +114,9 @@ module machine #(
     cpu_rst.d = resetting          // falls half a clock after the last reset edge
 
     ce.d = 0
-    if (run && fast && !resetting) {
+    if (asleep) {
+      ce.d = 0                     // (a pulse already decided has been given; none new while asleep)
+    } else if (run && fast && !resetting) {
       ce.d = 1                     // full speed
       moved.d = 1
     } else if (tick.q && !ce.q) {

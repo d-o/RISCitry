@@ -31,7 +31,8 @@ module cpu (
     input debug_sel[4],      // which register debug_reg shows
     output debug_pc[32],     // address of the instruction being fetched/executed
     output debug_reg[32],    // register x[debug_sel]
-    output debug_state[Cpu.STATE_BITS]   // control_unit's state; FETCH = between instructions
+    output debug_state[Cpu.STATE_BITS],  // control_unit's state; FETCH = between instructions
+    output sleeping          // waiting in a WFI: ce pulses change nothing until an interrupt wakes it
   ) {
 
   .clk(clk) {
@@ -171,6 +172,7 @@ module cpu (
 
     debug_pc = pc_unit.pc;
     debug_state = control.current_state;
+    sleeping = control.sleeping;
     reg_file.debug_sel = debug_sel;
     debug_reg = reg_file.debug_reg;
 
