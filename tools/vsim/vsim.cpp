@@ -52,6 +52,7 @@ struct Options {
     std::string record;        // video of the first record_for, through ffmpeg
     std::string record_for;
     int fps = 30;              // frames per second of board time (snapshot and record)
+    std::vector<std::pair<std::string, std::string>> at;   // --at TIME ACTION, in order given
 };
 
 // A duration: "2.5s" is seconds of board time, a plain number is clocks.
@@ -150,6 +151,59 @@ struct Accum {
 
 // ---------------------------------------------------------------------------------------------
 
+// Scripted inputs (--at TIME ACTION): button clicks, the Cu reset, DIP changes, applied at exact
+// clocks, in headless runs, recordings and the window alike (the mouse still works on top).
+struct Script {
+    struct Ev { uint64_t clock; int kind; unsigned arg; };   // kind: 0 buttons down mask, 1 up mask,
+    std::vector<Ev> evs;                                      // 2 dips = arg, 3 reset down, 4 reset up
+    size_t next = 0;
+    unsigned buttons = 0;      // io_button bits held by the script
+    bool reset = false;
+    unsigned dips;
+    explicit Script(unsigned d) : dips(d) {}
+    // ACTION: up, down, left, right, centre or reset (a click, held 100 ms of board time, or
+    // NAME/MS for MS ms), or dips=HEX.
+    bool add(uint64_t clock, const std::string& action, double real_hz) {
+        if (action.rfind("dips=", 0) == 0) {
+            evs.push_back({clock, 2, (unsigned)strtoul(action.c_str() + 5, nullptr, 16)});
+            return true;
+        }
+        std::string name = action;
+        double ms = 100;
+        size_t slash = action.find('/');
+        if (slash != std::string::npos) { name = action.substr(0, slash); ms = atof(action.c_str() + slash + 1); }
+        const uint64_t hold = (uint64_t)(ms / 1000 * real_hz);
+        static const char* names[5] = {"up", "centre", "down", "left", "right"};   // io_button order
+        for (int i = 0; i < 5; i++)
+            if (name == names[i]) {
+                evs.push_back({clock, 0, 1u << i});
+                evs.push_back({clock + hold, 1, 1u << i});
+                return true;
+            }
+        if (name == "reset") {
+            evs.push_back({clock, 3, 0});
+            evs.push_back({clock + hold, 4, 0});
+            return true;
+        }
+        return false;
+    }
+    void sort() {
+        std::stable_sort(evs.begin(), evs.end(), [](const Ev& a, const Ev& b) { return a.clock < b.clock; });
+    }
+    inline void run_to(uint64_t clock) {
+        while (next < evs.size() && evs[next].clock <= clock) {
+            const Ev& e = evs[next++];
+            switch (e.kind) {
+                case 0: buttons |= e.arg; break;
+                case 1: buttons &= ~e.arg; break;
+                case 2: dips = e.arg; break;
+                case 3: reset = true; break;
+                case 4: reset = false; break;
+            }
+        }
+    }
+};
+
 struct Rect { double x, y, w, h; };
 
 int main(int argc, char** argv) {
@@ -168,14 +222,17 @@ int main(int argc, char** argv) {
         else if (a == "--snapshot" && i + 2 < argc) { o.snapshot = argv[++i]; o.snapshot_at = argv[++i]; }
         else if (a == "--record" && i + 2 < argc) { o.record = argv[++i]; o.record_for = argv[++i]; }
         else if (a == "--fps" && i + 1 < argc) o.fps = atoi(argv[++i]);
+        else if (a == "--at" && i + 2 < argc) { o.at.push_back({argv[i + 1], argv[i + 2]}); i += 2; }
         else if (a == "--help") {
             printf("vsim [--scale PX_PER_MM] [--side-by-side] [--dips HEX] [--quiet] [--unthrottled]\n"
                    "     [--headless TIME] [--snapshot FILE TIME] [--record FILE TIME [--fps N]]\n"
-                   "     [--jar ALCHITRY_JAR]\n"
+                   "     [--at TIME ACTION]... [--jar ALCHITRY_JAR]\n"
                    "TIME: 2.5s = seconds of board time, a plain number = clocks.\n"
                    "--snapshot: any image type ImageMagick knows (.png, .bmp ...). --record: .gif\n"
                    "  (palette for the web) or anything ffmpeg writes (.mp4: H.264). Both run\n"
-                   "  without a window, as fast as they can, frames timed in board time, no echo.\n");
+                   "  without a window, as fast as they can, frames timed in board time, no echo.\n"
+                   "--at TIME ACTION (repeatable): ACTION up, down, left, right, centre or reset is a\n"
+                   "  click held 100 ms (NAME/MS for MS ms); dips=HEX sets the switches.\n");
             return 0;
         } else {
             fprintf(stderr, "vsim: unknown option %s (--help)\n", a.c_str());
@@ -198,6 +255,14 @@ int main(int argc, char** argv) {
         setenv("SDL_VIDEODRIVER", "offscreen", 0);
     }
 
+    Script script(o.dips);
+    for (auto& [t, action] : o.at)
+        if (!script.add(parse_time(t, REAL_HZ), action, REAL_HZ)) {
+            fprintf(stderr, "vsim: --at %s %s: unknown action\n", t.c_str(), action.c_str());
+            return 1;
+        }
+    script.sort();
+
     if (headless_clocks) {
         // No window: the given DIPs, a power-on reset, then CLOCKS clocks at full speed.
         Vbasic_riscve_16k16k* top = new Vbasic_riscve_16k16k;
@@ -208,7 +273,10 @@ int main(int argc, char** argv) {
         unsigned led4 = 0;
         auto t0 = std::chrono::steady_clock::now();
         for (uint64_t c = 0; c < headless_clocks; c++) {
-            top->rst_n = c >= 16;
+            script.run_to(c);
+            top->io_button = script.buttons;
+            top->io_dip = script.dips;
+            top->rst_n = c >= 16 && !script.reset;
             top->clk = 1;
             top->eval();
             top->clk = 0;
@@ -291,9 +359,11 @@ int main(int argc, char** argv) {
         return mx >= r.x * s && mx < (r.x + r.w) * s && my >= r.y * s && my < (r.y + r.h) * s;
     };
 
-    // Inputs
-    unsigned dips = o.dips;
+    // Inputs (the switches live in script.dips: the mouse and --at both change them)
+    unsigned& dips = script.dips;
     bool buttons[5] = {};
+    unsigned fresh = 0;        // buttons pressed this frame: a release in the same frame waits a frame
+    unsigned late_release = 0;
     bool reset_held = false;
     int mouse_button = -1;     // which push button the mouse is holding (-1 none, 5 = Cu reset)
 
@@ -333,6 +403,8 @@ int main(int argc, char** argv) {
 
     bool running = true;
     while (running) {
+        for (int i = 0; i < 5; i++) if (late_release >> i & 1) buttons[i] = false;   // held one frame
+        late_release = 0;
         SDL_Event e;
         while (SDL_PollEvent(&e)) {
             if (e.type == SDL_QUIT) running = false;
@@ -341,10 +413,12 @@ int main(int argc, char** argv) {
             else if (e.type == SDL_MOUSEBUTTONDOWN && e.button.button == SDL_BUTTON_LEFT) {
                 int mx = e.button.x, my = e.button.y;
                 for (int i = 0; i < 24; i++) if (inside(dip[i], mx, my)) dips ^= 1u << i;
-                for (int i = 0; i < 5; i++) if (inside(button[i], mx, my)) { buttons[i] = true; mouse_button = i; }
+                for (int i = 0; i < 5; i++)
+                    if (inside(button[i], mx, my)) { buttons[i] = true; mouse_button = i; fresh |= 1u << i; }
                 if (inside(cu_reset, mx, my)) { reset_held = true; mouse_button = 5; }
             } else if (e.type == SDL_MOUSEBUTTONUP && e.button.button == SDL_BUTTON_LEFT) {
                 if (mouse_button == 5) reset_held = false;
+                else if (mouse_button >= 0 && (fresh >> mouse_button & 1)) late_release |= 1u << mouse_button;
                 else if (mouse_button >= 0) buttons[mouse_button] = false;
                 mouse_button = -1;
             }
@@ -352,8 +426,7 @@ int main(int argc, char** argv) {
 
         unsigned btn = 0;
         for (int i = 0; i < 5; i++) btn |= (unsigned)buttons[i] << i;
-        top->io_button = btn;
-        top->io_dip = dips;
+        fresh = 0;
 
         // Run clocks for most of a 60 Hz frame, in chunks, never ahead of the real board; offline,
         // exactly one frame of board time.
@@ -367,7 +440,10 @@ int main(int argc, char** argv) {
             }
             const uint64_t chunk = offline ? std::min<uint64_t>(4096, frame_len - frame_clocks) : 4096;
             for (uint64_t n = 0; n < chunk; n++) {
-                top->rst_n = !(reset_held || power_on > 0);
+                script.run_to(clocks + n);
+                top->io_button = btn | script.buttons;
+                top->io_dip = dips;
+                top->rst_n = !(reset_held || script.reset || power_on > 0);
                 if (power_on > 0) power_on--;
                 top->clk = 1;
                 top->eval();
