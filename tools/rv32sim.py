@@ -32,8 +32,8 @@ The 7-segment display (display_chars.luc): self.display = owned << 32 | the four
 k = digit k from the left), after the current instruction. Any store writes its lanes and sets owned.
 
 Time: the machine timer's mtime counts the core's clocks (timer.luc), so the model counts them too,
-with the core's clocks per instruction (clocks(): 2, store 3, load 4, a trap 2). self.mtime is its
-value at the start of an instruction (FETCH). A load of the timer reads it as of MEM_ACCESS (start
+with the core's clocks per instruction (clocks(): 2, store 3, load 4, a trap 2). mtime_at(self.raw) is
+its value at the start of an instruction (FETCH). A load of the timer reads it as of MEM_ACCESS (start
 + 2); a store to mtime replaces that half on its last edge. The timer interrupt is checked at the
 start of each instruction: MIE && MTIE && mtime >= mtimecmp (both as of that instruction's FETCH:
 the core registers the comparison), and taken before the instruction does anything (mcause
@@ -48,6 +48,10 @@ enabled on one clock in R (ce; the _ce3 testbenches). Counting from the start of
 enabled edge), a store replaces a half on that edge (the other half then holds start + 3R - 1),
 MTIP in EXECUTE is the compare of start + 2R - 2 (registered one raw clock before EXECUTE's enabled
 edge), and the next instruction starts at start + nR. R = 1 gives the formulas above.
+tick_div D: the timer's prescaler ticks mtime every D raw clocks (TICK_DIV; it's also the timebase
+word). "mtime at raw clock r" above is then base + r // D, the prescaler counting from reset like
+the raw clocks; a store sets base so the written value holds from the clock after the write's
+edge (the prescaler isn't reset by it). D = 1: mtime is the raw clock count, as before.
 
 Buttons (buttons.luc): button_events = [(clock, levels)], levels applied before post-reset edge
 `clock` (edge 0 is the first instruction's FETCH edge). Modelled edge by edge like the hardware:
@@ -132,7 +136,8 @@ class Cpu:
         self.csr = {a: 0 for a in CSR_WRITABLE}
         self.rate = timer_rate        # raw clocks (timer ticks) per cpu clock
         self.tick_div = tick_div      # the timer's timebase word (clocks per tick; 1 in the tests)
-        self.mtime = 0                # at the start of the current instruction
+        self.raw = 0                  # raw clocks (ce or not) before the current instruction
+        self.mtime_base = 0           # mtime at raw clock r = mtime_base + r // tick_div
         self.mtimecmp = (1 << 64) - 1
         self.timer_write = None       # (word index, value): a store to mtime in this instruction
         self.cycle = 0                # post-reset edges before the current instruction
@@ -203,7 +208,7 @@ class Cpu:
                 return self.tick_div
             if index > 4:
                 raise ValueError(f"pc={self.pc:#x}: load from the timer at {addr:#x}: nothing there")
-            value = [self.mtime + 3 * self.rate - 1, self.mtimecmp][index >> 1]   # as of MEM_ACCESS
+            value = [self.mtime_at(self.raw + 3 * self.rate - 1), self.mtimecmp][index >> 1]   # as of MEM_ACCESS
             return (value >> (32 * (index & 1))) & MASK
         if word_addr not in self.mem:
             raise ValueError(f"pc={self.pc:#x}: load from {word_addr:#x}: neither program nor stored")
@@ -278,7 +283,11 @@ class Cpu:
     def mtip(self, stall=0):
         """mip.MTIP as the core sees it during this instruction's EXECUTE (registered one raw
         clock before EXECUTE's enabled edge), or its stall-th extra EXECUTE clock (a WFI)."""
-        return self.mtime + (2 + stall) * self.rate - 2 >= self.mtimecmp
+        return self.mtime_at(self.raw + (2 + stall) * self.rate - 2) >= self.mtimecmp
+
+    def mtime_at(self, raw):
+        """mtime at raw clock `raw` (counting from the first instruction's start)."""
+        return self.mtime_base + raw // self.tick_div
 
     def read_csr(self, csr):
         if csr == 0x344:
@@ -306,7 +315,7 @@ class Cpu:
         self.trapped = None
         self.timer_write = None
         self.btn_clear = None
-        start = self.mtime
+        start = self.raw
         mstatus, mie = self.csr[0x300], self.csr[0x304]
         self.stall = 0                       # extra EXECUTE clocks a WFI spent waiting
         try:
@@ -337,9 +346,10 @@ class Cpu:
             index, value = self.timer_write
             now = start + 3 * self.rate - 1
             half = 32 * index
-            self.mtime = (now & ~(MASK << half)) | (value << half)
-        else:
-            self.mtime = start + (clocks(w, self.trapped) + self.stall) * self.rate
+            written = (self.mtime_at(now) & ~(MASK << half)) | (value << half)
+            # it holds from the next raw clock (the write overrides that edge's tick)
+            self.mtime_base = written - (now + 1) // self.tick_div
+        self.raw = start + (clocks(w, self.trapped) + self.stall) * self.rate
         n = clocks(w, self.trapped) + self.stall
         self.clocks_taken = n
         if self.btn_clear is not None:       # cleared on the store's last edge

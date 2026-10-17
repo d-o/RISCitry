@@ -46,7 +46,10 @@ module timer #(
   always {
     counting = ce || !STOPTIME
     if (counting) {
-      if (prescale.q == TICK_DIV - 1) {
+      // Not `prescale.q == TICK_DIV - 1`: Lucid sizes the arithmetic from the default
+      // TICK_DIV (1), a 2-bit cast in the Verilog, so the board's 25 - 1 became 0 and mtime
+      // ticked every clock (found by vsim, 2026-10-17). No arithmetic on the parameter here.
+      if (prescale.q + 1 == TICK_DIV) {
         prescale.d = 0
         mtime.d = mtime.q + 1
       } else {

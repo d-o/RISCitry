@@ -17,11 +17,14 @@ io_clk = clk with the testbenches' UART timing. Then:
     and the final register file; one that never halts: its first programs.PRINT_BYTES bytes.
 A program that reads the switch register runs once per setting in programs.SWITCHES.
 
-Usage: python3 tools/xsim_computer.py [VERILOG_DIR] [--only CASE,CASE...] [--ce N]
+Usage: python3 tools/xsim_computer.py [VERILOG_DIR] [--only CASE,CASE...] [--ce N [--tick-div D]]
   CASE is a testbench case name as gen_cpu_tb names them, e.g. timer, board_sw6 (a quick pass).
   --ce N: enable the computer on one clock in N (as the _ce3 testbenches do): the trace must be
   the normal one stretched, with the timer (free-running) ticking N times per cpu clock. Lockstep
   programs only.
+  --tick-div D: build the timer with TICK_DIV D (a tick every D raw clocks; any N). The tests otherwise only ever use TICK_DIV 1, and
+  Lucid's generated Verilog once sized TICK_DIV - 1 from that default, so the board's 25 ticked
+  every clock (2026-10-17, found by vsim). This exercises the prescaler and the timebase word.
   Default build/source, after `alchitry build` (it refuses stale Verilog). Another directory
   (e.g. a mutated copy, to check this script can fail) is used as is.
 """
@@ -42,6 +45,11 @@ CE_EVERY = 1
 if "--ce" in ARGS:
     i = ARGS.index("--ce")
     CE_EVERY = int(ARGS[i + 1])
+    del ARGS[i:i + 2]
+TICK_DIV = 1
+if "--tick-div" in ARGS:
+    i = ARGS.index("--tick-div")
+    TICK_DIV = int(ARGS[i + 1])
     del ARGS[i:i + 2]
 if "--only" in ARGS:
     i = ARGS.index("--only")
@@ -69,7 +77,7 @@ module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
   always @(posedge clk) cycle <= cycle + 1;
   assign cycle_out = cycle;
   computer #(.PROGRAM_ID(PROGRAM_ID), .SIM_RAM(0), .UART_CLK_FREQ({gen_cpu_tb.TB_UART_CLK_FREQ}),
-             .UART_BAUD({gen_cpu_tb.TB_UART_BAUD})) dut (
+             .UART_BAUD({gen_cpu_tb.TB_UART_BAUD}), .TIMER_TICK_DIV(TICKDIV)) dut (
     .clk(clk), .rst(cycle < 2), .io_clk(clk), .io_rst(cycle < 2), .switches(SWITCHES[7:0]),
     .buttons(BUTTONS), .ce(CE_EXPR),
     .debug_sel(cycle[3:0]),
@@ -100,7 +108,8 @@ def run(pid, sw, clocks, name=""):
         harness = Path(tmp) / "xsim_top.v"
         # in reset (cycles 0-1) ce = 1, as in the testbenches: the RAM reads instruction 0 then
         ce = "1'b1" if CE_EVERY == 1 else f"(cycle < 2) || ((cycle - 2) % {CE_EVERY} == {CE_EVERY - 1})"
-        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})").replace("CE_EXPR", ce))
+        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})").replace("CE_EXPR", ce)
+                           .replace("TICKDIV", str(TICK_DIV)))
         vcd = Path(tmp) / "out.vcd"
         files = " ".join(str(p) for p in sorted(VERILOG.glob("*.v"))) + f" {harness}"
         r = subprocess.run([YOSYS, "-q", "-p",
@@ -158,7 +167,7 @@ def parse_vcd(text):
 def expected_trace(name, words, sw):
     """[(state, pc or None, display or None)] per clock from the release of reset (pc and display
     at each instruction's last clock), and the model at the end."""
-    model = gen_cpu_tb.new_model(name, words, sw, timer_rate=CE_EVERY)
+    model = gen_cpu_tb.new_model(name, words, sw, timer_rate=CE_EVERY, tick_div=TICK_DIV)
     trace = [("FETCH", 0, 0)]
     steps, halted_for = 0, 0
     while True:

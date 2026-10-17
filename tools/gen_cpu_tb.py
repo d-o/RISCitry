@@ -66,9 +66,10 @@ def writes_rd(word, trapped=False):
     return (word >> 7) & 31 if word & 0x7F in WRITES_RD or zicsr else None
 
 
-def new_model(name, words, switches=0, timer_rate=1):
+def new_model(name, words, switches=0, timer_rate=1, tick_div=1):
     return rv32sim.Cpu(words, traps_ok=name in programs.EXPECTS_TRAPS, switches=switches,
-                       button_events=programs.BUTTON_EVENTS.get(name, ()), timer_rate=timer_rate)
+                       button_events=programs.BUTTON_EVENTS.get(name, ()), timer_rate=timer_rate,
+                       tick_div=tick_div)
 
 
 def button_lines(name, clock, indent):
