@@ -21,6 +21,7 @@
 
 #include <SDL.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <cstdio>
@@ -44,11 +45,20 @@ struct Options {
     bool throttle = true;      // never run faster than the real board
     bool echo = true;          // serial bytes to stdout
     int time_scale = 1;        // the design was built with its timing this many times shorter
-    uint64_t headless = 0;     // run this many clocks without a window, then print the outputs
+    std::string headless;      // run this long without a window, then print the outputs
     unsigned dips = 0;         // starting DIP switches, io_dip[23:0]
-    std::string snapshot;      // save the window to this .bmp after snapshot_clocks, then quit
-    uint64_t snapshot_clocks = 0;
+    std::string snapshot;      // save the window to this image after snapshot_at, then quit
+    std::string snapshot_at;
+    std::string record;        // video of the first record_for, through ffmpeg
+    std::string record_for;
+    int fps = 30;              // frames per second of board time (snapshot and record)
 };
+
+// A duration: "2.5s" is seconds of board time, a plain number is clocks.
+static uint64_t parse_time(const std::string& t, double real_hz) {
+    if (!t.empty() && t.back() == 's') return (uint64_t)(atof(t.c_str()) * real_hz);
+    return strtoull(t.c_str(), nullptr, 0);
+}
 
 // ---------------------------------------------------------------------------------------------
 // Artwork: an SVG from the jar → RGBA pixels → SDL texture.
@@ -153,23 +163,42 @@ int main(int argc, char** argv) {
         else if (a == "--side-by-side") o.side_by_side = true;
         else if (a == "--quiet") o.echo = false;
         else if (a == "--time-scale" && i + 1 < argc) o.time_scale = atoi(argv[++i]);
-        else if (a == "--headless" && i + 1 < argc) o.headless = strtoull(argv[++i], nullptr, 0);
+        else if (a == "--headless" && i + 1 < argc) o.headless = argv[++i];
         else if (a == "--dips" && i + 1 < argc) o.dips = (unsigned)strtoul(argv[++i], nullptr, 16);
-        else if (a == "--snapshot" && i + 2 < argc) {
-            o.snapshot = argv[++i];
-            o.snapshot_clocks = strtoull(argv[++i], nullptr, 0);
-        }
+        else if (a == "--snapshot" && i + 2 < argc) { o.snapshot = argv[++i]; o.snapshot_at = argv[++i]; }
+        else if (a == "--record" && i + 2 < argc) { o.record = argv[++i]; o.record_for = argv[++i]; }
+        else if (a == "--fps" && i + 1 < argc) o.fps = atoi(argv[++i]);
         else if (a == "--help") {
-            printf("vsim [--scale PX_PER_MM] [--side-by-side] [--jar ALCHITRY_JAR] [--unthrottled] [--quiet]\n"
-                   "     [--dips HEX] [--headless CLOCKS] [--snapshot FILE.bmp CLOCKS]\n");
+            printf("vsim [--scale PX_PER_MM] [--side-by-side] [--dips HEX] [--quiet] [--unthrottled]\n"
+                   "     [--headless TIME] [--snapshot FILE TIME] [--record FILE TIME [--fps N]]\n"
+                   "     [--jar ALCHITRY_JAR]\n"
+                   "TIME: 2.5s = seconds of board time, a plain number = clocks.\n"
+                   "--snapshot: any image type ImageMagick knows (.png, .bmp ...). --record: .gif\n"
+                   "  (palette for the web) or anything ffmpeg writes (.mp4: H.264). Both run\n"
+                   "  without a window, as fast as they can, frames timed in board time, no echo.\n");
             return 0;
+        } else {
+            fprintf(stderr, "vsim: unknown option %s (--help)\n", a.c_str());
+            return 1;
         }
     }
 
     // Clocks per second of board time: 25 MHz, or less when the design's timing is scaled down
     const double REAL_HZ = SYS_HZ / (o.time_scale > 0 ? o.time_scale : 1);
+    const uint64_t headless_clocks = o.headless.empty() ? 0 : parse_time(o.headless, REAL_HZ);
+    // Offline: a snapshot or a recording. No window, no throttle, no echo, and every frame is
+    // exactly 1/fps of board time, so the pictures don't depend on how fast this machine is.
+    const bool offline = !o.snapshot.empty() || !o.record.empty();
+    const uint64_t snapshot_clocks = o.snapshot.empty() ? 0 : parse_time(o.snapshot_at, REAL_HZ);
+    const uint64_t record_clocks = o.record.empty() ? 0 : parse_time(o.record_for, REAL_HZ);
+    const uint64_t frame_len = (uint64_t)(REAL_HZ / (o.fps > 0 ? o.fps : 30));
+    if (offline) {
+        o.throttle = false;
+        o.echo = false;
+        setenv("SDL_VIDEODRIVER", "offscreen", 0);
+    }
 
-    if (o.headless) {
+    if (headless_clocks) {
         // No window: the given DIPs, a power-on reset, then CLOCKS clocks at full speed.
         Vbasic_riscve_16k16k* top = new Vbasic_riscve_16k16k;
         top->io_button = 0;
@@ -178,7 +207,7 @@ int main(int argc, char** argv) {
         uint64_t cpu_clocks = 0;   // Cu LED 4 toggles once per enabled cpu clock
         unsigned led4 = 0;
         auto t0 = std::chrono::steady_clock::now();
-        for (uint64_t c = 0; c < o.headless; c++) {
+        for (uint64_t c = 0; c < headless_clocks; c++) {
             top->rst_n = c >= 16;
             top->clk = 1;
             top->eval();
@@ -192,8 +221,8 @@ int main(int argc, char** argv) {
         }
         double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         fprintf(stderr, "\nvsim: %llu clocks (%.3f s of board time) in %.2f s: %.2f MHz, %.0f%% of real time\n",
-                (unsigned long long)o.headless, o.headless / REAL_HZ, dt, o.headless / dt / 1e6,
-                100 * o.headless / dt / REAL_HZ);
+                (unsigned long long)headless_clocks, headless_clocks / REAL_HZ, dt, headless_clocks / dt / 1e6,
+                100 * headless_clocks / dt / REAL_HZ);
         fprintf(stderr, "vsim: %llu cpu clocks\n", (unsigned long long)cpu_clocks);
         fprintf(stderr, "vsim: led %02x  io_led %06x  io_select %x  io_segment %02x\n",
                 (unsigned)top->led, (unsigned)top->io_led, (unsigned)top->io_select, (unsigned)top->io_segment);
@@ -203,7 +232,7 @@ int main(int argc, char** argv) {
     }
 
     std::string pty_path;
-    int pty = open_pty(pty_path);
+    int pty = offline ? -1 : open_pty(pty_path);
     if (pty >= 0) fprintf(stderr, "vsim: serial on %s\n", pty_path.c_str());
 
     if (SDL_Init(SDL_INIT_VIDEO)) { fprintf(stderr, "SDL: %s\n", SDL_GetError()); return 1; }
@@ -286,6 +315,22 @@ int main(int argc, char** argv) {
     uint64_t title_clocks = 0;
     int power_on = 16;         // hold rst_n low for the first clocks, like the reset button
 
+    const int win_w = boards_w * bw, win_h = bh;
+    std::vector<unsigned char> frame((size_t)win_w * win_h * 4);
+    FILE* video = nullptr;
+    if (!o.record.empty()) {
+        std::string ext = o.record.substr(o.record.find_last_of('.') + 1);
+        std::string enc = ext == "gif"
+            ? "-vf 'split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=none'"
+            : "-vf 'scale=trunc(iw/2)*2:trunc(ih/2)*2' -c:v libx264 -pix_fmt yuv420p -crf 20";
+        char cmd[1024];
+        snprintf(cmd, sizeof cmd,
+                 "ffmpeg -loglevel error -y -f rawvideo -pixel_format bgra -video_size %dx%d "
+                 "-framerate %d -i - %s '%s'", win_w, win_h, o.fps, enc.c_str(), o.record.c_str());
+        video = popen(cmd, "w");
+        if (!video) { perror("ffmpeg"); return 1; }
+    }
+
     bool running = true;
     while (running) {
         SDL_Event e;
@@ -310,15 +355,18 @@ int main(int argc, char** argv) {
         top->io_button = btn;
         top->io_dip = dips;
 
-        // Run clocks for most of a 60 Hz frame, in chunks, never ahead of the real board.
+        // Run clocks for most of a 60 Hz frame, in chunks, never ahead of the real board; offline,
+        // exactly one frame of board time.
         auto frame_start = std::chrono::steady_clock::now();
         const auto budget = std::chrono::microseconds(14000);
-        while (std::chrono::steady_clock::now() - frame_start < budget) {
+        while (offline ? frame_clocks < frame_len
+                       : std::chrono::steady_clock::now() - frame_start < budget) {
             if (o.throttle) {
                 double real = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
                 if (clocks > real * REAL_HZ) break;
             }
-            for (int n = 0; n < 4096; n++) {
+            const uint64_t chunk = offline ? std::min<uint64_t>(4096, frame_len - frame_clocks) : 4096;
+            for (uint64_t n = 0; n < chunk; n++) {
                 top->rst_n = !(reset_held || power_on > 0);
                 if (power_on > 0) power_on--;
                 top->clk = 1;
@@ -337,8 +385,8 @@ int main(int argc, char** argv) {
                     if (pty >= 0 && write(pty, &c, 1) < 0) { /* no room: dropped */ }
                 }
             }
-            clocks += 4096;
-            frame_clocks += 4096;
+            clocks += chunk;
+            frame_clocks += chunk;
         }
 
         if (frame_clocks) {
@@ -407,13 +455,20 @@ int main(int argc, char** argv) {
 
         for (int i = 0; i < 5; i++) if (buttons[i]) draw_pressed(button[i]);
 
-        if (!o.snapshot.empty() && clocks >= o.snapshot_clocks) {
-            SDL_Surface* shot = SDL_CreateRGBSurfaceWithFormat(0, boards_w * bw, bh, 32, SDL_PIXELFORMAT_ARGB8888);
-            SDL_RenderReadPixels(ren, nullptr, SDL_PIXELFORMAT_ARGB8888, shot->pixels, shot->pitch);
-            SDL_SaveBMP(shot, o.snapshot.c_str());
-            SDL_FreeSurface(shot);
-            fprintf(stderr, "vsim: saved %s at %llu clocks\n", o.snapshot.c_str(), (unsigned long long)clocks);
-            running = false;
+        if (offline) SDL_RenderReadPixels(ren, nullptr, SDL_PIXELFORMAT_ARGB8888, frame.data(), win_w * 4);
+        if (video) {
+            fwrite(frame.data(), 1, frame.size(), video);
+            if (clocks >= record_clocks) running = false;
+        }
+        if (!o.snapshot.empty() && clocks >= snapshot_clocks) {
+            // BGRA bytes (ARGB8888 little-endian) through ImageMagick, so any image type works
+            char cmd[1024];
+            snprintf(cmd, sizeof cmd, "convert -size %dx%d -depth 8 BGRA:- '%s'", win_w, win_h, o.snapshot.c_str());
+            FILE* p = popen(cmd, "w");
+            if (p) { fwrite(frame.data(), 1, frame.size(), p); pclose(p); }
+            fprintf(stderr, "vsim: saved %s at %.3f s of board time\n", o.snapshot.c_str(), clocks / REAL_HZ);
+            o.snapshot.clear();
+            if (!video) running = false;
         }
         SDL_RenderPresent(ren);
 
@@ -431,6 +486,11 @@ int main(int argc, char** argv) {
         }
     }
 
+    if (video) {
+        pclose(video);
+        fprintf(stderr, "vsim: recorded %s, %.3f s of board time at %d fps\n", o.record.c_str(),
+                clocks / REAL_HZ, o.fps);
+    }
     top->final();
     delete top;
     SDL_Quit();

@@ -1,6 +1,8 @@
 #!/bin/bash
 # Build (if needed) and start vsim: the board's Verilog under Verilator with the Io front panel.
-#   tools/vsim/vsim.sh [vsim options]      e.g. --scale 14, --unthrottled, --quiet
+#   tools/vsim/vsim.sh [vsim options]      e.g. --scale 14, --dips 400501, --record demo.gif 5s
+# The project is the checkout or worktree containing the current directory (so a symlink on PATH
+# works from any of them), else the one this script is in. It uses that project's own harness.
 # Time runs 5x faster per clock than on the board (the board top's SLOW_BITS 18, TICK_DIV 5,
 # DEBOUNCE_BITS 17 instead of 20, 25, 19), so at Verilator's ~5 MHz the demos, the run-slow
 # clock and the timer feel like the real board. VSIM_REAL=1 uses the hardware values (a fifth
@@ -9,8 +11,13 @@
 # ImageMagick (convert) and unzip; the board artwork comes from the installed Alchitry Labs jar.
 set -euo pipefail
 
-HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT="$(cd "$HERE/../.." && pwd)"
+SELF="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")"
+ROOT="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+if [ -z "$ROOT" ] || [ ! -f "$ROOT/basic-riscve-16k16k.alp" ]; then
+    ROOT="$(cd "$SELF/../.." && pwd)"
+fi
+HERE="$ROOT/tools/vsim"
+[ -f "$HERE/vsim.cpp" ] || HERE="$SELF"      # a checkout from before vsim: use this harness
 SRC="$ROOT/build/source"
 if [ "${VSIM_REAL:-0}" = 1 ]; then
     OBJ="$ROOT/build/vsim-real"; TIME_SCALE=1; PARAMS=""
