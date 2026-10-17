@@ -376,7 +376,8 @@ SCROLL_TEXT = "    HELLO FROM AN RV32E SOFT CORE ON THE ALCHITRY CU    "   # 4 s
 #   0  Larson scanner on x1 (at its original addresses: its turnaround jal links 0x80 = LED 7)
 #   1  hello: a banner on the serial port, then a Larson sweep on x1 and a numbered line per sweep
 #   2  buttons: a banner, then Larson on x1; each press of a direction button interrupts and the
-#      handler prints "buttons N" (N = the pending mask in hex: 1 up, 2 down, 4 left, 8 right)
+#      handler prints "buttons N" (N = the pending mask in hex: 1 up, 2 down, 4 left, 8 right),
+#      plus " lost M" when presses of buttons M came while they were still pending (overrun)
 #   3  the timing ladder, rung 1: Larson with a delay loop between steps
 #   4  rung 2: Larson stepping when a polled mtime passes a deadline
 #   5  rung 3: Larson stepped by the timer interrupt (x13 = direction); the main loop idles
@@ -435,13 +436,21 @@ BOARD = [
     *[("srli", 1, 1, 1)] * 7,
     ("jal", 0, "bsweep"),
     "button_handler:",                         # main only uses x1, so no registers are saved
-    ("lw", 12, 11, 0),                         # pending presses
-    ("sw", 12, 11, 0),                         # clear them
+    ("lw", 12, 11, 0),                         # pending presses [3:0], overrun [7:4]
+    ("sw", 12, 11, 0),                         # clear exactly those (a press on this edge wins)
     ("addi", 3, 0, "buttons_msg"),
     ("jal", 6, "puts"),
+    ("srli", 13, 12, 4),
+    ("andi", 13, 13, 0xF),                     # x13 = buttons pressed again while still pending
     ("andi", 12, 12, 0xF),
     ("lbu", 10, 12, "digits"),
     ("jal", 5, "putc"),
+    ("beq", 13, 0, "button_done"),
+    ("addi", 3, 0, "lost_msg"),
+    ("jal", 6, "puts"),
+    ("lbu", 10, 13, "digits"),
+    ("jal", 5, "putc"),
+    "button_done:",
     ("addi", 3, 0, "crlf"),
     ("jal", 6, "puts"),
     ("mret",),
@@ -606,6 +615,8 @@ BOARD = [
     (".string", "\r\nPress a direction button\r\n"),
     "buttons_msg:",
     (".string", "buttons "),
+    "lost_msg:",
+    (".string", " lost "),
     "crlf:",
     (".string", "\r\n"),
     "digits:",
@@ -886,7 +897,7 @@ def forever_steps(name, sw):
 
 
 PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered lines
-               ("BOARD", 2): 50}       # the banner and two presses
+               ("BOARD", 2): 57}       # the banner and two interrupts (the first with a lost press)
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
@@ -897,7 +908,11 @@ BUTTON_EVENTS = {
     "IRQ": [(30, 0x1), (50, 0x0), (150, 0xC), (170, 0x0), (300, 0x2)],
     "PRESS": [(20, 0x1), (25, 0x0), (28, 0x1), (33, 0x0),      # (A) set wins on the clear edge
               (108, 0x1), (113, 0x0), (115, 0x1), (120, 0x0)],  # (B) merged before the clear
-    "BOARD": [(2000, 0x4), (2100, 0x0), (3000, 0x9), (3100, 0x0)],   # only menu entry 2 listens
+    # only menu entry 2 listens. Two presses of left while the banner is still printing (interrupts
+    # not yet on, in the model and on the real UART alike): merged, with the overrun bit set; the
+    # handler prints "buttons 4 lost 4". Then up + right together, which in the printing test
+    # lands inside that first handler's output and in the model after it: "buttons 9" either way.
+    "BOARD": [(100, 0x4), (110, 0x0), (140, 0x4), (150, 0x0), (3000, 0x9), (3100, 0x0)],
     "WFI": [(240, 0x1), (260, 0x0)],          # wakes (c), whose WFI starts at clock 192
 }
 
