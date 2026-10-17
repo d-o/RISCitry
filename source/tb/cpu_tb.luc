@@ -41151,86 +41151,6 @@ testbench cpu_irq_ce3_tb {
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
         $expect_pc(32h00000048)
-        $expect_reg(4d9, 32h00000000)
-        // 0x0048: andi x9, x9, 15
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h0000004C)
-        $expect_reg(4d9, 32h00000000)
-        // 0x004c: beq x9, x0, wait_second
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000044)
-        // 0x0044: lw x9, 0(x2)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.MEM_ACCESS)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.MEM_ACCESS)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.MEM_ACCESS)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.WRITEBACK)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.WRITEBACK)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.WRITEBACK)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000048)
         $expect_reg(4d9, 32h00000C0C)
         // 0x0048: andi x9, x9, 15
         ce = 0
@@ -41325,7 +41245,6 @@ testbench cpu_irq_ce3_tb {
         ce = 1
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
-        buttons = 4h0   // button event
         ce = 0
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
@@ -41409,6 +41328,7 @@ testbench cpu_irq_ce3_tb {
         ce = 1
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
+        buttons = 4h0   // button event
         ce = 0
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
@@ -42657,7 +42577,6 @@ testbench cpu_irq_ce3_tb {
         ce = 1
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
-        buttons = 4h2   // button event
         ce = 0
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
@@ -42690,6 +42609,69 @@ testbench cpu_irq_ce3_tb {
         $expect_state(Cpu.State.FETCH)
         $expect_pc(32h00000058)
         // 0x0058: addi x5, x5, 1
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        ce = 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        ce = 1
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000005C)
+        $expect_reg(4d5, 32h00000018)
+        // 0x005c: bne x14, x6, irq_spin
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        ce = 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        ce = 1
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        // 0x0058: addi x5, x5, 1
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        ce = 1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        buttons = 4h2   // button event
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        ce = 0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        ce = 1
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000005C)
+        $expect_reg(4d5, 32h00000019)
+        // 0x005c: bne x14, x6, irq_spin
         ce = 0
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
@@ -42750,7 +42732,7 @@ testbench cpu_irq_ce3_tb {
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
         $expect_pc(32h00000074)
-        $expect_reg(4d12, 32h00000058)
+        $expect_reg(4d12, 32h0000005C)
         // 0x0074: addi x14, x14, 1
         ce = 0
         $tick_clock()
@@ -42922,28 +42904,7 @@ testbench cpu_irq_ce3_tb {
         ce = 1
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
-        $expect_pc(32h00000058)
-        // 0x0058: addi x5, x5, 1
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.FETCH)
         $expect_pc(32h0000005C)
-        $expect_reg(4d5, 32h00000018)
         // 0x005c: bne x14, x6, irq_spin
         ce = 0
         $tick_clock()
@@ -43072,14 +43033,14 @@ testbench cpu_irq_ce3_tb {
         $expect_reg(4d2, 32h80003000)
         $expect_reg(4d3, 32h80002000)
         $expect_reg(4d4, 32h00000000)
-        $expect_reg(4d5, 32h00000018)
+        $expect_reg(4d5, 32h00000019)
         $expect_reg(4d6, 32h00000004)
         $expect_reg(4d7, 32h00000000)
         $expect_reg(4d8, 32h00000080)
         $expect_reg(4d9, 32h00000200)
         $expect_reg(4d10, 32h00000202)
         $expect_reg(4d11, 32h0000000B)
-        $expect_reg(4d12, 32h00000058)
+        $expect_reg(4d12, 32h0000005C)
         $expect_reg(4d13, 32h8000000B)
         $expect_reg(4d14, 32h00000004)
         $expect_reg(4d15, 32h00000007)
@@ -47038,24 +46999,6 @@ testbench cpu_wfi_ce3_tb {
         $expect_state(Cpu.State.EXECUTE)
         ce = 1
         $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 1
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 0
-        $tick_clock()
-        $expect_state(Cpu.State.EXECUTE)
-        ce = 1
-        $tick_clock()
         $expect_state(Cpu.State.FETCH)
         $expect_pc(32h00000080)
         // 0x0080: csrrs x13, 0x342
@@ -47221,7 +47164,6 @@ testbench cpu_wfi_ce3_tb {
         ce = 1
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
-        buttons = 4h0   // button event
         ce = 0
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
@@ -47243,6 +47185,7 @@ testbench cpu_wfi_ce3_tb {
         ce = 1
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
+        buttons = 4h0   // button event
         ce = 0
         $tick_clock()
         $expect_state(Cpu.State.EXECUTE)
@@ -47321,7 +47264,7 @@ testbench cpu_wfi_ce3_tb {
         $tick_clock()
         $expect_state(Cpu.State.FETCH)
         $expect_pc(32h00000078)
-        $expect_reg(4d9, 32h00000326)
+        $expect_reg(4d9, 32h00000320)
         // 0x0078: csrrci x0, 0x300
         ce = 0
         $tick_clock()
@@ -47395,7 +47338,7 @@ testbench cpu_wfi_ce3_tb {
         $expect_reg(4d6, 32h00000119)
         $expect_reg(4d7, 32h00000080)
         $expect_reg(4d8, 32h00000800)
-        $expect_reg(4d9, 32h00000326)
+        $expect_reg(4d9, 32h00000320)
         $expect_reg(4d10, 32h000000A4)
         $expect_reg(4d11, 32h80003000)
         $expect_reg(4d12, 32h00000074)

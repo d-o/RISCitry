@@ -60,6 +60,9 @@ it writes as 1 (a press on that same edge wins); a press while its bit is still 
 button's overrun bit (bits 7:4, cleared the same way). MEIP = any pending, seen in EXECUTE as of the
 FETCH edge; a load reads pending (and the synchronised levels) as of MEM_ACCESS. External
 interrupts beat the timer (cause 0x8000000B vs 0x80000007).
+The buttons run on every raw clock, ce or not (always on, 2026-10-17): with timer_rate R an event at
+clock c applies before raw edge c * R, and the cpu sees the device as it was one raw clock before
+its own (enabled) edge, so a press between two cpu clocks is caught. R = 1 is the old model.
 """
 import memmap
 
@@ -197,7 +200,7 @@ class Cpu:
         if self._region(addr) == "display":
             return ((self.display & MASK) >> shift) & ((1 << (8 * size)) - 1)
         if self._region(addr) == "buttons":
-            self._buttons_to(self.cycle + 1)                        # as of MEM_ACCESS
+            self._buttons_to(self._sampled_by(self.cycle + 2))      # as of MEM_ACCESS
             value = (self.btn["sync1"] << 8) | (self.btn["overrun"] << 4) | self.btn["pending"]
             return (value >> shift) & ((1 << (8 * size)) - 1)
         if self._region(addr) == "timer":
@@ -250,16 +253,24 @@ class Cpu:
         old = self.mem.get(word_addr, 0)   # a partial store into an unwritten word: other bytes are 0
         self.mem[word_addr] = (old & ~mask) | ((value << shift) & mask)
 
+    def _sampled_by(self, m):
+        """The last raw edge whose result cpu edge m (m cpu clocks after the first instruction's
+        FETCH edge counts as 0) sees: the buttons run on every raw clock, the cpu on every
+        rate-th, so the device state at the clock before edge m's raw clock. rate 1: m - 1."""
+        return m * self.rate + self.rate - 2
+
     def _level(self, edge):
-        """The button levels the testbench applies before post-reset edge `edge`."""
+        """The button levels the testbench applies before raw post-reset edge `edge` (an event at
+        clock c is before raw edge c * rate: the buttons are on the free-running clock)."""
         value = 0
         for clock, levels in self.button_events:
-            if clock <= edge:
+            if clock * self.rate <= edge:
                 value = levels
         return value
 
     def _buttons_to(self, edge, clear_edge=None, mask=0):
-        """Advance the buttons device through post-reset edge `edge` (inclusive)."""
+        """Advance the buttons device through raw post-reset edge `edge` (inclusive). It runs on
+        every clock (buttons.luc), not just the cpu's."""
         b = self.btn
         while b["edge"] <= edge:
             e = b["edge"]
@@ -277,7 +288,7 @@ class Cpu:
     def meip(self, stall=0):
         """mip.MEIP during this instruction's EXECUTE (pending as of its FETCH edge), or during
         its stall-th extra EXECUTE clock while a WFI waits."""
-        self._buttons_to(self.cycle + stall)
+        self._buttons_to(self._sampled_by(self.cycle + 1 + stall))
         return self.btn["pending"] != 0
 
     def mtip(self, stall=0):
@@ -353,7 +364,8 @@ class Cpu:
         n = clocks(w, self.trapped) + self.stall
         self.clocks_taken = n
         if self.btn_clear is not None:       # cleared on the store's last edge
-            self._buttons_to(self.cycle + n - 1, clear_edge=self.cycle + 2, mask=self.btn_clear)
+            last = lambda m: m * self.rate + self.rate - 1       # the raw edge of cpu edge m
+            self._buttons_to(last(self.cycle + n - 1), clear_edge=last(self.cycle + 2), mask=self.btn_clear)
         self.cycle += n
 
     def _execute(self, w):

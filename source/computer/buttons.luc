@@ -5,13 +5,17 @@
 // A press while that button's bit is still pending (after this edge's clear) can't be recorded:
 // it merges with the first. It sets the button's overrun bit instead, so software knows it missed
 // presses (as a UART reports receive overrun). See notes 2026-10-16 for what would keep them.
+// Always on (since 2026-10-17): the synchroniser and the pending/overrun bits run on every clock,
+// ce or not, so a press while the cpu is slow, stopped or asleep (WFI) is still caught. Only the
+// software side is on the cpu clock: a store's clear takes effect on an enabled clock (the store
+// strobe stays high on the clocks before it), and reads are captured by computer.luc on ce.
 // Read: pending [3:0], overrun [7:4], the synchronised levels [11:8].
 // Write (byte lane 0): 1s in [3:0] clear pending, 1s in [7:4] clear overrun.
 // Timing from a level change before edge c: sync0 at c, sync1 at c+1, pending at c+2.
 module buttons (
     input clk,
     input rst,
-    input ce,                // clock enable: on a clock with ce = 0 nothing here changes
+    input ce,                // the cpu's clock enable: only a store's clear waits for it
     input level[4],          // debounced buttons, active high
     input clear,             // a store to the device this clock
     input clear_mask[8],     // ... its bits [7:0]: pending [3:0], overrun [7:4]
@@ -36,7 +40,7 @@ module buttons (
     sync1.d = sync0.q
     last.d = sync1.q
     rise = sync1.q & ~last.q
-    if (clear) {
+    if (clear && ce) {
       cleared = pending.q & ~clear_mask[3:0]
       overrun_cleared = overrun.q & ~clear_mask[7:4]
     } else {
@@ -47,13 +51,5 @@ module buttons (
     overrun.d = overrun_cleared | (rise & cleared)
     irq = |pending.q
     rdata = c{20b0, sync1.q, overrun.q, pending.q}
-
-    if (!ce) {        // disabled clock: hold everything
-      sync0.d = sync0.q
-      sync1.d = sync1.q
-      last.d = last.q
-      pending.d = pending.q
-      overrun.d = overrun.q
-    }
   }
 }
