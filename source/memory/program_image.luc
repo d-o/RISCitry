@@ -30,5 +30,6 @@ module program_image #(
     if (PROGRAM_ID == Programs.Id.WFI && addr < 41) word = Programs.WFI[addr];
     if (PROGRAM_ID == Programs.Id.VECTORED && addr < 112) word = Programs.VECTORED[addr];
     if (PROGRAM_ID == Programs.Id.C_HELLO && addr < 165) word = Programs.C_HELLO[addr];
+    if (PROGRAM_ID == Programs.Id.C_COST && addr < 340) word = Programs.C_COST[addr];
   }
 }

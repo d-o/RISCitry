@@ -32,7 +32,7 @@ import rv32sim
 
 ROOT = Path(__file__).resolve().parent.parent
 MAX_STEPS = 400            # a test program that doesn't reach halt by then is a bug
-MAX_PRINT_STEPS = 20000    # ... or a forever-printing one that hasn't printed PRINT_BYTES
+MAX_PRINT_STEPS = 100000    # ... or a forever-printing one that hasn't printed PRINT_BYTES
 # control_unit's state after each clock of an instruction, by the instruction's clock count
 STATES = {2: ["EXECUTE", "FETCH"], 3: ["EXECUTE", "MEM_ACCESS", "FETCH"],
           4: ["EXECUTE", "MEM_ACCESS", "WRITEBACK", "FETCH"]}
@@ -251,16 +251,19 @@ def render_uart_testbench(name, words, text, sw, forever=False):
     until the first PRINT_BYTES bytes have arrived and check those only."""
     if forever:
         n = programs.PRINT_BYTES[(name, sw)]
-        out = run_to_bytes(name, words, sw, n).uart_out[:n]
+        model = run_to_bytes(name, words, sw, n)
+        out = model.uart_out[:n]
     else:
         model = run_to_halt(name, words, sw)
         out = model.uart_out
         halt_pc = model.pc
     n = len(out)
-    max_clocks = n * UART_CLOCKS_PER_BYTE * 3 + 1000
+    # the serial line (3x the time the bytes need) plus the clocks the program itself computes for
+    # (the model has no UART wait; C_COST spends 66k clocks on arithmetic)
+    max_clocks = n * UART_CLOCKS_PER_BYTE * 3 + 1000 + model.cycle
     expected = ", ".join(f"8h{b:02X}" for b in reversed(out))   # last element is index 0
     shown = "".join(chr(b) if 32 <= b < 127 else f"\\x{b:02x}" for b in out)
-    lines = header(name, sw, ["    sig received[8]", f"    sig expected[{n}][8]", "    sig clock_count[16]"])
+    lines = header(name, sw, ["    sig received[8]", f"    sig expected[{n}][8]", "    sig clock_count[32]"])
     at = next(i for i, l in enumerate(lines) if ".debug_sel(sel))" in l) + 1
     lines.insert(at, f"    uart_rx rx(#CLK_FREQ({TB_UART_CLK_FREQ}), #BAUD({TB_UART_BAUD}), "
                      ".clk(clk), .rst(rst), .rx(dut.uart_tx))")
@@ -388,6 +391,8 @@ def main():
     for name, sw in cases():
         words, text = assembled[name]
         k = kind(name, words, sw)
+        if name in programs.XSIM_ONLY:
+            continue
         if k == "lockstep":
             tb, size = render_testbench(name, words, text, sw)
         else:

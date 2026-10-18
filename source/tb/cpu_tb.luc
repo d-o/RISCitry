@@ -391,7 +391,7 @@ testbench cpu_board_sw1_tb {
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[100][8]
-    sig clock_count[16]
+    sig clock_count[32]
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
@@ -463,8 +463,8 @@ testbench cpu_board_sw1_tb {
         $tick_clock()
         rst = 0
         $expect_pc(32h00000000)
-        // run until the first 100 bytes have been received (at most 25000 clocks)
-        repeat(i, 25000) {
+        // run until the first 100 bytes have been received (at most 27528 clocks)
+        repeat(i, 27528) {
             if (received != 100) {
                 if (clock_count == 100) buttons = 4h4;   // button event
                 if (clock_count == 110) buttons = 4h0;   // button event
@@ -500,7 +500,7 @@ testbench cpu_board_sw2_tb {
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[57][8]
-    sig clock_count[16]
+    sig clock_count[32]
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
@@ -572,8 +572,8 @@ testbench cpu_board_sw2_tb {
         $tick_clock()
         rst = 0
         $expect_pc(32h00000000)
-        // run until the first 57 bytes have been received (at most 14680 clocks)
-        repeat(i, 14680) {
+        // run until the first 57 bytes have been received (at most 17957 clocks)
+        repeat(i, 17957) {
             if (received != 57) {
                 if (clock_count == 100) buttons = 4h4;   // button event
                 if (clock_count == 110) buttons = 4h0;   // button event
@@ -24420,7 +24420,7 @@ testbench cpu_uart_tb {
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[4][8]
-    sig clock_count[16]
+    sig clock_count[32]
 
     computer dut(#PROGRAM_ID(Programs.Id.UART), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
@@ -24492,8 +24492,8 @@ testbench cpu_uart_tb {
         $tick_clock()
         rst = 0
         $expect_pc(32h00000000)
-        // run until halted at 0x0038 with all 4 bytes received (at most 1960 clocks)
-        repeat(i, 1960) {
+        // run until halted at 0x0038 with all 4 bytes received (at most 2047 clocks)
+        repeat(i, 2047) {
             if (received != 4 || dut.debug_pc != 32h00000038 || dut.debug_state != Cpu.State.FETCH) {
                 $tick_clock()
                 clock_count = clock_count + 1
@@ -24542,7 +24542,7 @@ testbench cpu_string_tb {
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[16][8]
-    sig clock_count[16]
+    sig clock_count[32]
 
     computer dut(#PROGRAM_ID(Programs.Id.STRING), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
@@ -24614,8 +24614,8 @@ testbench cpu_string_tb {
         $tick_clock()
         rst = 0
         $expect_pc(32h00000000)
-        // run until halted at 0x0024 with all 16 bytes received (at most 4840 clocks)
-        repeat(i, 4840) {
+        // run until halted at 0x0024 with all 16 bytes received (at most 5158 clocks)
+        repeat(i, 5158) {
             if (received != 16 || dut.debug_pc != 32h00000024 || dut.debug_state != Cpu.State.FETCH) {
                 $tick_clock()
                 clock_count = clock_count + 1
@@ -49664,7 +49664,7 @@ testbench cpu_c_hello_tb {
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[23][8]
-    sig clock_count[16]
+    sig clock_count[32]
 
     computer dut(#PROGRAM_ID(Programs.Id.C_HELLO), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
@@ -49736,8 +49736,8 @@ testbench cpu_c_hello_tb {
         $tick_clock()
         rst = 0
         $expect_pc(32h00000000)
-        // run until halted at 0x0038 with all 23 bytes received (at most 6520 clocks)
-        repeat(i, 6520) {
+        // run until halted at 0x0038 with all 23 bytes received (at most 8385 clocks)
+        repeat(i, 8385) {
             if (received != 23 || dut.debug_pc != 32h00000038 || dut.debug_state != Cpu.State.FETCH) {
                 $tick_clock()
                 clock_count = clock_count + 1

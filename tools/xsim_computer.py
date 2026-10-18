@@ -65,7 +65,7 @@ KEEPS_WRITING = {"LARSON", "BOARD", "ILLEGAL"}    # run forever changing registe
 HARNESS = f"""
 module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
     input clk,
-    output [15:0] cycle_out,
+    output [31:0] cycle_out,
     output [31:0] debug_pc,
     output [1:0] debug_state,
     output [31:0] debug_reg,
@@ -73,7 +73,7 @@ module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
     output [31:0] display_chars,
     output display_owned
   );
-  reg [15:0] cycle = 0;
+  reg [31:0] cycle = 0;   // 32 bits: at 16 the harness reset the core again at clock 65536 (found by C_COST)
   always @(posedge clk) cycle <= cycle + 1;
   assign cycle_out = cycle;
   computer #(.PROGRAM_ID(PROGRAM_ID), .SIM_RAM(0), .UART_CLK_FREQ({gen_cpu_tb.TB_UART_CLK_FREQ}),
@@ -235,11 +235,12 @@ def check_lockstep(pid, name, words, sw):
 def check_uart(pid, name, words, sw, forever=False):
     if forever:
         n = programs.PRINT_BYTES[(name, sw)]
-        want = gen_cpu_tb.run_to_bytes(name, words, sw, n).uart_out[:n]
+        model = gen_cpu_tb.run_to_bytes(name, words, sw, n)
+        want = model.uart_out[:n]
     else:
         model = gen_cpu_tb.run_to_halt(name, words, sw)
         want = model.uart_out
-    clocks = len(want) * gen_cpu_tb.UART_CLOCKS_PER_BYTE * 3 + 1000
+    clocks = len(want) * gen_cpu_tb.UART_CLOCKS_PER_BYTE * 3 + 1000 + model.cycle   # as in gen_cpu_tb
     samples = run(pid, sw, clocks, name)
     got, i = [], 0
     line = [s["uart_tx"] for s in samples]

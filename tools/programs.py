@@ -983,7 +983,8 @@ PROGRAMS = {
     "PRESS": PRESS,
     "WFI": WFI_TEST,
     "VECTORED": VECTORED,
-    "C_HELLO": cbuild.items("hello"),   # c/hello.c, built by tools/cbuild.py (image committed)
+    "C_HELLO": cbuild.items("hello"),
+    "C_COST": cbuild.items("cost"),     # c/cost.c: clocks per libgcc mul/div/mod, from mtime   # c/hello.c, built by tools/cbuild.py (image committed)
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
@@ -1000,6 +1001,11 @@ def forever_steps(name, sw):
 
 PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered lines
                ("BOARD", 2): 57}       # the banner and two interrupts (the first with a lost press)
+# Programs with no Alchitry testbench: only xsim_computer.py checks them (against rv32sim). C_COST
+# prints 308 bytes after 66k clocks of arithmetic: 13 minutes in the Alchitry simulator, and that
+# simulator's cross-instance ordering bug (CLAUDE.md) sends a byte twice in most runs of a print
+# this long (byte 20 of 308 doubled in one of three shortened runs; xsim passes every time).
+XSIM_ONLY = {"C_COST"}
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
