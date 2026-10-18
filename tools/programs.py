@@ -1108,7 +1108,7 @@ def forever_steps(name, sw):
 
 PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered lines
                ("BOARD", 2): 69,
-               ("BOARD", 7): 23}       # the C demo's greeting; its cost table is checked as C_COST       # the banner and two interrupts (the first with a lost press)
+               ("BOARD", 7): 25}       # the C demo's greeting; its cost table is checked as C_COST       # the banner and two interrupts (the first with a lost press)
 # Programs with no Alchitry testbench: only xsim_computer.py checks them (against rv32sim). C_COST
 # prints 308 bytes after 66k clocks of arithmetic: 13 minutes in the Alchitry simulator, and that
 # simulator's cross-instance ordering bug (CLAUDE.md) sends a byte twice in most runs of a print

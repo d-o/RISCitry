@@ -22120,7 +22120,7 @@ testbench cpu_board_sw7_tb {
     sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
     sig received[8]
-    sig expected[23][8]
+    sig expected[25][8]
     sig clock_count[32]
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
@@ -22183,7 +22183,7 @@ testbench cpu_board_sw7_tb {
         rst = 1
         received = 0
         clock_count = 0
-        expected = {8h0A, 8h32, 8h72, 8h20, 8h34, 8h31, 8h20, 8h32, 8h34, 8h0A, 8h21, 8h43, 8h20, 8h6D, 8h6F, 8h72, 8h66, 8h20, 8h6F, 8h6C, 8h6C, 8h65, 8h48}   // "Hello from C!\x0a42 14 r2\x0a"
+        expected = {8h0A, 8h0D, 8h32, 8h72, 8h20, 8h34, 8h31, 8h20, 8h32, 8h34, 8h0A, 8h0D, 8h21, 8h43, 8h20, 8h6D, 8h6F, 8h72, 8h66, 8h20, 8h6F, 8h6C, 8h6C, 8h65, 8h48}   // "Hello from C!\x0d\x0a42 14 r2\x0d\x0a"
         // hold reset for an extra bit time: uart_tx's output register has no reset and starts
         // low for two clocks, and uart_rx's 3-deep input buffer (not reset either) would
         // take that for a start bit unless the idle-high line has filled it first
@@ -22194,9 +22194,9 @@ testbench cpu_board_sw7_tb {
         $tick_clock()
         rst = 0
         $expect_pc(32h00000000)
-        // run until the first 23 bytes have been received (at most 8416 clocks)
-        repeat(i, 8416) {
-            if (received != 23) {
+        // run until the first 25 bytes have been received (at most 8978 clocks)
+        repeat(i, 8978) {
+            if (received != 25) {
                 if (clock_count == 100) buttons = 4h4;   // button event
                 if (clock_count == 110) buttons = 4h0;   // button event
                 if (clock_count == 140) buttons = 4h4;   // button event
@@ -22206,7 +22206,7 @@ testbench cpu_board_sw7_tb {
                 $tick_clock()
                 clock_count = clock_count + 1
                 if (rx.new_data) {
-                    $assert(received < 23)
+                    $assert(received < 25)
                     if (rx.data != expected[received])
                         $print("byte %d: got %h want %h", received, rx.data, expected[received])
                     $assert(rx.data == expected[received])
@@ -22214,9 +22214,9 @@ testbench cpu_board_sw7_tb {
                 }
             }
         }
-        if (received != 23)
-            $print("received %d of 23 bytes", received)
-        $assert(received == 23)
+        if (received != 25)
+            $print("received %d of 25 bytes", received)
+        $assert(received == 25)
     }
 }
 
@@ -50147,7 +50147,7 @@ testbench cpu_c_hello_tb {
     sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
     sig received[8]
-    sig expected[23][8]
+    sig expected[25][8]
     sig clock_count[32]
 
     computer dut(#PROGRAM_ID(Programs.Id.C_HELLO), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
@@ -50210,7 +50210,7 @@ testbench cpu_c_hello_tb {
         rst = 1
         received = 0
         clock_count = 0
-        expected = {8h0A, 8h32, 8h72, 8h20, 8h34, 8h31, 8h20, 8h32, 8h34, 8h0A, 8h21, 8h43, 8h20, 8h6D, 8h6F, 8h72, 8h66, 8h20, 8h6F, 8h6C, 8h6C, 8h65, 8h48}   // "Hello from C!\x0a42 14 r2\x0a"
+        expected = {8h0A, 8h0D, 8h32, 8h72, 8h20, 8h34, 8h31, 8h20, 8h32, 8h34, 8h0A, 8h0D, 8h21, 8h43, 8h20, 8h6D, 8h6F, 8h72, 8h66, 8h20, 8h6F, 8h6C, 8h6C, 8h65, 8h48}   // "Hello from C!\x0d\x0a42 14 r2\x0d\x0a"
         // hold reset for an extra bit time: uart_tx's output register has no reset and starts
         // low for two clocks, and uart_rx's 3-deep input buffer (not reset either) would
         // take that for a start bit unless the idle-high line has filled it first
@@ -50221,13 +50221,13 @@ testbench cpu_c_hello_tb {
         $tick_clock()
         rst = 0
         $expect_pc(32h00000000)
-        // run until halted at 0x0038 with all 23 bytes received (at most 8389 clocks)
-        repeat(i, 8389) {
-            if (received != 23 || dut.debug_pc != 32h00000038 || dut.debug_state != Cpu.State.FETCH) {
+        // run until halted at 0x0038 with all 25 bytes received (at most 8683 clocks)
+        repeat(i, 8683) {
+            if (received != 25 || dut.debug_pc != 32h00000038 || dut.debug_state != Cpu.State.FETCH) {
                 $tick_clock()
                 clock_count = clock_count + 1
                 if (rx.new_data) {
-                    $assert(received < 23)
+                    $assert(received < 25)
                     if (rx.data != expected[received])
                         $print("byte %d: got %h want %h", received, rx.data, expected[received])
                     $assert(rx.data == expected[received])
@@ -50235,27 +50235,27 @@ testbench cpu_c_hello_tb {
                 }
             }
         }
-        if (received != 23)
-            $print("received %d of 23 bytes", received)
-        $assert(received == 23)
+        if (received != 25)
+            $print("received %d of 25 bytes", received)
+        $assert(received == 25)
         $expect_pc(32h00000038)
         $expect_state(Cpu.State.FETCH)
         // final register file
         $expect_reg(4d0, 32h00000000)
         $expect_reg(4d1, 32h00000038)
         $expect_reg(4d2, 32h00002000)
-        $expect_reg(4d3, 32h00000A90)
+        $expect_reg(4d3, 32h00000A88)
         $expect_reg(4d4, 32h00000000)
-        $expect_reg(4d5, 32h000000C0)
-        $expect_reg(4d6, 32h00000290)
+        $expect_reg(4d5, 32h0000006C)
+        $expect_reg(4d6, 32h00000288)
         $expect_reg(4d7, 32h00000000)
         $expect_reg(4d8, 32h00000000)
         $expect_reg(4d9, 32h00000000)
         $expect_reg(4d10, 32h00000000)
-        $expect_reg(4d11, 32h00000002)
-        $expect_reg(4d12, 32h00000009)
-        $expect_reg(4d13, 32h00000002)
-        $expect_reg(4d14, 32h80000004)
-        $expect_reg(4d15, 32h80000000)
+        $expect_reg(4d11, 32h00000032)
+        $expect_reg(4d12, 32h80000000)
+        $expect_reg(4d13, 32h00000000)
+        $expect_reg(4d14, 32h00000000)
+        $expect_reg(4d15, 32h80000004)
     }
 }

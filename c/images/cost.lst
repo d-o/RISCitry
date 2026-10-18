@@ -210,9 +210,9 @@ Disassembly of section .text:
  2c8:	00c12403          	lw	x8,12(x2)
  2cc:	01012083          	lw	x1,16(x2)
  2d0:	00812483          	lw	x9,8(x2)
- 2d4:	00a00513          	addi	x10,x0,10
+ 2d4:	54000513          	addi	x10,x0,1344
  2d8:	01410113          	addi	x2,x2,20
- 2dc:	d65ff06f          	jal	x0,40 <putc_>
+ 2dc:	d85ff06f          	jal	x0,60 <puts_>
 
 000002e0 <main>:
  2e0:	ff010113          	addi	x2,x2,-16

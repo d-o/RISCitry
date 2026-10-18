@@ -6,13 +6,13 @@
 
 static inline void hello(void) {
     volatile unsigned a = 6, b = 7, c = 100, d = 7;   /* volatile: the compiler must really compute */
-    puts_("Hello from C!\n");
+    puts_("Hello from C!\r\n");
     putu(a * b);
     puts_(" ");
     putu(c / d);
     puts_(" r");
     putu(c % d);
-    putc_('\n');
+    puts_("\r\n");
 }
 
 #endif

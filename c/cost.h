@@ -41,14 +41,14 @@ static void report(const char *name, op_t op, unsigned a, unsigned b, unsigned b
     puth(b);
     puts_(": ");
     putu((t * TIMEBASE) / RUNS);
-    putc_('\n');
+    puts_("\r\n");
 }
 
 static inline void cost_table(void) {
     unsigned base = ticks(op_nop, 1, 1);
     puts_("clocks per call, tick = ");
     putu(TIMEBASE);
-    puts_(" clk\n");
+    puts_(" clk\r\n");
     /* the multiplier's bit length sets the cost: 3 bits, 16 bits, 32 bits */
     report("mul", op_mul, 6, 7, base);
     report("mul", op_mul, 40000, 50000, base);

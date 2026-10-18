@@ -6,7 +6,7 @@
 
 int main(void) {
     hello();
-    putc_('\n');
+    puts_("\r\n");
     cost_table();
     puts_("type: ");
     for (;;) {
