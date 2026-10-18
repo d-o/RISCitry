@@ -581,282 +581,282 @@ global Programs {
         32h00000013,  // 0x0540: (nop)
         32h00000013,  // 0x053c: (nop)
         32h00000013,  // 0x0538: (nop)
-        32h00000013,  // 0x0534: (nop)
-        32h00000013,  // 0x0530: (nop)
-        32h00000013,  // 0x052c: (nop)
-        32h00000013,  // 0x0528: (nop)
-        32h00000013,  // 0x0524: (nop)
-        32h00000013,  // 0x0520: (nop)
-        32h00000013,  // 0x051c: (nop)
-        32h00000013,  // 0x0518: (nop)
-        32h00000013,  // 0x0514: (nop)
-        32h00000013,  // 0x0510: (nop)
-        32h00000013,  // 0x050c: (nop)
-        32h00000013,  // 0x0508: (nop)
-        32h00000013,  // 0x0504: (nop)
-        32h00000013,  // 0x0500: (nop)
-        32h00000020,  // 0x04fc: (data)
-        32h20202055,  // 0x04f8: (data)
-        32h43205952,  // 0x04f4: (data)
-        32h54494843,  // 0x04f0: (data)
-        32h4C412045,  // 0x04ec: (data)
-        32h4854204E,  // 0x04e8: (data)
-        32h4F204552,  // 0x04e4: (data)
-        32h4F432054,  // 0x04e0: (data)
-        32h464F5320,  // 0x04dc: (data)
-        32h45323356,  // 0x04d8: (data)
-        32h52204E41,  // 0x04d4: (data)
-        32h204D4F52,  // 0x04d0: (data)
-        32h46204F4C,  // 0x04cc: (data)
-        32h4C454820,  // 0x04c8: (data)
-        32h20202000,  // 0x04c4: .string '    HELLO FROM AN RV32E SOFT CORE ON THE ALCHITRY CU    '
-        32h46454443,  // 0x04c0: (data)
-        32h42413938,  // 0x04bc: (data)
-        32h37363534,  // 0x04b8: (data)
-        32h33323130,  // 0x04b4: .string '0123456789ABCDEF'
-        32h000A0D00,  // 0x04b0: .string '\r\n'
-        32h2074736F,  // 0x04ac: (data)
-        32h6C200020,  // 0x04a8: .string ' lost '
-        32h736E6F74,  // 0x04a4: (data)
-        32h74756200,  // 0x04a0: .string 'buttons '
-        32h0A0D6E6F,  // 0x049c: (data)
-        32h74747562,  // 0x0498: (data)
-        32h206E6F69,  // 0x0494: (data)
-        32h74636572,  // 0x0490: (data)
-        32h69642061,  // 0x048c: (data)
-        32h20737365,  // 0x0488: (data)
-        32h72500A0D,  // 0x0484: .string '\r\nPress a direction button\r\n'
-        32h00207065,  // 0x0480: (data)
-        32h65777300,  // 0x047c: .string 'sweep '
-        32h0A0D7543,  // 0x0478: (data)
-        32h20797274,  // 0x0474: (data)
-        32h6968636C,  // 0x0470: (data)
-        32h41206568,  // 0x046c: (data)
-        32h74206E6F,  // 0x0468: (data)
-        32h2065726F,  // 0x0464: (data)
-        32h63207466,  // 0x0460: (data)
-        32h6F732045,  // 0x045c: (data)
-        32h32335652,  // 0x0458: (data)
-        32h206E6120,  // 0x0454: (data)
-        32h6D6F7266,  // 0x0450: (data)
-        32h206F6C6C,  // 0x044c: (data)
-        32h65480A0D,  // 0x0448: .string '\r\nHello from an RV32E soft core on the Alchitry Cu\r\n'
-        32h00028067,  // 0x0444: jalr x0, x5, 0
-        32h00A10023,  // 0x0440: sb x10, 0(x2)
-        32hFE039EE3,  // 0x043c: bne x7, x0, putc
-        32h00412383,  // 0x0438: lw x7, 4(x2)
-        32h00030067,  // 0x0434: jalr x0, x6, 0
-        32hFE0216E3,  // 0x0430: bne x4, x0, hex_next
-        32hFFF20213,  // 0x042c: addi x4, x4, -1
-        32h00449493,  // 0x0428: slli x9, x9, 4
-        32h014002EF,  // 0x0424: jal x5, putc
-        32h4B454503,  // 0x0420: lbu x10, digits(x10)
-        32h01C4D513,  // 0x041c: srli x10, x9, 28
-        32h00040493,  // 0x0418: addi x9, x8, 0
-        32h00800213,  // 0x0414: addi x4, x0, 8
-        32h00030067,  // 0x0410: jalr x0, x6, 0
-        32hFF1FF06F,  // 0x040c: jal x0, puts
-        32h00118193,  // 0x0408: addi x3, x3, 1
-        32h034002EF,  // 0x0404: jal x5, putc
-        32h00050863,  // 0x0400: beq x10, x0, puts_end
-        32h0001C503,  // 0x03fc: lbu x10, 0(x3)
-        32h00030067,  // 0x03f8: jalr x0, x6, 0
-        32h004181A3,  // 0x03f4: sb x4, 3(x3)
+        32h00002020,  // 0x0534: (data)
+        32h20205543,  // 0x0530: (data)
+        32h20595254,  // 0x052c: (data)
+        32h4948434C,  // 0x0528: (data)
+        32h41204548,  // 0x0524: (data)
+        32h54204E4F,  // 0x0520: (data)
+        32h2045524F,  // 0x051c: (data)
+        32h43205446,  // 0x0518: (data)
+        32h4F532045,  // 0x0514: (data)
+        32h32335652,  // 0x0510: (data)
+        32h204E4120,  // 0x050c: (data)
+        32h4D4F5246,  // 0x0508: (data)
+        32h204F4C4C,  // 0x0504: (data)
+        32h45482020,  // 0x0500: (data)
+        32h20200046,  // 0x04fc: .string '    HELLO FROM AN RV32E SOFT CORE ON THE ALCHITRY CU    '
+        32h45444342,  // 0x04f8: (data)
+        32h41393837,  // 0x04f4: (data)
+        32h36353433,  // 0x04f0: (data)
+        32h32313000,  // 0x04ec: .string '0123456789ABCDEF'
+        32h0A0D0020,  // 0x04e8: .string '\r\n'
+        32h74736F6C,  // 0x04e4: (data)
+        32h20002073,  // 0x04e0: .string ' lost '
+        32h6E6F7474,  // 0x04dc: (data)
+        32h7562000A,  // 0x04d8: .string 'buttons '
+        32h0D657079,  // 0x04d4: (data)
+        32h7420726F,  // 0x04d0: (data)
+        32h202C6E6F,  // 0x04cc: (data)
+        32h74747562,  // 0x04c8: (data)
+        32h206E6F69,  // 0x04c4: (data)
+        32h74636572,  // 0x04c0: (data)
+        32h69642061,  // 0x04bc: (data)
+        32h20737365,  // 0x04b8: (data)
+        32h72500A0D,  // 0x04b4: .string '\r\nPress a direction button, or type\r\n'
+        32h00207065,  // 0x04b0: (data)
+        32h65777300,  // 0x04ac: .string 'sweep '
+        32h0A0D7543,  // 0x04a8: (data)
+        32h20797274,  // 0x04a4: (data)
+        32h6968636C,  // 0x04a0: (data)
+        32h41206568,  // 0x049c: (data)
+        32h74206E6F,  // 0x0498: (data)
+        32h2065726F,  // 0x0494: (data)
+        32h63207466,  // 0x0490: (data)
+        32h6F732045,  // 0x048c: (data)
+        32h32335652,  // 0x0488: (data)
+        32h206E6120,  // 0x0484: (data)
+        32h6D6F7266,  // 0x0480: (data)
+        32h206F6C6C,  // 0x047c: (data)
+        32h65480A0D,  // 0x0478: .string '\r\nHello from an RV32E soft core on the Alchitry Cu\r\n'
+        32h00028067,  // 0x0474: jalr x0, x5, 0
+        32h00A10023,  // 0x0470: sb x10, 0(x2)
+        32hFE039CE3,  // 0x046c: bne x7, x0, putc
+        32h0013F393,  // 0x0468: andi x7, x7, 1
+        32h00412383,  // 0x0464: lw x7, 4(x2)
+        32h00030067,  // 0x0460: jalr x0, x6, 0
+        32hFE0216E3,  // 0x045c: bne x4, x0, hex_next
+        32hFFF20213,  // 0x0458: addi x4, x4, -1
+        32h00449493,  // 0x0454: slli x9, x9, 4
+        32h014002EF,  // 0x0450: jal x5, putc
+        32h4ED54503,  // 0x044c: lbu x10, digits(x10)
+        32h01C4D513,  // 0x0448: srli x10, x9, 28
+        32h00040493,  // 0x0444: addi x9, x8, 0
+        32h00800213,  // 0x0440: addi x4, x0, 8
+        32h00030067,  // 0x043c: jalr x0, x6, 0
+        32hFF1FF06F,  // 0x0438: jal x0, puts
+        32h00118193,  // 0x0434: addi x3, x3, 1
+        32h034002EF,  // 0x0430: jal x5, putc
+        32h00050863,  // 0x042c: beq x10, x0, puts_end
+        32h0001C503,  // 0x0428: lbu x10, 0(x3)
+        32h00030067,  // 0x0424: jalr x0, x6, 0
+        32h004181A3,  // 0x0420: sb x4, 3(x3)
+        32h00364203,  // 0x041c: lbu x4, 3(x12)
+        32h00418123,  // 0x0418: sb x4, 2(x3)
+        32h00264203,  // 0x0414: lbu x4, 2(x12)
+        32h004180A3,  // 0x0410: sb x4, 1(x3)
+        32h00164203,  // 0x040c: lbu x4, 1(x12)
+        32h00418023,  // 0x0408: sb x4, 0(x3)
+        32h00064203,  // 0x0404: lbu x4, 0(x12)
+        32hF69FF06F,  // 0x0400: jal x0, rearm
+        32h0080036F,  // 0x03fc: jal x6, show
+        32h4FE00613,  // 0x03f8: addi x12, x0, scroll_text
+        32h00021463,  // 0x03f4: bne x4, x0, scroll_show
         32h00364203,  // 0x03f0: lbu x4, 3(x12)
-        32h00418123,  // 0x03ec: sb x4, 2(x3)
-        32h00264203,  // 0x03e8: lbu x4, 2(x12)
-        32h004180A3,  // 0x03e4: sb x4, 1(x3)
-        32h00164203,  // 0x03e0: lbu x4, 1(x12)
-        32h00418023,  // 0x03dc: sb x4, 0(x3)
-        32h00064203,  // 0x03d8: lbu x4, 0(x12)
-        32hF69FF06F,  // 0x03d4: jal x0, rearm
-        32h0080036F,  // 0x03d0: jal x6, show
-        32h4C500613,  // 0x03cc: addi x12, x0, scroll_text
-        32h00021463,  // 0x03c8: bne x4, x0, scroll_show
-        32h00364203,  // 0x03c4: lbu x4, 3(x12)
-        32h00160613,  // 0x03c0: addi x12, x12, 1
-        32hF51FF06F,  // 0x03bc: jal x0, idle
-        32h30046073,  // 0x03b8: csrrsi x0, 0x300
-        32h30442073,  // 0x03b4: csrrs x0, 0x304
-        32h08000413,  // 0x03b0: addi x8, x0, 128
-        32h00712423,  // 0x03ac: sw x7, 8(x2)
-        32h009383B3,  // 0x03a8: add x7, x7, x9
-        32h00012383,  // 0x03a4: lw x7, 0(x2)
-        32h00012623,  // 0x03a0: sw x0, 12(x2)
-        32h30521073,  // 0x039c: csrrw x0, 0x305
-        32h3C000213,  // 0x0398: addi x4, x0, scroll_tick
-        32h80002137,  // 0x0394: lui x2, 0x80002
-        32h0480036F,  // 0x0390: jal x6, show
-        32h4C500613,  // 0x038c: addi x12, x0, scroll_text
-        32h800041B7,  // 0x0388: lui x3, 0x80004
-        32h08048493,  // 0x0384: addi x9, x9, 128
-        32h00F49493,  // 0x0380: slli x9, x9, 15
-        32h0034D493,  // 0x037c: srli x9, x9, 3
-        32h00012483,  // 0x0378: lw x9, 0(x2)
-        32h80001137,  // 0x0374: lui x2, 0x80001
-        32h00030067,  // 0x0370: jalr x0, x6, 0
-        32h04048493,  // 0x036c: addi x9, x9, 64
-        32h00D49493,  // 0x0368: slli x9, x9, 13
-        32h0034D493,  // 0x0364: srli x9, x9, 3
-        32h00012483,  // 0x0360: lw x9, 0(x2)
-        32h80001137,  // 0x035c: lui x2, 0x80001
-        32h30200073,  // 0x0358: mret
-        32h00512423,  // 0x0354: sw x5, 8(x2)
-        32h00812623,  // 0x0350: sw x8, 12(x2)
-        32h00440433,  // 0x034c: add x8, x8, x4
-        32h00C12403,  // 0x0348: lw x8, 12(x2)
-        32h0042B233,  // 0x0344: sltu x4, x5, x4
-        32h009202B3,  // 0x0340: add x5, x4, x9
-        32h00812203,  // 0x033c: lw x4, 8(x2)
-        32h00100693,  // 0x0338: addi x13, x0, 1
-        32h00409463,  // 0x0334: bne x1, x4, rearm
-        32h00100213,  // 0x0330: addi x4, x0, 1
-        32h0010D093,  // 0x032c: srli x1, x1, 1
-        32h0140006F,  // 0x0328: jal x0, rearm
-        32h00000693,  // 0x0324: addi x13, x0, 0
-        32h00409E63,  // 0x0320: bne x1, x4, rearm
-        32h08000213,  // 0x031c: addi x4, x0, 128
-        32h00109093,  // 0x0318: slli x1, x1, 1
-        32h00068C63,  // 0x0314: beq x13, x0, tick_right
-        32hFFDFF06F,  // 0x0310: jal x0, idle
-        32h10500073,  // 0x030c: wfi
-        32h30046073,  // 0x0308: csrrsi x0, 0x300
-        32h30442073,  // 0x0304: csrrs x0, 0x304
-        32h08000413,  // 0x0300: addi x8, x0, 128
-        32h00100693,  // 0x02fc: addi x13, x0, 1
-        32h00100093,  // 0x02f8: addi x1, x0, 1
-        32h00712423,  // 0x02f4: sw x7, 8(x2)
-        32h009383B3,  // 0x02f0: add x7, x7, x9
-        32h00012383,  // 0x02ec: lw x7, 0(x2)
-        32h00012623,  // 0x02e8: sw x0, 12(x2)
-        32h30519073,  // 0x02e4: csrrw x0, 0x305
-        32h31400193,  // 0x02e0: addi x3, x0, larson_tick
-        32h80002137,  // 0x02dc: lui x2, 0x80002
-        32h0840036F,  // 0x02d8: jal x6, period
-        32h00028067,  // 0x02d4: jalr x0, x5, 0
-        32h009383B3,  // 0x02d0: add x7, x7, x9
-        32hFE024CE3,  // 0x02cc: blt x4, x0, tick
-        32h40720233,  // 0x02c8: sub x4, x4, x7
-        32h00012203,  // 0x02c4: lw x4, 0(x2)
-        32hF91FF06F,  // 0x02c0: jal x0, psweep
-        32h008002EF,  // 0x02bc: jal x5, tick
-        32h0010D093,  // 0x02b8: srli x1, x1, 1
-        32h010002EF,  // 0x02b4: jal x5, tick
-        32h0010D093,  // 0x02b0: srli x1, x1, 1
-        32h018002EF,  // 0x02ac: jal x5, tick
-        32h0010D093,  // 0x02a8: srli x1, x1, 1
-        32h020002EF,  // 0x02a4: jal x5, tick
-        32h0010D093,  // 0x02a0: srli x1, x1, 1
-        32h028002EF,  // 0x029c: jal x5, tick
-        32h0010D093,  // 0x0298: srli x1, x1, 1
-        32h030002EF,  // 0x0294: jal x5, tick
-        32h0010D093,  // 0x0290: srli x1, x1, 1
-        32h038002EF,  // 0x028c: jal x5, tick
-        32h0010D093,  // 0x0288: srli x1, x1, 1
-        32h040002EF,  // 0x0284: jal x5, tick
-        32h00109093,  // 0x0280: slli x1, x1, 1
-        32h048002EF,  // 0x027c: jal x5, tick
-        32h00109093,  // 0x0278: slli x1, x1, 1
-        32h050002EF,  // 0x0274: jal x5, tick
-        32h00109093,  // 0x0270: slli x1, x1, 1
-        32h058002EF,  // 0x026c: jal x5, tick
-        32h00109093,  // 0x0268: slli x1, x1, 1
-        32h060002EF,  // 0x0264: jal x5, tick
-        32h00109093,  // 0x0260: slli x1, x1, 1
-        32h068002EF,  // 0x025c: jal x5, tick
-        32h00109093,  // 0x0258: slli x1, x1, 1
-        32h070002EF,  // 0x0254: jal x5, tick
-        32h00109093,  // 0x0250: slli x1, x1, 1
-        32h00100093,  // 0x024c: addi x1, x0, 1
-        32h009383B3,  // 0x0248: add x7, x7, x9
-        32h00012383,  // 0x0244: lw x7, 0(x2)
-        32h80002137,  // 0x0240: lui x2, 0x80002
-        32h1200036F,  // 0x023c: jal x6, period
-        32h00028067,  // 0x0238: jalr x0, x5, 0
-        32hFE021EE3,  // 0x0234: bne x4, x0, delay_loop
-        32hFFF20213,  // 0x0230: addi x4, x4, -1
-        32h00048213,  // 0x022c: addi x4, x9, 0
-        32hF91FF06F,  // 0x0228: jal x0, dsweep
-        32h008002EF,  // 0x0224: jal x5, delay
-        32h0010D093,  // 0x0220: srli x1, x1, 1
-        32h010002EF,  // 0x021c: jal x5, delay
-        32h0010D093,  // 0x0218: srli x1, x1, 1
-        32h018002EF,  // 0x0214: jal x5, delay
-        32h0010D093,  // 0x0210: srli x1, x1, 1
-        32h020002EF,  // 0x020c: jal x5, delay
-        32h0010D093,  // 0x0208: srli x1, x1, 1
-        32h028002EF,  // 0x0204: jal x5, delay
-        32h0010D093,  // 0x0200: srli x1, x1, 1
-        32h030002EF,  // 0x01fc: jal x5, delay
-        32h0010D093,  // 0x01f8: srli x1, x1, 1
-        32h038002EF,  // 0x01f4: jal x5, delay
-        32h0010D093,  // 0x01f0: srli x1, x1, 1
-        32h040002EF,  // 0x01ec: jal x5, delay
-        32h00109093,  // 0x01e8: slli x1, x1, 1
-        32h048002EF,  // 0x01e4: jal x5, delay
-        32h00109093,  // 0x01e0: slli x1, x1, 1
-        32h050002EF,  // 0x01dc: jal x5, delay
-        32h00109093,  // 0x01d8: slli x1, x1, 1
-        32h058002EF,  // 0x01d4: jal x5, delay
-        32h00109093,  // 0x01d0: slli x1, x1, 1
-        32h060002EF,  // 0x01cc: jal x5, delay
-        32h00109093,  // 0x01c8: slli x1, x1, 1
-        32h068002EF,  // 0x01c4: jal x5, delay
-        32h00109093,  // 0x01c0: slli x1, x1, 1
-        32h070002EF,  // 0x01bc: jal x5, delay
-        32h00109093,  // 0x01b8: slli x1, x1, 1
-        32h00100093,  // 0x01b4: addi x1, x0, 1
-        32h00020493,  // 0x01b0: addi x9, x4, 0
-        32hFE029CE3,  // 0x01ac: bne x5, x0, calibrate
-        32hFFF28293,  // 0x01a8: addi x5, x5, -1
-        32h00920233,  // 0x01a4: add x4, x4, x9
-        32h00000213,  // 0x01a0: addi x4, x0, 0
-        32h01012283,  // 0x019c: lw x5, 16(x2)
-        32h80002137,  // 0x0198: lui x2, 0x80002
-        32h0024D493,  // 0x0194: srli x9, x9, 2
-        32h1CC0036F,  // 0x0190: jal x6, period
-        32h30200073,  // 0x018c: mret
-        32h2740036F,  // 0x0188: jal x6, puts
-        32h4B100193,  // 0x0184: addi x3, x0, crlf
-        32h2B8002EF,  // 0x0180: jal x5, putc
-        32h4B46C503,  // 0x017c: lbu x10, digits(x13)
-        32h2840036F,  // 0x0178: jal x6, puts
-        32h4AA00193,  // 0x0174: addi x3, x0, lost_msg
-        32h00068A63,  // 0x0170: beq x13, x0, button_done
-        32h2CC002EF,  // 0x016c: jal x5, putc
-        32h4B464503,  // 0x0168: lbu x10, digits(x12)
-        32h00F67613,  // 0x0164: andi x12, x12, 15
-        32h00F6F693,  // 0x0160: andi x13, x13, 15
-        32h00465693,  // 0x015c: srli x13, x12, 4
-        32h2A40036F,  // 0x0158: jal x6, puts
-        32h4A100193,  // 0x0154: addi x3, x0, buttons_msg
-        32h00C5A023,  // 0x0150: sw x12, 0(x11)
-        32h0005A603,  // 0x014c: lw x12, 0(x11)
-        32hFC9FF06F,  // 0x0148: jal x0, bsweep
+        32h00160613,  // 0x03ec: addi x12, x12, 1
+        32hF51FF06F,  // 0x03e8: jal x0, idle
+        32h30046073,  // 0x03e4: csrrsi x0, 0x300
+        32h30442073,  // 0x03e0: csrrs x0, 0x304
+        32h08000413,  // 0x03dc: addi x8, x0, 128
+        32h00712423,  // 0x03d8: sw x7, 8(x2)
+        32h009383B3,  // 0x03d4: add x7, x7, x9
+        32h00012383,  // 0x03d0: lw x7, 0(x2)
+        32h00012623,  // 0x03cc: sw x0, 12(x2)
+        32h30521073,  // 0x03c8: csrrw x0, 0x305
+        32h3EC00213,  // 0x03c4: addi x4, x0, scroll_tick
+        32h80002137,  // 0x03c0: lui x2, 0x80002
+        32h0480036F,  // 0x03bc: jal x6, show
+        32h4FE00613,  // 0x03b8: addi x12, x0, scroll_text
+        32h800041B7,  // 0x03b4: lui x3, 0x80004
+        32h08048493,  // 0x03b0: addi x9, x9, 128
+        32h00F49493,  // 0x03ac: slli x9, x9, 15
+        32h0034D493,  // 0x03a8: srli x9, x9, 3
+        32h00012483,  // 0x03a4: lw x9, 0(x2)
+        32h80001137,  // 0x03a0: lui x2, 0x80001
+        32h00030067,  // 0x039c: jalr x0, x6, 0
+        32h04048493,  // 0x0398: addi x9, x9, 64
+        32h00D49493,  // 0x0394: slli x9, x9, 13
+        32h0034D493,  // 0x0390: srli x9, x9, 3
+        32h00012483,  // 0x038c: lw x9, 0(x2)
+        32h80001137,  // 0x0388: lui x2, 0x80001
+        32h30200073,  // 0x0384: mret
+        32h00512423,  // 0x0380: sw x5, 8(x2)
+        32h00812623,  // 0x037c: sw x8, 12(x2)
+        32h00440433,  // 0x0378: add x8, x8, x4
+        32h00C12403,  // 0x0374: lw x8, 12(x2)
+        32h0042B233,  // 0x0370: sltu x4, x5, x4
+        32h009202B3,  // 0x036c: add x5, x4, x9
+        32h00812203,  // 0x0368: lw x4, 8(x2)
+        32h00100693,  // 0x0364: addi x13, x0, 1
+        32h00409463,  // 0x0360: bne x1, x4, rearm
+        32h00100213,  // 0x035c: addi x4, x0, 1
+        32h0010D093,  // 0x0358: srli x1, x1, 1
+        32h0140006F,  // 0x0354: jal x0, rearm
+        32h00000693,  // 0x0350: addi x13, x0, 0
+        32h00409E63,  // 0x034c: bne x1, x4, rearm
+        32h08000213,  // 0x0348: addi x4, x0, 128
+        32h00109093,  // 0x0344: slli x1, x1, 1
+        32h00068C63,  // 0x0340: beq x13, x0, tick_right
+        32hFFDFF06F,  // 0x033c: jal x0, idle
+        32h10500073,  // 0x0338: wfi
+        32h30046073,  // 0x0334: csrrsi x0, 0x300
+        32h30442073,  // 0x0330: csrrs x0, 0x304
+        32h08000413,  // 0x032c: addi x8, x0, 128
+        32h00100693,  // 0x0328: addi x13, x0, 1
+        32h00100093,  // 0x0324: addi x1, x0, 1
+        32h00712423,  // 0x0320: sw x7, 8(x2)
+        32h009383B3,  // 0x031c: add x7, x7, x9
+        32h00012383,  // 0x0318: lw x7, 0(x2)
+        32h00012623,  // 0x0314: sw x0, 12(x2)
+        32h30519073,  // 0x0310: csrrw x0, 0x305
+        32h34000193,  // 0x030c: addi x3, x0, larson_tick
+        32h80002137,  // 0x0308: lui x2, 0x80002
+        32h0840036F,  // 0x0304: jal x6, period
+        32h00028067,  // 0x0300: jalr x0, x5, 0
+        32h009383B3,  // 0x02fc: add x7, x7, x9
+        32hFE024CE3,  // 0x02f8: blt x4, x0, tick
+        32h40720233,  // 0x02f4: sub x4, x4, x7
+        32h00012203,  // 0x02f0: lw x4, 0(x2)
+        32hF91FF06F,  // 0x02ec: jal x0, psweep
+        32h008002EF,  // 0x02e8: jal x5, tick
+        32h0010D093,  // 0x02e4: srli x1, x1, 1
+        32h010002EF,  // 0x02e0: jal x5, tick
+        32h0010D093,  // 0x02dc: srli x1, x1, 1
+        32h018002EF,  // 0x02d8: jal x5, tick
+        32h0010D093,  // 0x02d4: srli x1, x1, 1
+        32h020002EF,  // 0x02d0: jal x5, tick
+        32h0010D093,  // 0x02cc: srli x1, x1, 1
+        32h028002EF,  // 0x02c8: jal x5, tick
+        32h0010D093,  // 0x02c4: srli x1, x1, 1
+        32h030002EF,  // 0x02c0: jal x5, tick
+        32h0010D093,  // 0x02bc: srli x1, x1, 1
+        32h038002EF,  // 0x02b8: jal x5, tick
+        32h0010D093,  // 0x02b4: srli x1, x1, 1
+        32h040002EF,  // 0x02b0: jal x5, tick
+        32h00109093,  // 0x02ac: slli x1, x1, 1
+        32h048002EF,  // 0x02a8: jal x5, tick
+        32h00109093,  // 0x02a4: slli x1, x1, 1
+        32h050002EF,  // 0x02a0: jal x5, tick
+        32h00109093,  // 0x029c: slli x1, x1, 1
+        32h058002EF,  // 0x0298: jal x5, tick
+        32h00109093,  // 0x0294: slli x1, x1, 1
+        32h060002EF,  // 0x0290: jal x5, tick
+        32h00109093,  // 0x028c: slli x1, x1, 1
+        32h068002EF,  // 0x0288: jal x5, tick
+        32h00109093,  // 0x0284: slli x1, x1, 1
+        32h070002EF,  // 0x0280: jal x5, tick
+        32h00109093,  // 0x027c: slli x1, x1, 1
+        32h00100093,  // 0x0278: addi x1, x0, 1
+        32h009383B3,  // 0x0274: add x7, x7, x9
+        32h00012383,  // 0x0270: lw x7, 0(x2)
+        32h80002137,  // 0x026c: lui x2, 0x80002
+        32h1200036F,  // 0x0268: jal x6, period
+        32h00028067,  // 0x0264: jalr x0, x5, 0
+        32hFE021EE3,  // 0x0260: bne x4, x0, delay_loop
+        32hFFF20213,  // 0x025c: addi x4, x4, -1
+        32h00048213,  // 0x0258: addi x4, x9, 0
+        32hF91FF06F,  // 0x0254: jal x0, dsweep
+        32h008002EF,  // 0x0250: jal x5, delay
+        32h0010D093,  // 0x024c: srli x1, x1, 1
+        32h010002EF,  // 0x0248: jal x5, delay
+        32h0010D093,  // 0x0244: srli x1, x1, 1
+        32h018002EF,  // 0x0240: jal x5, delay
+        32h0010D093,  // 0x023c: srli x1, x1, 1
+        32h020002EF,  // 0x0238: jal x5, delay
+        32h0010D093,  // 0x0234: srli x1, x1, 1
+        32h028002EF,  // 0x0230: jal x5, delay
+        32h0010D093,  // 0x022c: srli x1, x1, 1
+        32h030002EF,  // 0x0228: jal x5, delay
+        32h0010D093,  // 0x0224: srli x1, x1, 1
+        32h038002EF,  // 0x0220: jal x5, delay
+        32h0010D093,  // 0x021c: srli x1, x1, 1
+        32h040002EF,  // 0x0218: jal x5, delay
+        32h00109093,  // 0x0214: slli x1, x1, 1
+        32h048002EF,  // 0x0210: jal x5, delay
+        32h00109093,  // 0x020c: slli x1, x1, 1
+        32h050002EF,  // 0x0208: jal x5, delay
+        32h00109093,  // 0x0204: slli x1, x1, 1
+        32h058002EF,  // 0x0200: jal x5, delay
+        32h00109093,  // 0x01fc: slli x1, x1, 1
+        32h060002EF,  // 0x01f8: jal x5, delay
+        32h00109093,  // 0x01f4: slli x1, x1, 1
+        32h068002EF,  // 0x01f0: jal x5, delay
+        32h00109093,  // 0x01ec: slli x1, x1, 1
+        32h070002EF,  // 0x01e8: jal x5, delay
+        32h00109093,  // 0x01e4: slli x1, x1, 1
+        32h00100093,  // 0x01e0: addi x1, x0, 1
+        32h00020493,  // 0x01dc: addi x9, x4, 0
+        32hFE029CE3,  // 0x01d8: bne x5, x0, calibrate
+        32hFFF28293,  // 0x01d4: addi x5, x5, -1
+        32h00920233,  // 0x01d0: add x4, x4, x9
+        32h00000213,  // 0x01cc: addi x4, x0, 0
+        32h01012283,  // 0x01c8: lw x5, 16(x2)
+        32h80002137,  // 0x01c4: lui x2, 0x80002
+        32h0024D493,  // 0x01c0: srli x9, x9, 2
+        32h1CC0036F,  // 0x01bc: jal x6, period
+        32h30200073,  // 0x01b8: mret
+        32h2B0002EF,  // 0x01b4: jal x5, putc
+        32h0FF67513,  // 0x01b0: andi x10, x12, 255
+        32h00068663,  // 0x01ac: beq x13, x0, rx_done
+        32h10067693,  // 0x01a8: andi x13, x12, 0x100
+        32h00812603,  // 0x01a4: lw x12, 8(x2)
+        32h30200073,  // 0x01a0: mret
+        32h28C0036F,  // 0x019c: jal x6, puts
+        32h4EA00193,  // 0x0198: addi x3, x0, crlf
+        32h2D0002EF,  // 0x0194: jal x5, putc
+        32h4ED6C503,  // 0x0190: lbu x10, digits(x13)
+        32h29C0036F,  // 0x018c: jal x6, puts
+        32h4E300193,  // 0x0188: addi x3, x0, lost_msg
+        32h00068A63,  // 0x0184: beq x13, x0, button_done
+        32h2E4002EF,  // 0x0180: jal x5, putc
+        32h4ED64503,  // 0x017c: lbu x10, digits(x12)
+        32h00F67613,  // 0x0178: andi x12, x12, 15
+        32h00F6F693,  // 0x0174: andi x13, x13, 15
+        32h00465693,  // 0x0170: srli x13, x12, 4
+        32h2BC0036F,  // 0x016c: jal x6, puts
+        32h4DA00193,  // 0x0168: addi x3, x0, buttons_msg
+        32h00C5A023,  // 0x0164: sw x12, 0(x11)
+        32h0005A603,  // 0x0160: lw x12, 0(x11)
+        32h04061463,  // 0x015c: bne x12, x0, rx_handler
+        32h01067613,  // 0x0158: andi x12, x12, 16
+        32h34202673,  // 0x0154: csrrs x12, 0x342
+        32hFC9FF06F,  // 0x0150: jal x0, bsweep
+        32h0010D093,  // 0x014c: srli x1, x1, 1
+        32h0010D093,  // 0x0148: srli x1, x1, 1
         32h0010D093,  // 0x0144: srli x1, x1, 1
         32h0010D093,  // 0x0140: srli x1, x1, 1
         32h0010D093,  // 0x013c: srli x1, x1, 1
         32h0010D093,  // 0x0138: srli x1, x1, 1
         32h0010D093,  // 0x0134: srli x1, x1, 1
-        32h0010D093,  // 0x0130: srli x1, x1, 1
-        32h0010D093,  // 0x012c: srli x1, x1, 1
+        32h00109093,  // 0x0130: slli x1, x1, 1
+        32h00109093,  // 0x012c: slli x1, x1, 1
         32h00109093,  // 0x0128: slli x1, x1, 1
         32h00109093,  // 0x0124: slli x1, x1, 1
         32h00109093,  // 0x0120: slli x1, x1, 1
         32h00109093,  // 0x011c: slli x1, x1, 1
         32h00109093,  // 0x0118: slli x1, x1, 1
-        32h00109093,  // 0x0114: slli x1, x1, 1
-        32h00109093,  // 0x0110: slli x1, x1, 1
-        32h00100093,  // 0x010c: addi x1, x0, 1
-        32h30046073,  // 0x0108: csrrsi x0, 0x300
-        32h30442073,  // 0x0104: csrrs x0, 0x304
+        32h00100093,  // 0x0114: addi x1, x0, 1
+        32h30046073,  // 0x0110: csrrsi x0, 0x300
+        32h30442073,  // 0x010c: csrrs x0, 0x304
+        32h00E46433,  // 0x0108: or x8, x8, x14
+        32h00010737,  // 0x0104: lui x14, 16
         32h00B41413,  // 0x0100: slli x8, x8, 11
         32h00100413,  // 0x00fc: addi x8, x0, 1
         32h30519073,  // 0x00f8: csrrw x0, 0x305
-        32h14C00193,  // 0x00f4: addi x3, x0, button_handler
+        32h15400193,  // 0x00f4: addi x3, x0, button_handler
         32h800035B7,  // 0x00f0: lui x11, 0x80003
-        32h3100036F,  // 0x00ec: jal x6, puts
-        32h48400193,  // 0x00e8: addi x3, x0, press_msg
+        32h33C0036F,  // 0x00ec: jal x6, puts
+        32h4B400193,  // 0x00e8: addi x3, x0, press_msg
         32h80000137,  // 0x00e4: lui x2, 0x80000
         32hFB1FF06F,  // 0x00e0: jal x0, sweep
         32h0010D093,  // 0x00dc: srli x1, x1, 1
@@ -873,15 +873,15 @@ global Programs {
         32h00109093,  // 0x00b0: slli x1, x1, 1
         32h00109093,  // 0x00ac: slli x1, x1, 1
         32h00109093,  // 0x00a8: slli x1, x1, 1
-        32h3580036F,  // 0x00a4: jal x6, puts
-        32h4B100193,  // 0x00a0: addi x3, x0, crlf
-        32h3780036F,  // 0x009c: jal x6, hex
-        32h3640036F,  // 0x0098: jal x6, puts
-        32h47D00193,  // 0x0094: addi x3, x0, sweep_msg
+        32h3840036F,  // 0x00a4: jal x6, puts
+        32h4EA00193,  // 0x00a0: addi x3, x0, crlf
+        32h3A40036F,  // 0x009c: jal x6, hex
+        32h3900036F,  // 0x0098: jal x6, puts
+        32h4AD00193,  // 0x0094: addi x3, x0, sweep_msg
         32h00140413,  // 0x0090: addi x8, x8, 1
         32h00100093,  // 0x008c: addi x1, x0, 1
-        32h3740036F,  // 0x0088: jal x6, puts
-        32h44800193,  // 0x0084: addi x3, x0, banner
+        32h3A00036F,  // 0x0088: jal x6, puts
+        32h47800193,  // 0x0084: addi x3, x0, banner
         32h80000137,  // 0x0080: lui x2, 0x80000
         32hFCDFF0EF,  // 0x007c: jal x1, right
         32h00109093,  // 0x0078: slli x1, x1, 1
@@ -902,10 +902,10 @@ global Programs {
         32h00000013,  // 0x003c: (nop)
         32h00000013,  // 0x0038: (nop)
         32h00000800,  // 0x0034: (data)
-        32h00000374,  // 0x0030: (data)
-        32h000002D8,  // 0x002c: (data)
-        32h0000023C,  // 0x0028: (data)
-        32h00000190,  // 0x0024: (data)
+        32h000003A0,  // 0x0030: (data)
+        32h00000304,  // 0x002c: (data)
+        32h00000268,  // 0x0028: (data)
+        32h000001BC,  // 0x0024: (data)
         32h000000E4,  // 0x0020: (data)
         32h00000080,  // 0x001c: (data)
         32h0000007C,  // 0x0018: .word turn, hello, buttons_demo, delay_larson, poll_larson, irq_larson, scroll_demo, c_demo

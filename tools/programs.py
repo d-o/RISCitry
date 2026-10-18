@@ -463,7 +463,9 @@ SCROLL_TEXT = "    HELLO FROM AN RV32E SOFT CORE ON THE ALCHITRY CU    "   # 4 s
 #   1  hello: a banner on the serial port, then a Larson sweep on x1 and a numbered line per sweep
 #   2  buttons: a banner, then Larson on x1; each press of a direction button interrupts and the
 #      handler prints "buttons N" (N = the pending mask in hex: 1 up, 2 down, 4 left, 8 right),
-#      plus " lost M" when presses of buttons M came while they were still pending (overrun)
+#      plus " lost M" when presses of buttons M came while they were still pending (overrun).
+#      A byte received on the serial port interrupts too (platform line 0, cause 16): the
+#      handler echoes it back, so typing into a terminal is the human test of the receive interrupt
 #   3  the timing ladder, rung 1: Larson with a delay loop between steps
 #   4  rung 2: Larson stepping when a polled mtime passes a deadline
 #   5  rung 3: Larson stepped by the timer interrupt (x13 = direction); the main loop idles
@@ -515,7 +517,9 @@ BOARD = [
     ("csrrw", 0, 0x305, 3),
     ("addi", 8, 0, 1),
     ("slli", 8, 8, 11),
-    ("csrrs", 0, 0x304, 8),                    # MEIE
+    ("lui", 14, 0x10),                         # 1 << 16
+    ("or", 8, 8, 14),
+    ("csrrs", 0, 0x304, 8),                    # MEIE (buttons) and mie bit 16 (the UART receiver)
     ("csrrsi", 0, 0x300, 0x08),                # MIE
     ("addi", 1, 0, 1),
     "bsweep:",
@@ -523,6 +527,9 @@ BOARD = [
     *[("srli", 1, 1, 1)] * 7,
     ("jal", 0, "bsweep"),
     "button_handler:",                         # main only uses x1, so no registers are saved
+    ("csrrs", 12, 0x342, 0),                   # mcause: 0x8000000B buttons, 0x80000010 the receiver
+    ("andi", 12, 12, 0x10),
+    ("bne", 12, 0, "rx_handler"),
     ("lw", 12, 11, 0),                         # pending presses [3:0], overrun [7:4]
     ("sw", 12, 11, 0),                         # clear exactly those (a press on this edge wins)
     ("addi", 3, 0, "buttons_msg"),
@@ -540,6 +547,14 @@ BOARD = [
     "button_done:",
     ("addi", 3, 0, "crlf"),
     ("jal", 6, "puts"),
+    ("mret",),
+    "rx_handler:",                             # a byte arrived: echo it (the read pops it)
+    ("lw", 12, 2, memmap.UART_RXDATA - memmap.UART_BASE),
+    ("andi", 13, 12, 0x100),
+    ("beq", 13, 0, "rx_done"),
+    ("andi", 10, 12, 0xFF),
+    ("jal", 5, "putc"),
+    "rx_done:",
     ("mret",),
     # The timing ladder: the same Larson three ways, each step one dial period apart
     # (period: switches 7:3). (1) A delay loop: time is counted in instructions. (2) Polling
@@ -689,8 +704,9 @@ BOARD = [
     ("addi", 4, 4, -1),
     ("bne", 4, 0, "hex_next"),
     ("jalr", 0, 6, 0),
-    "putc:",                                   # send x10 once STATUS says not busy; returns through x5
+    "putc:",                                   # send x10 once STATUS says not busy (bit 0; bit 1 is rx valid); returns through x5
     ("lw", 7, 2, memmap.UART_STATUS - memmap.UART_BASE),
+    ("andi", 7, 7, 1),
     ("bne", 7, 0, "putc"),
     ("sb", 10, 2, memmap.UART_TXDATA - memmap.UART_BASE),
     ("jalr", 0, 5, 0),
@@ -699,7 +715,7 @@ BOARD = [
     "sweep_msg:",
     (".string", "sweep "),
     "press_msg:",
-    (".string", "\r\nPress a direction button\r\n"),
+    (".string", "\r\nPress a direction button, or type\r\n"),
     "buttons_msg:",
     (".string", "buttons "),
     "lost_msg:",
@@ -1091,7 +1107,7 @@ def forever_steps(name, sw):
 
 
 PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered lines
-               ("BOARD", 2): 57,
+               ("BOARD", 2): 69,
                ("BOARD", 7): 23}       # the C demo's greeting; its cost table is checked as C_COST       # the banner and two interrupts (the first with a lost press)
 # Programs with no Alchitry testbench: only xsim_computer.py checks them (against rv32sim). C_COST
 # prints 308 bytes after 66k clocks of arithmetic: 13 minutes in the Alchitry simulator, and that
@@ -1104,10 +1120,23 @@ SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6, 7]}
 EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED", "RXIRQ"}
 # Bytes sent to the UART's receiver by the testbench: (first start bit's post-reset clock, clocks
 # between start bits, bytes). Chosen so the program keeps up (a byte takes 80 clocks on the line).
+# A fourth element is the post-reset clock from which rv32sim has them (it has no serial timing: they
+# are all there from then on; default 0). Keyed by name, or (name, switches) for the board menu.
 RX_INPUT = {
     "RXECHO": (200, 200, [0x41, 0x80, 0x00, 0xFF, 0x0A]),
     "RXIRQ": (200, 200, list(b"risc")),
+    # menu 2 echoes: sent long after the button presses and their printing (the last at hardware clock
+    # ~4600), and from model clock 4000 (after its presses at 3000-3100), so the echoes come last in both
+    ("BOARD", 2): (8000, 400, list(b"go!"), 4000),
 }
+
+
+def rx_input(name, sw=0):
+    """(start clock, gap, bytes, model clock) of the serial input for a test case, or None."""
+    entry = RX_INPUT.get((name, sw)) or RX_INPUT.get(name)
+    return None if entry is None else entry + (0,) * (4 - len(entry))
+
+
 # Button presses for programs that use the buttons device: (post-reset clock, levels), levels =
 # up | down << 1 | left << 2 | right << 3, applied before that clock's rising edge.
 BUTTON_EVENTS = {

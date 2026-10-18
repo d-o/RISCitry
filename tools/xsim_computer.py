@@ -110,10 +110,10 @@ def plat_expr(name):
     return expr
 
 
-def rx_expr(name):
+def rx_expr(name, sw=0):
     """The serial line into the receiver: gen_cpu_tb.rx_transitions, from cycle 2 + c."""
     expr = "1'b1"
-    for c, level in gen_cpu_tb.rx_transitions(name):
+    for c, level in gen_cpu_tb.rx_transitions(name, sw):
         expr = f"(cycle >= {2 + c * CE_EVERY}) ? 1'b{level} : {expr}"
     return expr
 
@@ -124,7 +124,7 @@ def run(pid, sw, clocks, name=""):
         harness = Path(tmp) / "xsim_top.v"
         # in reset (cycles 0-1) ce = 1, as in the testbenches: the RAM reads instruction 0 then
         ce = "1'b1" if CE_EVERY == 1 else f"(cycle < 2) || ((cycle - 2) % {CE_EVERY} == {CE_EVERY - 1})"
-        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})").replace("PLATIRQ", f"({plat_expr(name)})").replace("RXLINE", f"({rx_expr(name)})").replace("CE_EXPR", ce)
+        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})").replace("PLATIRQ", f"({plat_expr(name)})").replace("RXLINE", f"({rx_expr(name, sw)})").replace("CE_EXPR", ce)
                            .replace("TICKDIV", str(TICK_DIV)))
         vcd = Path(tmp) / "out.vcd"
         files = " ".join(str(p) for p in sorted(VERILOG.glob("*.v"))) + f" {harness}"
@@ -248,7 +248,7 @@ def check_uart(pid, name, words, sw, forever=False):
     else:
         model = gen_cpu_tb.run_to_halt(name, words, sw)
         want = model.uart_out
-    clocks = len(want) * gen_cpu_tb.UART_CLOCKS_PER_BYTE * 3 + 1000 + model.cycle + gen_cpu_tb.rx_end(name)   # as in gen_cpu_tb
+    clocks = len(want) * gen_cpu_tb.UART_CLOCKS_PER_BYTE * 3 + 1000 + model.cycle + gen_cpu_tb.rx_end(name, sw)   # as in gen_cpu_tb
     samples = run(pid, sw, clocks, name)
     got, i = [], 0
     line = [s["uart_tx"] for s in samples]

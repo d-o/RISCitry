@@ -70,17 +70,18 @@ def new_model(name, words, switches=0, timer_rate=1, tick_div=1):
     return rv32sim.Cpu(words, traps_ok=name in programs.EXPECTS_TRAPS, switches=switches,
                        button_events=programs.BUTTON_EVENTS.get(name, ()), timer_rate=timer_rate,
                        plat_events=programs.PLAT_EVENTS.get(name, ()),
-                       rx_in=programs.RX_INPUT.get(name, (0, 0, []))[2],
+                       rx_in=(programs.rx_input(name, switches) or (0, 0, [], 0))[2],
+                       rx_from=(programs.rx_input(name, switches) or (0, 0, [], 0))[3],
                        tick_div=tick_div)
 
 
-def rx_transitions(name):
+def rx_transitions(name, sw=0):
     """[(post-reset clock, level)] of the serial line the testbench drives into the UART's receiver
     (idle high before the first): each byte as a start bit, eight data bits LSB first and a stop
     bit, TB_UART_CLK_FREQ // TB_UART_BAUD clocks each, one byte every `gap` clocks."""
-    if name not in programs.RX_INPUT:
+    if programs.rx_input(name, sw) is None:
         return []
-    start, gap, data = programs.RX_INPUT[name]
+    start, gap, data, _ = programs.rx_input(name, sw)
     bit = TB_UART_CLK_FREQ // TB_UART_BAUD
     out, level = [], 1
     for k, byte in enumerate(data):
@@ -91,11 +92,11 @@ def rx_transitions(name):
     return out
 
 
-def rx_end(name):
+def rx_end(name, sw=0):
     """The clock by which the last byte has been sent (0 if the program has no input)."""
-    if name not in programs.RX_INPUT:
+    if programs.rx_input(name, sw) is None:
         return 0
-    start, gap, data = programs.RX_INPUT[name]
+    start, gap, data, _ = programs.rx_input(name, sw)
     return start + len(data) * gap
 
 
@@ -268,9 +269,9 @@ def button_lines_in_loop(name):
             for c, levels in programs.BUTTON_EVENTS.get(name, ())]
 
 
-def rx_lines_in_loop(name):
+def rx_lines_in_loop(name, sw=0):
     return [f"                if (clock_count == {c}) rx_line = {v};   // serial input"
-            for c, v in rx_transitions(name)]
+            for c, v in rx_transitions(name, sw)]
 
 
 def plat_lines_in_loop(name):
@@ -292,7 +293,7 @@ def render_uart_testbench(name, words, text, sw, forever=False):
     n = len(out)
     # the serial line (3x the time the bytes need) plus the clocks the program itself computes for
     # (the model has no UART wait; C_COST spends 66k clocks on arithmetic)
-    max_clocks = n * UART_CLOCKS_PER_BYTE * 3 + 1000 + model.cycle + rx_end(name)
+    max_clocks = n * UART_CLOCKS_PER_BYTE * 3 + 1000 + model.cycle + rx_end(name, sw)
     expected = ", ".join(f"8h{b:02X}" for b in reversed(out))   # last element is index 0
     shown = "".join(chr(b) if 32 <= b < 127 else f"\\x{b:02x}" for b in out)
     lines = header(name, sw, ["    sig received[8]", f"    sig expected[{n}][8]", "    sig clock_count[32]"])
@@ -328,7 +329,7 @@ def render_uart_testbench(name, words, text, sw, forever=False):
            f"            if (received != {n} || dut.debug_pc != 32h{halt_pc:08X} || dut.debug_state != Cpu.State.FETCH) {{"]),
         *button_lines_in_loop(name),
         *plat_lines_in_loop(name),
-        *rx_lines_in_loop(name),
+        *rx_lines_in_loop(name, sw),
         "                $tick_clock()",
         "                clock_count = clock_count + 1",
         "                if (rx.new_data) {",

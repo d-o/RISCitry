@@ -28,7 +28,7 @@ different number of times, so UART programs are checked by their output and fina
 The receiver has none either: rx_in is the list of bytes the program will be sent, all of them
 there from the start. STATUS bit 1 (valid) is set while any remain; a load of RXDATA returns the
 next one with bit 8 set and removes it (0 when none is left); the platform line 0 (mip/mie bit 16)
-is high while any remain. A program whose result doesn't depend on when a byte arrives therefore
+is high while any remain. rx_from: they all appear at that post-reset clock (default 0). A program whose result doesn't depend on when a byte arrives therefore
 agrees with the hardware, which gets them off the serial line one at a time. No overrun here.
 
 The switch register reads back `switches` (bits 7:0, the rest 0); storing to it raises.
@@ -134,7 +134,7 @@ def legal(w):
 
 class Cpu:
     def __init__(self, words, traps_ok=False, switches=0, button_events=(), timer_rate=1, tick_div=1,
-                 plat_events=(), rx_in=()):
+                 plat_events=(), rx_in=(), rx_from=0):
         """words: {byte address: instruction or data word} as assembled. traps_ok: the program
         expects traps (take them as the core does); otherwise any trap raises."""
         self.traps_ok = traps_ok
@@ -146,6 +146,7 @@ class Cpu:
         self.mem = {}                 # word-aligned byte address -> word, preloaded or written
         self.uart_out = []
         self.rx_in = list(rx_in)      # bytes still to be received (see the docstring)
+        self.rx_from = rx_from        # ... all of which are there from this post-reset clock on
         self.display = 0
         self.csr = {a: 0 for a in CSR_WRITABLE}
         self.rate = timer_rate        # raw clocks (timer ticks) per cpu clock
@@ -205,10 +206,10 @@ class Cpu:
         word_addr, shift = self._ram_addr(addr, size)
         if self._region(addr) == "uart":
             if word_addr == memmap.UART_STATUS:      # tx never busy (no timing in this model), no overrun
-                return ((int(bool(self.rx_in)) << 1) >> shift) & ((1 << (8 * size)) - 1)
+                return ((int(self.rx_ready()) << 1) >> shift) & ((1 << (8 * size)) - 1)
             if word_addr != memmap.UART_RXDATA:
                 raise ValueError(f"pc={self.pc:#x}: load from UART {addr:#x}: only STATUS and RXDATA are readable")
-            value = (0x100 | self.rx_in.pop(0)) if self.rx_in else 0     # the read pops
+            value = (0x100 | self.rx_in.pop(0)) if self.rx_ready() else 0     # the read pops
             return (value >> shift) & ((1 << (8 * size)) - 1)
         if self._region(addr) == "switches":
             return (self.switches >> shift) & ((1 << (8 * size)) - 1)
@@ -308,6 +309,10 @@ class Cpu:
         self._buttons_to(self._sampled_by(self.cycle + 1 + stall))
         return self.btn["pending"] != 0
 
+    def rx_ready(self, stall=0):
+        """A received byte is waiting (the receiver's valid flag)."""
+        return bool(self.rx_in) and self.cycle + 1 + stall >= self.rx_from
+
     def plat(self, stall=0):
         """The platform lines (2 bits) during this instruction's EXECUTE: the level at its enabled
         edge, or at the stall-th extra EXECUTE clock's (a WFI)."""
@@ -316,7 +321,7 @@ class Cpu:
         for clock, levels in self.plat_events:
             if clock * self.rate <= edge:
                 value = levels
-        return value | int(bool(self.rx_in))      # the UART's receiver drives line 0
+        return value | int(self.rx_ready(stall))      # the UART's receiver drives line 0
 
     def mtip(self, stall=0):
         """mip.MTIP as the core sees it during this instruction's EXECUTE (registered one raw
