@@ -385,7 +385,8 @@ SCROLL_TEXT = "    HELLO FROM AN RV32E SOFT CORE ON THE ALCHITRY CU    "   # 4 s
 #   6  scroll: SCROLL_TEXT across the 7-segment display. The display device holds four characters
 #      (the board has the font and scans the digits); each timer interrupt, every
 #      (switches[7:3] << 15) + 128 mtime ticks, moves the text one character and writes the four
-#   7  Larson (spare)
+#   7  C: c/demo.c, linked at 0x800 (cbuild.ORIGINS): `Hello from C!`, a multiply/divide/remainder, then a table
+#      of clocks per call for mul, div and mod at three operand sizes (measured with mtime); then it halts
 # Rungs 1-3 step every (switches[7:3] << 13) + 64 mtime ticks (the "dial"; 1 us on the board:
 # dial 31 is 254 ms, ~4 steps a second). Rung 1 converts ticks to delay-loop passes with the
 # timer's timebase word (clocks per tick), calibrated for the cpu at full speed: at the fast
@@ -403,7 +404,7 @@ BOARD = [
     ("jalr", 0, 4, 0),
     "menu:",
     (".word", "turn", "hello", "buttons_demo", "delay_larson",
-              "poll_larson", "irq_larson", "scroll_demo", "turn"),
+              "poll_larson", "irq_larson", "scroll_demo", "c_demo"),
     *LARSON[2:],                               # .org 0x48, right/left/turn as on the old ROM
     "hello:",
     ("lui", 2, memmap.UART_BASE >> 12),
@@ -624,6 +625,9 @@ BOARD = [
     (".string", "0123456789ABCDEF"),
     "scroll_text:",
     (".string", SCROLL_TEXT),
+    (".org", 0x800),                           # above the demos (they end below 0x500)
+    "c_demo:",
+    *cbuild.items("demo"),
 ]
 
 # Zicsr and MRET: read the constant CSRs, write/set/clear mscratch (rd gets the old value each
@@ -992,7 +996,7 @@ PROGRAMS = {
 RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160}
 # ... per switch setting where that differs: the timing ladder, a full sweep at the dial's minimum
 FOREVER_STEPS = {("BOARD", 3): 600, ("BOARD", 4): 600, ("BOARD", 5): 600,
-                 ("BOARD", 6): 400}    # scroll: four steps
+                 ("BOARD", 6): 400, ("BOARD", 7): 2000}    # scroll: four steps
 
 
 def forever_steps(name, sw):
@@ -1000,14 +1004,15 @@ def forever_steps(name, sw):
 
 
 PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered lines
-               ("BOARD", 2): 57}       # the banner and two interrupts (the first with a lost press)
+               ("BOARD", 2): 57,
+               ("BOARD", 7): 23}       # the C demo's greeting; its cost table is checked as C_COST       # the banner and two interrupts (the first with a lost press)
 # Programs with no Alchitry testbench: only xsim_computer.py checks them (against rv32sim). C_COST
 # prints 308 bytes after 66k clocks of arithmetic: 13 minutes in the Alchitry simulator, and that
 # simulator's cross-instance ordering bug (CLAUDE.md) sends a byte twice in most runs of a print
 # this long (byte 20 of 308 doubled in one of three shortened runs; xsim passes every time).
 XSIM_ONLY = {"C_COST"}
 # Programs that read the switch register: one testbench per setting.
-SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6]}
+SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6, 7]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
 EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED"}
 # Button presses for programs that use the buttons device: (post-reset clock, levels), levels =

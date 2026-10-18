@@ -2,7 +2,9 @@
    so there is no load address different from the run address and .data needs no copy at start-up. */
 OUTPUT_ARCH(riscv)
 ENTRY(_start)
-MEMORY { RAM (rwx) : ORIGIN = 0x00000000, LENGTH = 8K }
+/* __origin comes from cbuild.py (--defsym): 0 for a program that owns the machine, 0x800 for the
+   board's menu entry 7, which lives above the menu and the other demos */
+MEMORY { RAM (rwx) : ORIGIN = __origin, LENGTH = 8K - __origin }
 
 SECTIONS
 {

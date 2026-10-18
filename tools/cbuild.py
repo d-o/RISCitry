@@ -24,6 +24,7 @@ ROOT = Path(__file__).resolve().parent.parent
 C_DIR = ROOT / "c"
 IMAGES = C_DIR / "images"
 PREFIX = "riscv64-unknown-elf-"
+ORIGINS = {"demo": 0x800}       # where each program is linked; the others own the machine, from 0
 ARCH = ["-mabi=ilp32e"]
 CFLAGS = ["-march=rv32e", *ARCH, "-Os", "-ffreestanding", "-fno-pic", "-mstrict-align",
           "-Wall", "-Wextra", "-Werror"]
@@ -35,6 +36,7 @@ def run(*cmd):
 
 def build(name):
     """Compile and link c/<name>.c; return the RAM image bytes (also written to c/images)."""
+    origin = ORIGINS.get(name, 0)
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         elf = tmp / f"{name}.elf"
@@ -43,7 +45,7 @@ def build(name):
         run(PREFIX + "gcc", "-march=rv32e_zicsr", *ARCH, "-c", str(C_DIR / "crt0.S"), "-o", str(tmp / "crt0.o"))
         run(PREFIX + "gcc", *CFLAGS, "-c", str(C_DIR / f"{name}.c"), "-o", str(tmp / f"{name}.o"))
         run(PREFIX + "gcc", "-march=rv32e", *ARCH, "-nostdlib", "-T", str(C_DIR / "linker.ld"),
-            f"-Wl,-Map={tmp / 'map'}", str(tmp / "crt0.o"), str(tmp / f"{name}.o"), "-lgcc", "-o", str(elf))
+            f"-Wl,--defsym=__origin={origin}", f"-Wl,-Map={tmp / 'map'}", str(tmp / "crt0.o"), str(tmp / f"{name}.o"), "-lgcc", "-o", str(elf))
         run(PREFIX + "objcopy", "-O", "binary", str(elf), str(tmp / "image.bin"))
         image = (tmp / "image.bin").read_bytes()
         etext = int(next(line.split()[0] for line in run(PREFIX + "nm", str(elf)).splitlines()
@@ -52,20 +54,21 @@ def build(name):
         sizes = run(PREFIX + "size", str(elf))
     image += bytes(-len(image) % 4)
     words = struct.unpack(f"<{len(image) // 4}I", image)
-    bad = [f"{4 * i:#x}: {w:#010x}" for i, w in enumerate(words) if 4 * i < etext and not rv32sim.legal(w)]
+    bad = [f"{origin + 4 * i:#x}: {w:#010x}" for i, w in enumerate(words) if origin + 4 * i < etext and not rv32sim.legal(w)]
     if bad:
         raise SystemExit(f"{name}: instructions the core doesn't decode: {bad[:5]}")
-    if len(image) > memmap.RAM_BYTES:
-        raise SystemExit(f"{name}: image is {len(image)} bytes, RAM is {memmap.RAM_BYTES}")
+    if origin + len(image) > memmap.RAM_BYTES:
+        raise SystemExit(f"{name}: image is {len(image)} bytes at {origin:#x}, RAM is {memmap.RAM_BYTES}")
     IMAGES.mkdir(exist_ok=True)
     (IMAGES / f"{name}.bin").write_bytes(image)
     (IMAGES / f"{name}.lst").write_text(listing)
-    print(f"{name}: {len(image)} bytes, code {etext} bytes, {etext // 4} instructions, all legal\n{sizes}", end="")
+    print(f"{name}: {len(image)} bytes at {origin:#x}, code {etext - origin} bytes, {(etext - origin) // 4} instructions, all legal\n{sizes}", end="")
     return image
 
 
 def items(name):
-    """The program for tools/asm.py: the committed image as words from address 0."""
+    """The program for tools/asm.py: the committed image as words, to be placed at ORIGINS[name]
+    (0 unless the caller puts an .org before it)."""
     image = (IMAGES / f"{name}.bin").read_bytes()
     words = struct.unpack(f"<{len(image) // 4}I", image)
     return [(".word", *words)]

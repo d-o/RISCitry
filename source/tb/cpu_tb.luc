@@ -22077,6 +22077,115 @@ testbench cpu_board_sw6_tb {
     }
 }
 
+testbench cpu_board_sw7_tb {
+    sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
+    sig rst
+    sig sel[4]
+    sig switches[8]
+    sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig ce                 // the computer's clock enable
+    sig received[8]
+    sig expected[23][8]
+    sig clock_count[32]
+
+    computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
+                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .debug_sel(sel))
+    uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
+
+    // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
+    fun tick_clock() {
+        clk = 1
+        io_clk = 0
+        $silent_tick()
+        clk = 0
+        io_clk = 1
+        $silent_tick()
+    }
+
+    fun expect_pc(pc[32]) {
+        if (dut.debug_pc != pc)
+            $print("pc: got %h want %h", dut.debug_pc, pc)
+        $assert(dut.debug_pc == pc)
+        $assert(dut.uart_tx)       // idle high unless the program prints
+    }
+
+    fun expect_state(state[Cpu.STATE_BITS]) {
+        if (dut.debug_state != state)
+            $print("state: got %d want %d", dut.debug_state, state)
+        $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
+    }
+
+    fun expect_reg(r[4], value[32]) {
+        sel = r
+        $silent_tick()
+        if (dut.debug_reg != value)
+            $print("x%d: got %h want %h", r, dut.debug_reg, value)
+        $assert(dut.debug_reg == value)
+    }
+
+    fun expect_display(value[33]) {   // owned, the four characters
+        if (c{dut.display_owned, dut.display_chars} != value)
+            $print("display: got %h want %h", c{dut.display_owned, dut.display_chars}, value)
+        $assert(c{dut.display_owned, dut.display_chars} == value)
+    }
+
+    test run {
+        clk = 0
+        io_clk = 0
+        sel = 0
+        switches = 8h07
+        buttons = 0
+        plat_irq = 0
+        ce = 1
+        rst = 1
+        received = 0
+        clock_count = 0
+        expected = {8h0A, 8h32, 8h72, 8h20, 8h34, 8h31, 8h20, 8h32, 8h34, 8h0A, 8h21, 8h43, 8h20, 8h6D, 8h6F, 8h72, 8h66, 8h20, 8h6F, 8h6C, 8h6C, 8h65, 8h48}   // "Hello from C!\x0a42 14 r2\x0a"
+        // hold reset for an extra bit time: uart_tx's output register has no reset and starts
+        // low for two clocks, and uart_rx's 3-deep input buffer (not reset either) would
+        // take that for a start bit unless the idle-high line has filled it first
+        repeat(i, 8) {
+            $tick_clock()
+        }
+        $tick_clock()
+        $tick_clock()
+        rst = 0
+        $expect_pc(32h00000000)
+        // run until the first 23 bytes have been received (at most 8416 clocks)
+        repeat(i, 8416) {
+            if (received != 23) {
+                if (clock_count == 100) buttons = 4h4;   // button event
+                if (clock_count == 110) buttons = 4h0;   // button event
+                if (clock_count == 140) buttons = 4h4;   // button event
+                if (clock_count == 150) buttons = 4h0;   // button event
+                if (clock_count == 3000) buttons = 4h9;   // button event
+                if (clock_count == 3100) buttons = 4h0;   // button event
+                $tick_clock()
+                clock_count = clock_count + 1
+                if (rx.new_data) {
+                    $assert(received < 23)
+                    if (rx.data != expected[received])
+                        $print("byte %d: got %h want %h", received, rx.data, expected[received])
+                    $assert(rx.data == expected[received])
+                    received = received + 1
+                }
+            }
+        }
+        if (received != 23)
+            $print("received %d of 23 bytes", received)
+        $assert(received == 23)
+    }
+}
+
 testbench cpu_larson_tb {
     sig clk
     sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
@@ -49736,8 +49845,8 @@ testbench cpu_c_hello_tb {
         $tick_clock()
         rst = 0
         $expect_pc(32h00000000)
-        // run until halted at 0x0038 with all 23 bytes received (at most 8385 clocks)
-        repeat(i, 8385) {
+        // run until halted at 0x0038 with all 23 bytes received (at most 8389 clocks)
+        repeat(i, 8389) {
             if (received != 23 || dut.debug_pc != 32h00000038 || dut.debug_state != Cpu.State.FETCH) {
                 $tick_clock()
                 clock_count = clock_count + 1
@@ -49759,10 +49868,10 @@ testbench cpu_c_hello_tb {
         $expect_reg(4d0, 32h00000000)
         $expect_reg(4d1, 32h00000038)
         $expect_reg(4d2, 32h00002000)
-        $expect_reg(4d3, 32h00000A84)
+        $expect_reg(4d3, 32h00000A90)
         $expect_reg(4d4, 32h00000000)
         $expect_reg(4d5, 32h000000C0)
-        $expect_reg(4d6, 32h00000294)
+        $expect_reg(4d6, 32h00000290)
         $expect_reg(4d7, 32h00000000)
         $expect_reg(4d8, 32h00000000)
         $expect_reg(4d9, 32h00000000)

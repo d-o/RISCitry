@@ -1,4 +1,4 @@
-/* Start-up for the RV32E core: reset enters here at address 0. */
+/* Start-up for the RV32E core: reset enters here at address 0 (or the board's menu jumps here). */
     .section .text.init
     .globl _start
 _start:
