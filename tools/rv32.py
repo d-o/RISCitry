@@ -1,8 +1,15 @@
 """RV32I instruction encoding/decoding: the single source of truth for hex in this project.
 
 Every ROM word and every generated test vector comes from here. Never hand-encode B/J immediates.
-Run this file directly to self-test against known-good encodings.
+Run this file directly to self-test against known-good encodings. When the GNU RISC-V
+assembler is installed the self-test also assembles each known word's source text with it and
+compares, so the check comes from outside this file.
 """
+
+import os
+import shutil
+import subprocess
+import tempfile
 
 OPCODES = {
     "LUI": 0x37, "AUIPC": 0x17, "JAL": 0x6F, "JALR": 0x67, "BRANCH": 0x63,
@@ -171,8 +178,57 @@ def u32(x):
     return x & 0xFFFFFFFF
 
 
+# The assembly text for each known word in _self_test, for the GNU assembler to confirm.
+GNU_ASM = {
+    0x00100093: "addi ra, zero, 1",
+    0x00000013: "nop",
+    0x0000006F: "j .",
+    0xFE000EE3: "beqz zero, . - 4",
+    0x40B50533: "sub a0, a0, a1",
+    0x00B50533: "add a0, a0, a1",
+    0x07C0006F: "j . + 0x7c",
+    0xFCDFF0EF: "jal ra, . - 0x34",
+    0x0010D093: "srli ra, ra, 1",
+    0x00109093: "slli ra, ra, 1",
+    0x00008067: "ret",
+    0x00000073: "ecall",
+    0x00100073: "ebreak",
+    0x40A5D513: "srai a0, a1, 10",
+    0x123452B7: "lui t0, 0x12345",
+    0x0000A503: "lw a0, 0(ra)",
+    0x00A12223: "sw a0, 4(sp)",
+    0x30529073: "csrw mtvec, t0",
+    0x34102573: "csrr a0, mepc",
+    0x30046073: "csrsi mstatus, 8",
+    0x30200073: "mret",
+    0x10500073: "wfi",
+}
+
+
+def _check_with_gnu_as():
+    """Assemble GNU_ASM with riscv64-unknown-elf-as and compare every word. Returns the number of
+    words checked, or 0 if the toolchain isn't installed."""
+    as_, objcopy = (shutil.which("riscv64-unknown-elf-" + t) for t in ("as", "objcopy"))
+    if not (as_ and objcopy):
+        return 0
+    words = list(GNU_ASM)
+    with tempfile.TemporaryDirectory() as d:
+        src, obj, raw = (os.path.join(d, n) for n in ("t.s", "t.o", "t.bin"))
+        with open(src, "w") as f:
+            f.write("\n".join(GNU_ASM[w] for w in words) + "\n")
+        subprocess.run([as_, "-march=rv32e_zicsr", "-mabi=ilp32e", src, "-o", obj], check=True)
+        subprocess.run([objcopy, "-O", "binary", "-j", ".text", obj, raw], check=True)
+        with open(raw, "rb") as f:
+            data = f.read()
+    assert len(data) == 4 * len(words), f"assembler gave {len(data)} bytes for {len(words)} words"
+    for i, w in enumerate(words):
+        got = int.from_bytes(data[4 * i:4 * i + 4], "little")
+        assert got == w, f"GNU as: '{GNU_ASM[w]}' gave {got:08X}, expected {w:08X}"
+    return len(words)
+
+
 def _self_test():
-    # Encodings that appear in standard RISC-V disassembly, not derived from this file.
+    # Known-good encodings. _check_with_gnu_as confirms them against the GNU assembler.
     known = {
         0x00100093: addi(1, 0, 1),       # addi ra, zero, 1  (li ra, 1)
         0x00000013: addi(0, 0, 0),       # nop
@@ -202,6 +258,7 @@ def _self_test():
     })
     for want, got in known.items():
         assert want == got, f"expected {want:08X}, encoder gave {got:08X}"
+    assert set(known) == set(GNU_ASM), "every known word needs assembly text in GNU_ASM"
     for name in INSTRUCTIONS:
         assert INSTRUCTIONS[name][1] == encode(name, 1, 2, 3, 4) & 0x7F
     for imm in (0, 2, -2, 4094, -4096, 0x800, -0x800, 0xAAA, -0x556):
@@ -211,7 +268,9 @@ def _self_test():
     for imm in (0, 1, -1, 2047, -2048, 0x555, -0x556):
         assert decode_imm(addi(31, 31, imm)) == imm
         assert decode_imm(sw(31, 31, imm)) == imm
-    print("rv32 self-test passed")
+    checked = _check_with_gnu_as()
+    print(f"rv32 self-test passed ({checked} words confirmed with GNU as)" if checked
+          else "rv32 self-test passed (GNU as not installed: words not confirmed)")
 
 
 if __name__ == "__main__":
