@@ -10,7 +10,7 @@ module program_image #(
 
   always {
     word = 0
-    if (PROGRAM_ID == Programs.Id.BOARD && addr < 904) word = Programs.BOARD[addr];
+    if (PROGRAM_ID == Programs.Id.BOARD && addr < 910) word = Programs.BOARD[addr];
     if (PROGRAM_ID == Programs.Id.LARSON && addr < 32) word = Programs.LARSON[addr];
     if (PROGRAM_ID == Programs.Id.ALU && addr < 30) word = Programs.ALU[addr];
     if (PROGRAM_ID == Programs.Id.BRANCHES && addr < 21) word = Programs.BRANCHES[addr];
@@ -18,6 +18,8 @@ module program_image #(
     if (PROGRAM_ID == Programs.Id.MEMORY && addr < 17) word = Programs.MEMORY[addr];
     if (PROGRAM_ID == Programs.Id.BYTES && addr < 31) word = Programs.BYTES[addr];
     if (PROGRAM_ID == Programs.Id.UART && addr < 26) word = Programs.UART[addr];
+    if (PROGRAM_ID == Programs.Id.RXECHO && addr < 25) word = Programs.RXECHO[addr];
+    if (PROGRAM_ID == Programs.Id.RXIRQ && addr < 36) word = Programs.RXIRQ[addr];
     if (PROGRAM_ID == Programs.Id.STRING && addr < 15) word = Programs.STRING[addr];
     if (PROGRAM_ID == Programs.Id.TABLE && addr < 26) word = Programs.TABLE[addr];
     if (PROGRAM_ID == Programs.Id.SELFMOD && addr < 18) word = Programs.SELFMOD[addr];

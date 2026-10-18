@@ -29,9 +29,10 @@ module computer #(
     input io_clk,            // free-running clock for the UART's baud rate
     input io_rst,
     output uart_tx,
+    input uart_rx,           // serial in, idle high
     input switches[8],       // read-only switch register (already synchronised)
     input buttons[4],        // debounced push buttons: interrupt source (buttons.luc synchronises)
-    input plat_irq[2],       // platform interrupt lines (causes 16, 17): a test input until the UART drives them
+    input plat_irq[2],       // platform interrupt lines (causes 16, 17), ORed with the devices' (the UART's receiver is line 0)
     output display_chars[32],   // the 7-segment display's four characters (lane 0 = leftmost) ...
     output display_owned,    // ... once the program has written them: until then the board shows the pc
     input debug_sel[4],      // which register debug_reg shows
@@ -90,7 +91,7 @@ module computer #(
     buttons0.clear = buttons_wsel && core.bus_be[0]
     buttons0.clear_mask = core.bus_wdata[7:0]
     core.irq_external = buttons0.irq
-    core.irq_plat = plat_irq
+    core.irq_plat = c{plat_irq[1], plat_irq[0] | uart0.rx_irq}
 
     // --- 7-segment display: four characters, one per byte lane ---
     display_rsel = core.bus_load && (core.bus_raddr >> MemMap.DISPLAY_ADDR_BITS) == (MemMap.DISPLAY_BASE >> MemMap.DISPLAY_ADDR_BITS)
@@ -107,17 +108,21 @@ module computer #(
     ram.wdata = core.bus_wdata
     if (ram_wsel) ram.be = core.bus_be; else ram.be = 4b0000;
 
-    // --- UART: TXDATA at +0 (byte lane 0 sends), STATUS at +4 ---
+    // --- UART: TXDATA at +0 (byte lane 0 sends), STATUS at +4, RXDATA at +8 (a read pops) ---
     uart0.io_clk = io_clk
     uart0.io_rst = io_rst
-    uart0.write = uart_wsel && !core.bus_waddr[2] && core.bus_be[0]
+    uart0.write = uart_wsel && core.bus_waddr[3:2] == 2b00 && core.bus_be[0]
     uart0.write_data = core.bus_wdata[7:0]
+    uart0.clear_overrun = uart_wsel && core.bus_waddr[3:2] == 2b01 && core.bus_be[0] && core.bus_wdata[2]
+    uart0.rx_read = uart_rsel && core.bus_raddr[3:2] == 2b10
+    uart0.rx = uart_rx
     uart_tx = uart0.tx
 
     // --- read data, one clock after the address ---
     read_ram.d = ram_rsel
     io_read.d = 0
-    if (uart_rsel && core.bus_raddr[2]) io_read.d = c{31b0, uart0.busy};
+    if (uart_rsel && core.bus_raddr[3:2] == 2b01) io_read.d = c{29b0, uart0.rx_overrun, uart0.rx_valid, uart0.busy};
+    if (uart_rsel && core.bus_raddr[3:2] == 2b10) io_read.d = c{23b0, uart0.rx_valid, uart0.rx_data};
     if (switches_rsel) io_read.d = c{24b0, switches};
     if (timer_rsel) io_read.d = timer0.rdata;
     if (buttons_rsel) io_read.d = buttons0.rdata;

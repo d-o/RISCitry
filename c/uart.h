@@ -4,10 +4,17 @@
 
 #define UART_TXDATA (*(volatile unsigned *)0x80000000u)
 #define UART_STATUS (*(volatile unsigned *)0x80000004u)
+#define UART_RXDATA (*(volatile unsigned *)0x80000008u)   /* bit 8 = a byte arrived, bits 7:0 = it; the read pops */
 
 static inline void putc_(char c) {
     while (UART_STATUS & 1) ;
     UART_TXDATA = (unsigned char)c;
+}
+
+/* the next received byte, or -1 if none has arrived */
+static inline int getc_nb(void) {
+    unsigned v = UART_RXDATA;
+    return (v & 0x100) ? (int)(v & 0xFF) : -1;
 }
 
 static inline void puts_(const char *s) {

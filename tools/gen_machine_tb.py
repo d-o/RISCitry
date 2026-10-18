@@ -49,7 +49,7 @@ def main():
         "",
         f"    machine dut(#PROGRAM_ID(Programs.Id.{PROGRAM}), #SIM_RAM(1), #SLOW_BITS({SLOW_BITS}), #FAST_BITS({FAST_BITS}),",
         "                .clk(clk), .rst(rst), .run(run), .fast(fast), .clock_step(clock_step), .step(step),",
-        "                .switches(switches), .buttons(buttons), .debug_sel(sel))",
+        "                .switches(switches), .buttons(buttons), .uart_rx(1), .debug_sel(sel))",
         "",
         "    fun tick_clock() {",
         "        clk = 1",
@@ -249,7 +249,7 @@ def sleep_main():
         f"    machine dut(#PROGRAM_ID(Programs.Id.{SLEEP_PROGRAM}), #SIM_RAM(1), #SLOW_BITS({SLOW_BITS}), "
         f"#FAST_BITS({FAST_BITS}), #TICK_DIV({SLEEP_TICK_DIV}),",
         "                .clk(clk), .rst(rst), .run(run), .fast(fast), .clock_step(clock_step), .step(step),",
-        "                .switches(switches), .buttons(buttons), .debug_sel(sel))",
+        "                .switches(switches), .buttons(buttons), .uart_rx(1), .debug_sel(sel))",
         "",
         "    fun tick_clock() {",
         "        clk = 1",

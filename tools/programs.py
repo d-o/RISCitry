@@ -210,6 +210,91 @@ UART = [
     ("jalr", 0, 1, 0),
 ]
 
+# UART receiver, polled: RX_INPUT sends five bytes at 200-clock intervals (0x41, 0x80, 0x00, 0xFF,
+# 0x0A: all-zero and all-one frames too). Each is waited for on STATUS bit 1, read from RXDATA (bit 8
+# = valid, the read pops it) and echoed plus one. x11 sums the bytes, x8 counts the valid bits;
+# afterwards RXDATA reads 0 and STATUS (bits 2:1) shows nothing waiting, no overrun.
+# Expected output: 42 81 01 00 0B.
+U = memmap.UART_BASE
+RXECHO = [
+    ("lui", 2, U >> 12),
+    ("addi", 6, 0, 5),
+    "rx_wait:",
+    ("lw", 5, 2, memmap.UART_STATUS - U),
+    ("andi", 5, 5, 2),
+    ("beq", 5, 0, "rx_wait"),                  # STATUS bit 1: a byte is waiting
+    ("lw", 7, 2, memmap.UART_RXDATA - U),      # bit 8 | byte; the read pops it
+    ("srli", 9, 7, 8),
+    ("andi", 9, 9, 1),
+    ("add", 8, 8, 9),                          # count the valid bits
+    ("andi", 7, 7, 0xFF),
+    ("add", 11, 11, 7),
+    ("addi", 10, 7, 1),
+    ("andi", 10, 10, 0xFF),
+    ("jal", 1, "rx_putc"),                     # echo plus one
+    ("addi", 6, 6, -1),
+    ("bne", 6, 0, "rx_wait"),
+    ("lw", 12, 2, memmap.UART_RXDATA - U),     # empty: reads 0
+    ("lw", 13, 2, memmap.UART_STATUS - U),
+    ("andi", 13, 13, 6),                       # nothing waiting, no overrun
+    ("halt",),
+    "rx_putc:",
+    ("lw", 5, 2, memmap.UART_STATUS - U),
+    ("andi", 5, 5, 1),
+    ("bne", 5, 0, "rx_putc"),
+    ("sw", 10, 2, memmap.UART_TXDATA - U),
+    ("jalr", 0, 1, 0),
+]
+
+# UART receiver, interrupt-driven (platform line 0, cause 16): RX_INPUT sends "risc". With MIE set
+# and mie bit 16 clear the byte shows in mip (polled, bit 16) and isn't taken; setting the bit takes
+# one interrupt per byte. The handler (direct mtvec) reads RXDATA, stores the byte at DATA + count and
+# counts; main waits for four, masks the line, and prints the buffer upper-cased (xor 0x20).
+# x12 keeps the last mcause (0x80000010), x14 the count. Expected output: "RISC\n".
+RXIRQ = [
+    ("addi", 3, 0, "rxirq_handler"),
+    ("csrrw", 0, 0x305, 3),                    # mtvec = handler (direct)
+    ("lui", 2, U >> 12),
+    ("addi", 13, 0, DATA),                     # buffer
+    ("csrrsi", 0, 0x300, 0x08),                # MIE; mie bit 16 still clear
+    ("lui", 8, 0x10),                          # 1 << 16
+    "rxirq_mip:",
+    ("csrrs", 1, 0x344, 0),
+    ("and", 5, 1, 8),
+    ("beq", 5, 0, "rxirq_mip"),                # pending in mip, not taken (count still 0)
+    ("csrrs", 0, 0x304, 8),                    # unmask: the interrupts start
+    ("addi", 6, 0, 4),
+    "rxirq_wait:",
+    ("bne", 14, 6, "rxirq_wait"),              # the handler counts four bytes
+    ("csrrc", 0, 0x304, 8),                    # mask the line again
+    ("addi", 6, 0, 0),
+    "rxirq_print:",
+    ("add", 7, 13, 6),
+    ("lbu", 10, 7, 0),
+    ("xori", 10, 10, 0x20),
+    ("jal", 1, "rx_putc"),
+    ("addi", 6, 6, 1),
+    ("addi", 5, 0, 4),
+    ("bne", 6, 5, "rxirq_print"),
+    ("addi", 10, 0, ord("\n")),
+    ("jal", 1, "rx_putc"),
+    ("halt",),
+    "rxirq_handler:",
+    ("csrrs", 12, 0x342, 0),                   # x12 = mcause
+    ("lw", 9, 2, memmap.UART_RXDATA - U),      # bit 8 | byte
+    ("andi", 4, 9, 0xFF),
+    ("add", 15, 13, 14),
+    ("sb", 4, 15, 0),                          # buffer[count] = byte
+    ("addi", 14, 14, 1),
+    ("mret",),
+    "rx_putc:",
+    ("lw", 5, 2, memmap.UART_STATUS - U),
+    ("andi", 5, 5, 1),
+    ("bne", 5, 0, "rx_putc"),
+    ("sw", 10, 2, memmap.UART_TXDATA - U),
+    ("jalr", 0, 1, 0),
+]
+
 # Code and data share the RAM: print a .string that lives right after the code, walking it with
 # lbu (loads from the same memory the instructions come from). Expected output: the string.
 STRING = [
@@ -976,6 +1061,8 @@ PROGRAMS = {
     "MEMORY": MEMORY,
     "BYTES": BYTES,
     "UART": UART,
+    "RXECHO": RXECHO,
+    "RXIRQ": RXIRQ,
     "STRING": STRING,
     "TABLE": TABLE,
     "SELFMOD": SELFMOD,
@@ -1014,7 +1101,13 @@ XSIM_ONLY = {"C_COST"}
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6, 7]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
-EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED"}
+EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED", "RXIRQ"}
+# Bytes sent to the UART's receiver by the testbench: (first start bit's post-reset clock, clocks
+# between start bits, bytes). Chosen so the program keeps up (a byte takes 80 clocks on the line).
+RX_INPUT = {
+    "RXECHO": (200, 200, [0x41, 0x80, 0x00, 0xFF, 0x0A]),
+    "RXIRQ": (200, 200, list(b"risc")),
+}
 # Button presses for programs that use the buttons device: (post-reset clock, levels), levels =
 # up | down << 1 | left << 2 | right << 3, applied before that clock's rising edge.
 BUTTON_EVENTS = {

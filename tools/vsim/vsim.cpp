@@ -10,7 +10,9 @@
 // stored in this repository.
 //
 // Serial: usb_tx is decoded (8N1) and echoed to stdout and to a pseudo-terminal whose path is
-// printed at start-up (`picocom -b 1000000 /dev/pts/N` works; the baud setting is ignored).
+// printed at start-up (`picocom -b 1000000 /dev/pts/N` works; the baud setting is ignored). What
+// is typed into the pseudo-terminal is sent to usb_rx (8N1, 25 clocks a bit), and --send TIME TEXT
+// queues text at an exact clock (also headless).
 //
 // Built and started by tools/vsim/vsim.sh, which normally builds the design with its timing 5x
 // shorter (SLOW_BITS, TICK_DIV, DEBOUNCE_BITS) and passes --time-scale 5: then 5 MHz here is
@@ -27,6 +29,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <deque>
 #include <fcntl.h>
 #include <string>
 #include <termios.h>
@@ -53,6 +56,7 @@ struct Options {
     std::string record_for;
     int fps = 30;              // frames per second of board time (snapshot and record)
     std::vector<std::pair<std::string, std::string>> at;   // --at TIME ACTION, in order given
+    std::vector<std::pair<std::string, std::string>> send; // --send TIME TEXT, in order given
 };
 
 // A duration: "2.5s" is seconds of board time, a plain number is clocks.
@@ -115,6 +119,42 @@ struct UartRx {
         return out;
     }
 };
+
+// The other direction: bytes queued here go out on usb_rx as 8N1 frames, 25 clocks a bit.
+struct UartTx {
+    std::deque<unsigned char> queue;
+    unsigned frame = 0;        // the bits still to send, LSB first (start, data, stop)
+    int bits = 0, count = 0;
+    bool line = true;          // idle high
+    void clock() {
+        if (count > 0) { count--; return; }               // hold the current bit
+        if (bits == 0) {
+            if (queue.empty()) { line = true; return; }
+            frame = (1u << 9) | ((unsigned)queue.front() << 1);    // stop bit, data, start bit (0)
+            queue.pop_front();
+            bits = 10;
+        }
+        line = frame & 1;
+        frame >>= 1;
+        bits--;
+        count = CLKS_PER_BIT - 1;
+    }
+};
+
+// \n, \r, \t, \\ and \xHH in --send text.
+static std::string unescape(const std::string& t) {
+    std::string out;
+    for (size_t i = 0; i < t.size(); i++) {
+        if (t[i] != '\\' || i + 1 >= t.size()) { out += t[i]; continue; }
+        char c = t[++i];
+        if (c == 'n') out += '\n';
+        else if (c == 'r') out += '\r';
+        else if (c == 't') out += '\t';
+        else if (c == 'x' && i + 2 < t.size()) { out += (char)strtoul(t.substr(i + 1, 2).c_str(), nullptr, 16); i += 2; }
+        else out += c;
+    }
+    return out;
+}
 
 static int open_pty(std::string& path) {
     int m = posix_openpt(O_RDWR | O_NOCTTY);
@@ -223,16 +263,19 @@ int main(int argc, char** argv) {
         else if (a == "--record" && i + 2 < argc) { o.record = argv[++i]; o.record_for = argv[++i]; }
         else if (a == "--fps" && i + 1 < argc) o.fps = atoi(argv[++i]);
         else if (a == "--at" && i + 2 < argc) { o.at.push_back({argv[i + 1], argv[i + 2]}); i += 2; }
+        else if (a == "--send" && i + 2 < argc) { o.send.push_back({argv[i + 1], argv[i + 2]}); i += 2; }
         else if (a == "--help") {
             printf("vsim [--scale PX_PER_MM] [--side-by-side] [--dips HEX] [--quiet] [--unthrottled]\n"
                    "     [--headless TIME] [--snapshot FILE TIME] [--record FILE TIME [--fps N]]\n"
-                   "     [--at TIME ACTION]... [--jar ALCHITRY_JAR]\n"
+                   "     [--at TIME ACTION]... [--send TIME TEXT]... [--jar ALCHITRY_JAR]\n"
                    "TIME: 2.5s = seconds of board time, a plain number = clocks.\n"
                    "--snapshot: any image type ImageMagick knows (.png, .bmp ...). --record: .gif\n"
                    "  (palette for the web) or anything ffmpeg writes (.mp4: H.264). Both run\n"
                    "  without a window, as fast as they can, frames timed in board time, no echo.\n"
                    "--at TIME ACTION (repeatable): ACTION up, down, left, right, centre or reset is a\n"
-                   "  click held 100 ms (NAME/MS for MS ms); dips=HEX sets the switches.\n");
+                   "  click held 100 ms (NAME/MS for MS ms); dips=HEX sets the switches.\n"
+                   "--send TIME TEXT (repeatable): TEXT goes into the serial input at that clock (\\n, \\xHH\n"
+                   "  escapes); in a window, what is typed into the serial pty goes in too.\n");
             return 0;
         } else {
             fprintf(stderr, "vsim: unknown option %s (--help)\n", a.c_str());
@@ -263,11 +306,25 @@ int main(int argc, char** argv) {
         }
     script.sort();
 
+    UartTx serial_in;
+    std::vector<std::pair<uint64_t, std::string>> sends;
+    for (auto& [t, text] : o.send) sends.push_back({parse_time(t, REAL_HZ), unescape(text)});
+    std::stable_sort(sends.begin(), sends.end(), [](auto& a, auto& b) { return a.first < b.first; });
+    size_t next_send = 0;
+    auto feed = [&](uint64_t clock) {          // queue what is due, then step the serial line
+        while (next_send < sends.size() && sends[next_send].first <= clock) {
+            for (unsigned char ch : sends[next_send].second) serial_in.queue.push_back(ch);
+            next_send++;
+        }
+        serial_in.clock();
+    };
+
     if (headless_clocks) {
         // No window: the given DIPs, a power-on reset, then CLOCKS clocks at full speed.
         Vbasic_riscve_16k16k* top = new Vbasic_riscve_16k16k;
         top->io_button = 0;
         top->io_dip = o.dips;
+        top->usb_rx = 1;
         UartRx rx;
         uint64_t cpu_clocks = 0;   // Cu LED 4 toggles once per enabled cpu clock
         unsigned led4 = 0;
@@ -277,6 +334,8 @@ int main(int argc, char** argv) {
             top->io_button = script.buttons;
             top->io_dip = script.dips;
             top->rst_n = c >= 16 && !script.reset;
+            feed(c);
+            top->usb_rx = serial_in.line;
             top->clk = 1;
             top->eval();
             top->clk = 0;
@@ -372,6 +431,7 @@ int main(int argc, char** argv) {
     top->rst_n = 0;
     top->io_button = 0;
     top->io_dip = 0;
+    top->usb_rx = 1;
     top->eval();
 
     Accum leds(32);            // io_led [23:0], Cu led [31:24]
@@ -438,6 +498,11 @@ int main(int argc, char** argv) {
                 double real = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
                 if (clocks > real * REAL_HZ) break;
             }
+            if (pty >= 0) {                    // typed into the serial pty: out on usb_rx
+                unsigned char buf[256];
+                ssize_t got = read(pty, buf, sizeof buf);
+                for (ssize_t k = 0; k < got; k++) serial_in.queue.push_back(buf[k]);
+            }
             const uint64_t chunk = offline ? std::min<uint64_t>(4096, frame_len - frame_clocks) : 4096;
             for (uint64_t n = 0; n < chunk; n++) {
                 script.run_to(clocks + n);
@@ -445,6 +510,8 @@ int main(int argc, char** argv) {
                 top->io_dip = dips;
                 top->rst_n = !(reset_held || script.reset || power_on > 0);
                 if (power_on > 0) power_on--;
+                feed(clocks + n);
+                top->usb_rx = serial_in.line;
                 top->clk = 1;
                 top->eval();
                 top->clk = 0;

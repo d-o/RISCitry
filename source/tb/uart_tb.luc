@@ -2,6 +2,11 @@
 // runs them from one clock). uart_rx decodes the serial line on io_clk.
 // Checks: busy straight after a write, a write while busy is dropped, the next byte can be
 // written while the previous one is still being sent, and bytes arrive in order.
+// The receiver (tests rx_*, 8 clocks per bit): a byte arrives (valid, irq, data) and reading pops
+// it; an empty receiver reads 0; a byte that arrives while one is unread is dropped and sets
+// overrun until a store clears it; it runs whether or not ce is high (the pop and the clear
+// wait for ce); a low stop bit (framing error) drops the byte; a glitch shorter than half a bit
+// is no start bit.
 testbench uart_tb {
     sig clk
     sig io_clk
@@ -11,9 +16,14 @@ testbench uart_tb {
     sig got[4]               // bytes received so far
     sig bytes[4][8]          // ...and their values, in order
     sig phase                // cpu_clock_fast: io_clk ticks on every other cpu clock
+    sig rxin                 // the serial line into the receiver
+    sig rx_rd                // a load of RXDATA
+    sig clr                  // a store of a 1 to STATUS bit 2
+    sig ce
 
     uart dut(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst),
-             .write(write), .write_data(wdata), .ce(1))
+             .write(write), .write_data(wdata), .ce(ce), .rx(rxin), .rx_read(rx_rd),
+             .clear_overrun(clr))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(io_clk), .rst(rst), .rx(dut.tx))
 
     fun io_tick() {
@@ -25,6 +35,60 @@ testbench uart_tb {
             bytes[got] = rx.data
             got = got + 1
         }
+    }
+
+    fun clk_tick() {         // one clock for the receiver, which runs on clk
+        clk = 1
+        $silent_tick()
+        clk = 0
+        $silent_tick()
+    }
+
+    fun send_bit(level) {    // 8 clocks per bit
+        rxin = level
+        repeat(i, 8) {
+            $clk_tick()
+        }
+    }
+
+    fun send_byte(b[8]) {
+        $send_bit(0)
+        repeat(j, 8) {
+            $send_bit(b[j])
+        }
+        $send_bit(1)
+        repeat(i, 4) {           // delivered at the middle of the stop bit plus the synchroniser: just after it
+            $clk_tick()
+        }
+    }
+
+    fun rx_start() {         // reset, line idle, nothing pending
+        clk = 0
+        io_clk = 0
+        phase = 0
+        write = 0
+        wdata = 0
+        rxin = 1
+        rx_rd = 0
+        clr = 0
+        ce = 1
+        got = 0
+        bytes = {8h00, 8h00, 8h00, 8h00}
+        rst = 1
+        repeat(i, 8) {
+            $clk_tick()
+        }
+        rst = 0
+        repeat(i, 8) {
+            $clk_tick()
+        }
+        $assert(!dut.rx_valid && !dut.rx_overrun && !dut.rx_irq && dut.rx_data == 8h00)
+    }
+
+    fun rx_pop() {           // a load of RXDATA on one clock
+        rx_rd = 1
+        $clk_tick()
+        rx_rd = 0
     }
 
     // one cpu clock = 6 io clocks (the board's io clock is 32+ times faster than the cpu clock)
@@ -52,6 +116,10 @@ testbench uart_tb {
     }
 
     test io_faster {
+        rxin = 1
+        rx_rd = 0
+        clr = 0
+        ce = 1
         clk = 0
         phase = 0
         io_clk = 0
@@ -106,6 +174,10 @@ testbench uart_tb {
     }
 
     test io_slower {
+        rxin = 1
+        rx_rd = 0
+        clr = 0
+        ce = 1
         clk = 0
         phase = 0
         io_clk = 0
@@ -142,5 +214,88 @@ testbench uart_tb {
         $assert(got == 2)
         $assert(bytes[0] == 8hA5)
         $assert(bytes[1] == 8h3C)
+    }
+
+    test rx_basic {
+        $rx_start()
+        $send_byte(8hA5)
+        if (!dut.rx_valid)
+            $print("no byte")
+        $assert(dut.rx_valid && dut.rx_irq && !dut.rx_overrun)
+        $assert(dut.rx_data == 8hA5)
+        $rx_pop()
+        $assert(!dut.rx_valid && !dut.rx_irq && dut.rx_data == 8h00)
+        // all-zero and all-one frames
+        $send_byte(8h00)
+        $assert(dut.rx_valid && dut.rx_data == 8h00)
+        $rx_pop()
+        $send_byte(8hFF)
+        $assert(dut.rx_valid && dut.rx_data == 8hFF)
+        $rx_pop()
+        $assert(!dut.rx_valid && !dut.rx_overrun)
+    }
+
+    test rx_overrun {
+        $rx_start()
+        $send_byte(8h11)
+        $send_byte(8h22)               // unread: dropped, the first is kept
+        $assert(dut.rx_valid && dut.rx_overrun && dut.rx_data == 8h11)
+        $rx_pop()
+        $assert(!dut.rx_valid && dut.rx_overrun)    // the flag stays until cleared
+        clr = 1
+        $clk_tick()
+        clr = 0
+        $assert(!dut.rx_overrun)
+        $send_byte(8h33)               // receiving works again
+        $assert(dut.rx_valid && dut.rx_data == 8h33 && !dut.rx_overrun)
+    }
+
+    test rx_ce {
+        $rx_start()
+        ce = 0                         // the receiver doesn't need the cpu clock
+        $send_byte(8h5A)
+        $assert(dut.rx_valid && dut.rx_data == 8h5A)
+        $rx_pop()                      // ... but a read waits for ce
+        $assert(dut.rx_valid && dut.rx_data == 8h5A)
+        $send_byte(8h77)               // arrives with the first still unread
+        $assert(dut.rx_overrun)
+        clr = 1
+        $clk_tick()
+        clr = 0
+        $assert(dut.rx_overrun)        // the clear waits for ce as well
+        ce = 1
+        $rx_pop()
+        $assert(!dut.rx_valid)
+        clr = 1
+        $clk_tick()
+        clr = 0
+        $assert(!dut.rx_overrun)
+    }
+
+    test rx_frame {
+        $rx_start()
+        // a glitch (3 clocks low, under half a bit) is not a start bit
+        rxin = 0
+        repeat(i, 3) {
+            $clk_tick()
+        }
+        rxin = 1
+        repeat(i, 40) {
+            $clk_tick()
+        }
+        $assert(!dut.rx_valid)
+        // framing error: the stop bit is low, so the byte is dropped (and not reported as overrun)
+        $send_bit(0)
+        repeat(j, 8) {
+            $send_bit(1)
+        }
+        $send_bit(0)                   // stop bit low
+        $send_bit(1)
+        repeat(i, 8) {
+            $clk_tick()
+        }
+        $assert(!dut.rx_valid && !dut.rx_overrun)
+        $send_byte(8h3C)               // and the receiver recovers
+        $assert(dut.rx_valid && dut.rx_data == 8h3C)
     }
 }

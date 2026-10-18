@@ -11,10 +11,12 @@ writes there and reads 0; rv32sim raises, so programs can't depend on either.
 RAM_BASE = 0x0000_0000
 RAM_BYTES = 8192              # 2048 words: 16 BRAMs (main_ram), code + data
 
-UART_BASE = 0x8000_0000       # 8-byte window
+UART_BASE = 0x8000_0000       # 16-byte window
 UART_TXDATA = UART_BASE + 0   # write: send byte lane 0 (bits 7:0); dropped if STATUS.busy
-UART_STATUS = UART_BASE + 4   # read: bit 0 = busy (a byte is still waiting to be taken)
-UART_BYTES = 8
+UART_STATUS = UART_BASE + 4   # read: bit 0 = tx busy (a byte is still waiting to be taken), bit 1 = rx
+                              # valid, bit 2 = rx overrun; write a 1 to bit 2 (lane 0) to clear overrun
+UART_RXDATA = UART_BASE + 8   # read: bits 7:0 = the received byte, bit 8 = valid; the read pops it
+UART_BYTES = 16
 
 SWITCHES_BASE = 0x8000_1000   # read: bits 7:0 = the board's middle DIP bank (the boot menu's choice)
 SWITCHES_BYTES = 4
@@ -47,8 +49,8 @@ def render_luc():
         f"    const RAM_BASE = 32h{RAM_BASE:08X}",
         f"    const RAM_ADDR_BITS = {ram_bits}       // byte address bits inside the RAM",
         f"    const RAM_WORDS = {RAM_BYTES // 4}",
-        f"    const UART_BASE = 32h{UART_BASE:08X}    // TXDATA at +0, STATUS at +4",
-        "    const UART_ADDR_BITS = 3",
+        f"    const UART_BASE = 32h{UART_BASE:08X}    // TXDATA at +0, STATUS at +4, RXDATA at +8",
+        "    const UART_ADDR_BITS = 4",
         f"    const SWITCHES_BASE = 32h{SWITCHES_BASE:08X}    // bits 7:0 = switches",
         "    const SWITCHES_ADDR_BITS = 2",
         f"    const TIMER_BASE = 32h{TIMER_BASE:08X}    // mtime +0/+4, mtimecmp +8/+12, timebase +16 (read)",

@@ -8,12 +8,13 @@ testbench cpu_board_sw0_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -65,6 +66,7 @@ testbench cpu_board_sw0_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -387,7 +389,8 @@ testbench cpu_board_sw1_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[100][8]
@@ -395,7 +398,7 @@ testbench cpu_board_sw1_tb {
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
@@ -448,6 +451,7 @@ testbench cpu_board_sw1_tb {
         switches = 8h01
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         received = 0
@@ -496,7 +500,8 @@ testbench cpu_board_sw2_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[57][8]
@@ -504,7 +509,7 @@ testbench cpu_board_sw2_tb {
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
@@ -557,6 +562,7 @@ testbench cpu_board_sw2_tb {
         switches = 8h02
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         received = 0
@@ -605,12 +611,13 @@ testbench cpu_board_sw3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -662,6 +669,7 @@ testbench cpu_board_sw3_tb {
         switches = 8h03
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -4659,12 +4667,13 @@ testbench cpu_board_sw4_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -4716,6 +4725,7 @@ testbench cpu_board_sw4_tb {
         switches = 8h04
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -9460,12 +9470,13 @@ testbench cpu_board_sw5_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -9517,6 +9528,7 @@ testbench cpu_board_sw5_tb {
         switches = 8h05
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -16558,12 +16570,13 @@ testbench cpu_board_sw6_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -16615,6 +16628,7 @@ testbench cpu_board_sw6_tb {
         switches = 8h06
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -22084,7 +22098,8 @@ testbench cpu_board_sw7_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[23][8]
@@ -22092,7 +22107,7 @@ testbench cpu_board_sw7_tb {
 
     computer dut(#PROGRAM_ID(Programs.Id.BOARD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
@@ -22145,6 +22160,7 @@ testbench cpu_board_sw7_tb {
         switches = 8h07
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         received = 0
@@ -22193,12 +22209,13 @@ testbench cpu_larson_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.LARSON), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -22250,6 +22267,7 @@ testbench cpu_larson_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -22522,12 +22540,13 @@ testbench cpu_alu_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.ALU), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -22579,6 +22598,7 @@ testbench cpu_alu_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -22830,12 +22850,13 @@ testbench cpu_branches_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BRANCHES), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -22887,6 +22908,7 @@ testbench cpu_branches_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -23086,12 +23108,13 @@ testbench cpu_jumps_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.JUMPS), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -23143,6 +23166,7 @@ testbench cpu_jumps_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -23275,12 +23299,13 @@ testbench cpu_memory_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.MEMORY), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -23332,6 +23357,7 @@ testbench cpu_memory_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -23522,12 +23548,13 @@ testbench cpu_memory_ce3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.MEMORY), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -23579,6 +23606,7 @@ testbench cpu_memory_ce3_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -24126,12 +24154,13 @@ testbench cpu_bytes_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.BYTES), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -24183,6 +24212,7 @@ testbench cpu_bytes_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -24525,7 +24555,8 @@ testbench cpu_uart_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[4][8]
@@ -24533,7 +24564,7 @@ testbench cpu_uart_tb {
 
     computer dut(#PROGRAM_ID(Programs.Id.UART), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
@@ -24586,6 +24617,7 @@ testbench cpu_uart_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         received = 0
@@ -24640,22 +24672,23 @@ testbench cpu_uart_tb {
     }
 }
 
-testbench cpu_string_tb {
+testbench cpu_rxecho_tb {
     sig clk
     sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
     sig rst
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
     sig received[8]
-    sig expected[16][8]
+    sig expected[5][8]
     sig clock_count[32]
 
-    computer dut(#PROGRAM_ID(Programs.Id.STRING), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
+    computer dut(#PROGRAM_ID(Programs.Id.RXECHO), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
@@ -24708,6 +24741,299 @@ testbench cpu_string_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
+        ce = 1
+        rst = 1
+        received = 0
+        clock_count = 0
+        expected = {8h0B, 8h00, 8h01, 8h81, 8h42}   // "B\x81\x01\x00\x0b"
+        // hold reset for an extra bit time: uart_tx's output register has no reset and starts
+        // low for two clocks, and uart_rx's 3-deep input buffer (not reset either) would
+        // take that for a start bit unless the idle-high line has filled it first
+        repeat(i, 8) {
+            $tick_clock()
+        }
+        $tick_clock()
+        $tick_clock()
+        rst = 0
+        $expect_pc(32h00000000)
+        // run until halted at 0x004c with all 5 bytes received (at most 3643 clocks)
+        repeat(i, 3643) {
+            if (received != 5 || dut.debug_pc != 32h0000004C || dut.debug_state != Cpu.State.FETCH) {
+                if (clock_count == 200) rx_line = 0;   // serial input
+                if (clock_count == 208) rx_line = 1;   // serial input
+                if (clock_count == 216) rx_line = 0;   // serial input
+                if (clock_count == 256) rx_line = 1;   // serial input
+                if (clock_count == 264) rx_line = 0;   // serial input
+                if (clock_count == 272) rx_line = 1;   // serial input
+                if (clock_count == 400) rx_line = 0;   // serial input
+                if (clock_count == 464) rx_line = 1;   // serial input
+                if (clock_count == 600) rx_line = 0;   // serial input
+                if (clock_count == 672) rx_line = 1;   // serial input
+                if (clock_count == 800) rx_line = 0;   // serial input
+                if (clock_count == 808) rx_line = 1;   // serial input
+                if (clock_count == 1000) rx_line = 0;   // serial input
+                if (clock_count == 1016) rx_line = 1;   // serial input
+                if (clock_count == 1024) rx_line = 0;   // serial input
+                if (clock_count == 1032) rx_line = 1;   // serial input
+                if (clock_count == 1040) rx_line = 0;   // serial input
+                if (clock_count == 1072) rx_line = 1;   // serial input
+                $tick_clock()
+                clock_count = clock_count + 1
+                if (rx.new_data) {
+                    $assert(received < 5)
+                    if (rx.data != expected[received])
+                        $print("byte %d: got %h want %h", received, rx.data, expected[received])
+                    $assert(rx.data == expected[received])
+                    received = received + 1
+                }
+            }
+        }
+        if (received != 5)
+            $print("received %d of 5 bytes", received)
+        $assert(received == 5)
+        $expect_pc(32h0000004C)
+        $expect_state(Cpu.State.FETCH)
+        // final register file
+        $expect_reg(4d0, 32h00000000)
+        $expect_reg(4d1, 32h00000038)
+        $expect_reg(4d2, 32h80000000)
+        $expect_reg(4d3, 32h00000000)
+        $expect_reg(4d4, 32h00000000)
+        $expect_reg(4d5, 32h00000000)
+        $expect_reg(4d6, 32h00000000)
+        $expect_reg(4d7, 32h0000000A)
+        $expect_reg(4d8, 32h00000005)
+        $expect_reg(4d9, 32h00000001)
+        $expect_reg(4d10, 32h0000000B)
+        $expect_reg(4d11, 32h000001CA)
+        $expect_reg(4d12, 32h00000000)
+        $expect_reg(4d13, 32h00000000)
+        $expect_reg(4d14, 32h00000000)
+        $expect_reg(4d15, 32h00000000)
+    }
+}
+
+testbench cpu_rxirq_tb {
+    sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
+    sig rst
+    sig sel[4]
+    sig switches[8]
+    sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
+    sig ce                 // the computer's clock enable
+    sig received[8]
+    sig expected[5][8]
+    sig clock_count[32]
+
+    computer dut(#PROGRAM_ID(Programs.Id.RXIRQ), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
+                 .debug_sel(sel))
+    uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
+
+    // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
+    fun tick_clock() {
+        clk = 1
+        io_clk = 0
+        $silent_tick()
+        clk = 0
+        io_clk = 1
+        $silent_tick()
+    }
+
+    fun expect_pc(pc[32]) {
+        if (dut.debug_pc != pc)
+            $print("pc: got %h want %h", dut.debug_pc, pc)
+        $assert(dut.debug_pc == pc)
+        $assert(dut.uart_tx)       // idle high unless the program prints
+    }
+
+    fun expect_state(state[Cpu.STATE_BITS]) {
+        if (dut.debug_state != state)
+            $print("state: got %d want %d", dut.debug_state, state)
+        $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
+    }
+
+    fun expect_reg(r[4], value[32]) {
+        sel = r
+        $silent_tick()
+        if (dut.debug_reg != value)
+            $print("x%d: got %h want %h", r, dut.debug_reg, value)
+        $assert(dut.debug_reg == value)
+    }
+
+    fun expect_display(value[33]) {   // owned, the four characters
+        if (c{dut.display_owned, dut.display_chars} != value)
+            $print("display: got %h want %h", c{dut.display_owned, dut.display_chars}, value)
+        $assert(c{dut.display_owned, dut.display_chars} == value)
+    }
+
+    test run {
+        clk = 0
+        io_clk = 0
+        sel = 0
+        switches = 8h00
+        buttons = 0
+        plat_irq = 0
+        rx_line = 1
+        ce = 1
+        rst = 1
+        received = 0
+        clock_count = 0
+        expected = {8h0A, 8h43, 8h53, 8h49, 8h52}   // "RISC\x0a"
+        // hold reset for an extra bit time: uart_tx's output register has no reset and starts
+        // low for two clocks, and uart_rx's 3-deep input buffer (not reset either) would
+        // take that for a start bit unless the idle-high line has filled it first
+        repeat(i, 8) {
+            $tick_clock()
+        }
+        $tick_clock()
+        $tick_clock()
+        rst = 0
+        $expect_pc(32h00000000)
+        // run until halted at 0x005c with all 5 bytes received (at most 3441 clocks)
+        repeat(i, 3441) {
+            if (received != 5 || dut.debug_pc != 32h0000005C || dut.debug_state != Cpu.State.FETCH) {
+                if (clock_count == 200) rx_line = 0;   // serial input
+                if (clock_count == 216) rx_line = 1;   // serial input
+                if (clock_count == 224) rx_line = 0;   // serial input
+                if (clock_count == 240) rx_line = 1;   // serial input
+                if (clock_count == 264) rx_line = 0;   // serial input
+                if (clock_count == 272) rx_line = 1;   // serial input
+                if (clock_count == 400) rx_line = 0;   // serial input
+                if (clock_count == 408) rx_line = 1;   // serial input
+                if (clock_count == 416) rx_line = 0;   // serial input
+                if (clock_count == 432) rx_line = 1;   // serial input
+                if (clock_count == 440) rx_line = 0;   // serial input
+                if (clock_count == 448) rx_line = 1;   // serial input
+                if (clock_count == 464) rx_line = 0;   // serial input
+                if (clock_count == 472) rx_line = 1;   // serial input
+                if (clock_count == 600) rx_line = 0;   // serial input
+                if (clock_count == 608) rx_line = 1;   // serial input
+                if (clock_count == 624) rx_line = 0;   // serial input
+                if (clock_count == 640) rx_line = 1;   // serial input
+                if (clock_count == 664) rx_line = 0;   // serial input
+                if (clock_count == 672) rx_line = 1;   // serial input
+                if (clock_count == 800) rx_line = 0;   // serial input
+                if (clock_count == 808) rx_line = 1;   // serial input
+                if (clock_count == 824) rx_line = 0;   // serial input
+                if (clock_count == 848) rx_line = 1;   // serial input
+                if (clock_count == 864) rx_line = 0;   // serial input
+                if (clock_count == 872) rx_line = 1;   // serial input
+                $tick_clock()
+                clock_count = clock_count + 1
+                if (rx.new_data) {
+                    $assert(received < 5)
+                    if (rx.data != expected[received])
+                        $print("byte %d: got %h want %h", received, rx.data, expected[received])
+                    $assert(rx.data == expected[received])
+                    received = received + 1
+                }
+            }
+        }
+        if (received != 5)
+            $print("received %d of 5 bytes", received)
+        $assert(received == 5)
+        $expect_pc(32h0000005C)
+        $expect_state(Cpu.State.FETCH)
+        // final register file
+        $expect_reg(4d0, 32h00000000)
+        $expect_reg(4d1, 32h0000005C)
+        $expect_reg(4d2, 32h80000000)
+        $expect_reg(4d3, 32h00000060)
+        $expect_reg(4d4, 32h00000063)
+        $expect_reg(4d5, 32h00000000)
+        $expect_reg(4d6, 32h00000004)
+        $expect_reg(4d7, 32h00000403)
+        $expect_reg(4d8, 32h00010000)
+        $expect_reg(4d9, 32h00000163)
+        $expect_reg(4d10, 32h0000000A)
+        $expect_reg(4d11, 32h00000000)
+        $expect_reg(4d12, 32h80000010)
+        $expect_reg(4d13, 32h00000400)
+        $expect_reg(4d14, 32h00000004)
+        $expect_reg(4d15, 32h00000403)
+    }
+}
+
+testbench cpu_string_tb {
+    sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
+    sig rst
+    sig sel[4]
+    sig switches[8]
+    sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
+    sig ce                 // the computer's clock enable
+    sig received[8]
+    sig expected[16][8]
+    sig clock_count[32]
+
+    computer dut(#PROGRAM_ID(Programs.Id.STRING), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
+                 .debug_sel(sel))
+    uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
+
+    // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
+    fun tick_clock() {
+        clk = 1
+        io_clk = 0
+        $silent_tick()
+        clk = 0
+        io_clk = 1
+        $silent_tick()
+    }
+
+    fun expect_pc(pc[32]) {
+        if (dut.debug_pc != pc)
+            $print("pc: got %h want %h", dut.debug_pc, pc)
+        $assert(dut.debug_pc == pc)
+        $assert(dut.uart_tx)       // idle high unless the program prints
+    }
+
+    fun expect_state(state[Cpu.STATE_BITS]) {
+        if (dut.debug_state != state)
+            $print("state: got %d want %d", dut.debug_state, state)
+        $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
+    }
+
+    fun expect_reg(r[4], value[32]) {
+        sel = r
+        $silent_tick()
+        if (dut.debug_reg != value)
+            $print("x%d: got %h want %h", r, dut.debug_reg, value)
+        $assert(dut.debug_reg == value)
+    }
+
+    fun expect_display(value[33]) {   // owned, the four characters
+        if (c{dut.display_owned, dut.display_chars} != value)
+            $print("display: got %h want %h", c{dut.display_owned, dut.display_chars}, value)
+        $assert(c{dut.display_owned, dut.display_chars} == value)
+    }
+
+    test run {
+        clk = 0
+        io_clk = 0
+        sel = 0
+        switches = 8h00
+        buttons = 0
+        plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         received = 0
@@ -24769,12 +25095,13 @@ testbench cpu_table_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.TABLE), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -24826,6 +25153,7 @@ testbench cpu_table_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -25119,12 +25447,13 @@ testbench cpu_selfmod_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.SELFMOD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -25176,6 +25505,7 @@ testbench cpu_selfmod_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -25382,12 +25712,13 @@ testbench cpu_selfmod_ce3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.SELFMOD), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -25439,6 +25770,7 @@ testbench cpu_selfmod_ce3_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -26023,12 +26355,13 @@ testbench cpu_illegal_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.ILLEGAL), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -26080,6 +26413,7 @@ testbench cpu_illegal_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -27207,12 +27541,13 @@ testbench cpu_csr_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.CSR), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -27264,6 +27599,7 @@ testbench cpu_csr_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -27533,12 +27869,13 @@ testbench cpu_traps_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.TRAPS), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -27590,6 +27927,7 @@ testbench cpu_traps_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -28228,12 +28566,13 @@ testbench cpu_timer_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.TIMER), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -28285,6 +28624,7 @@ testbench cpu_timer_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -30109,12 +30449,13 @@ testbench cpu_timer_ce3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.TIMER), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -30166,6 +30507,7 @@ testbench cpu_timer_ce3_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -32800,12 +33142,13 @@ testbench cpu_timer_ce3s_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.TIMER), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1), #TIMER_STOPTIME(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -32857,6 +33200,7 @@ testbench cpu_timer_ce3s_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -38566,12 +38910,13 @@ testbench cpu_irq_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.IRQ), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -38623,6 +38968,7 @@ testbench cpu_irq_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -39743,12 +40089,13 @@ testbench cpu_irq_ce3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.IRQ), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -39800,6 +40147,7 @@ testbench cpu_irq_ce3_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -43261,12 +43609,13 @@ testbench cpu_press_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.PRESS), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -43318,6 +43667,7 @@ testbench cpu_press_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -44071,12 +44421,13 @@ testbench cpu_wfi_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.WFI), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -44128,6 +44479,7 @@ testbench cpu_wfi_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -44864,12 +45216,13 @@ testbench cpu_wfi_ce3_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.WFI), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -44921,6 +45274,7 @@ testbench cpu_wfi_ce3_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -47571,12 +47925,13 @@ testbench cpu_vectored_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
 
     computer dut(#PROGRAM_ID(Programs.Id.VECTORED), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
 
     // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
@@ -47628,6 +47983,7 @@ testbench cpu_vectored_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         $tick_clock()
@@ -49769,7 +50125,8 @@ testbench cpu_c_hello_tb {
     sig sel[4]
     sig switches[8]
     sig buttons[4]
-    sig plat_irq[2]        // platform interrupt lines (a test input until the UART drives them)
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
     sig ce                 // the computer's clock enable
     sig received[8]
     sig expected[23][8]
@@ -49777,7 +50134,7 @@ testbench cpu_c_hello_tb {
 
     computer dut(#PROGRAM_ID(Programs.Id.C_HELLO), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
                  .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
-                 .buttons(buttons), .plat_irq(plat_irq), .ce(ce),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
                  .debug_sel(sel))
     uart_rx rx(#CLK_FREQ(8), #BAUD(1), .clk(clk), .rst(rst), .rx(dut.uart_tx))
 
@@ -49830,6 +50187,7 @@ testbench cpu_c_hello_tb {
         switches = 8h00
         buttons = 0
         plat_irq = 0
+        rx_line = 1
         ce = 1
         rst = 1
         received = 0

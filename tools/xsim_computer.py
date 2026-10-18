@@ -79,7 +79,7 @@ module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
   computer #(.PROGRAM_ID(PROGRAM_ID), .SIM_RAM(0), .UART_CLK_FREQ({gen_cpu_tb.TB_UART_CLK_FREQ}),
              .UART_BAUD({gen_cpu_tb.TB_UART_BAUD}), .TIMER_TICK_DIV(TICKDIV)) dut (
     .clk(clk), .rst(cycle < 2), .io_clk(clk), .io_rst(cycle < 2), .switches(SWITCHES[7:0]),
-    .buttons(BUTTONS), .plat_irq(PLATIRQ), .ce(CE_EXPR),
+    .buttons(BUTTONS), .plat_irq(PLATIRQ), .uart_rx(RXLINE), .ce(CE_EXPR),
     .debug_sel(cycle[3:0]),
     .uart_tx(uart_tx), .debug_pc(debug_pc), .debug_reg(debug_reg), .debug_state(debug_state),
     .display_chars(display_chars), .display_owned(display_owned));
@@ -110,13 +110,21 @@ def plat_expr(name):
     return expr
 
 
+def rx_expr(name):
+    """The serial line into the receiver: gen_cpu_tb.rx_transitions, from cycle 2 + c."""
+    expr = "1'b1"
+    for c, level in gen_cpu_tb.rx_transitions(name):
+        expr = f"(cycle >= {2 + c * CE_EVERY}) ? 1'b{level} : {expr}"
+    return expr
+
+
 def run(pid, sw, clocks, name=""):
     """Simulate; return one dict of SIGNALS per clock, sampled just after each rising edge."""
     with tempfile.TemporaryDirectory() as tmp:
         harness = Path(tmp) / "xsim_top.v"
         # in reset (cycles 0-1) ce = 1, as in the testbenches: the RAM reads instruction 0 then
         ce = "1'b1" if CE_EVERY == 1 else f"(cycle < 2) || ((cycle - 2) % {CE_EVERY} == {CE_EVERY - 1})"
-        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})").replace("PLATIRQ", f"({plat_expr(name)})").replace("CE_EXPR", ce)
+        harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})").replace("PLATIRQ", f"({plat_expr(name)})").replace("RXLINE", f"({rx_expr(name)})").replace("CE_EXPR", ce)
                            .replace("TICKDIV", str(TICK_DIV)))
         vcd = Path(tmp) / "out.vcd"
         files = " ".join(str(p) for p in sorted(VERILOG.glob("*.v"))) + f" {harness}"
@@ -240,7 +248,7 @@ def check_uart(pid, name, words, sw, forever=False):
     else:
         model = gen_cpu_tb.run_to_halt(name, words, sw)
         want = model.uart_out
-    clocks = len(want) * gen_cpu_tb.UART_CLOCKS_PER_BYTE * 3 + 1000 + model.cycle   # as in gen_cpu_tb
+    clocks = len(want) * gen_cpu_tb.UART_CLOCKS_PER_BYTE * 3 + 1000 + model.cycle + gen_cpu_tb.rx_end(name)   # as in gen_cpu_tb
     samples = run(pid, sw, clocks, name)
     got, i = [], 0
     line = [s["uart_tx"] for s in samples]

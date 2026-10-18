@@ -1,4 +1,4 @@
-// Memory-mapped UART transmitter: the bus side runs on the cpu clock, the serializer on io_clk.
+// Memory-mapped UART: the transmitter's bus side runs on the cpu clock, the serializer on io_clk.
 // The cpu clock is slow, stoppable and changes speed, so it can't time a baud rate; io_clk is the
 // free-running board clock.
 //
@@ -20,6 +20,19 @@
 // or the serializer the post-edge new_data (byte dropped). Now ack depends only on this module's
 // state on the edge the serializer accepts, and new_data is high for two edges, so either order
 // gives the same result.
+//
+// Receiver (2026-10-18): always on, like buttons.luc. It is a state machine of its own in this
+// module, running on `clk` every clock whatever ce does (clk is the free-running board clock;
+// CLK_FREQ is its frequency too), so a byte arriving while the cpu is slow, stopped or asleep in a
+// WFI is still caught and raises the interrupt. Not the bundled uart_rx: its one-clock new_data
+// pulse would cross between two instances, which the Alchitry simulator orders at random.
+// 8N1: a falling edge starts it, the line is checked again half a bit later (a glitch is dropped),
+// each bit is sampled mid-bit, and the byte is delivered at the middle of the stop bit if that is
+// high (a low stop bit = framing error: the byte is dropped and the line waited high).
+// One byte of buffering: rx_byte/rx_valid. Reading RXDATA pops (valid clears on that cpu clock's
+// edge, taken with the ce pulse that carried the load). A byte that arrives while one is still
+// unread is dropped and the overrun flag set (the old byte is kept, as a 16550 does); STATUS
+// reports it and a store of a 1 to STATUS bit 2 clears it. rx_irq = valid (a level).
 module uart #(
     CLK_FREQ = 100_000_000 : CLK_FREQ > 0,           // io_clk frequency
     BAUD = 1_000_000 : BAUD > 0 && BAUD <= CLK_FREQ / 2
@@ -32,8 +45,19 @@ module uart #(
     input write,             // a store to TXDATA wrote byte lane 0 this cpu clock
     input write_data[8],
     output busy,             // STATUS bit 0: a byte is waiting to be taken; a write now is dropped
-    output tx                // serial out, idle high
+    output tx,               // serial out, idle high
+    input rx,                // serial in, idle high (asynchronous: synchronised here)
+    input rx_read,           // a load of RXDATA this clock: pops the byte (on a ce clock)
+    input clear_overrun,     // a store of a 1 to STATUS bit 2 this clock (on a ce clock)
+    output rx_data[8],       // the received byte
+    output rx_valid,         // a byte is waiting: RXDATA bit 8, STATUS bit 1
+    output rx_overrun,       // a byte was dropped because the last was unread: STATUS bit 2
+    output rx_irq            // the interrupt line: rx_valid
   ) {
+
+  const CLK_PER_BIT = (CLK_FREQ + BAUD) / BAUD - 1    // clocks per bit, as the bundled uart_tx counts
+  const CTR_SIZE = $clog2(CLK_PER_BIT)
+  enum RxState {IDLE, HALF, DATA, STOP, WAIT_HIGH}
 
   .clk(clk), .rst(rst) {
     dff req
@@ -41,6 +65,19 @@ module uart #(
     dff ack_sync1
   }
   dff data[8](.clk(clk))
+
+  .clk(clk), .rst(io_rst) {
+    dff rx_state[$width(RxState)]
+    dff rx_ctr[CTR_SIZE]
+    dff rx_bits[3]
+    dff rx_shift[8]
+  }
+  .clk(clk), .rst(rst) {
+    dff rx_sync[3]           // three flip-flops: the line is asynchronous (rx_sync.q[2] is the oldest)
+    dff rx_byte[8]
+    dff rx_full
+    dff rx_over
+  }
 
   .clk(io_clk), .rst(io_rst) {
     dff req_sync0
@@ -51,6 +88,8 @@ module uart #(
   }
 
   sig pending
+  sig rx_got               // the receiver finished a byte this clock
+  sig rx_pop
 
   always {
     // cpu side
@@ -82,5 +121,54 @@ module uart #(
       ack.d = req_sync1.q
     }
     tx = serializer.tx
+
+    // receiver: every clock, ce or not
+    rx_sync.d = c{rx_sync.q[1:0], rx}
+    rx_got = 0
+    case (rx_state.q) {
+      RxState.IDLE:
+        rx_ctr.d = 0
+        rx_bits.d = 0
+        if (!rx_sync.q[2]) rx_state.d = RxState.HALF       // a falling edge: the start bit
+      RxState.HALF:
+        rx_ctr.d = rx_ctr.q + 1
+        if (rx_ctr.q == (CLK_PER_BIT >> 1)) {              // mid start bit
+          rx_ctr.d = 0
+          if (rx_sync.q[2]) rx_state.d = RxState.IDLE; else rx_state.d = RxState.DATA;
+        }
+      RxState.DATA:
+        rx_ctr.d = rx_ctr.q + 1
+        if (rx_ctr.q == CLK_PER_BIT - 1) {                 // mid data bit
+          rx_ctr.d = 0
+          rx_shift.d = c{rx_sync.q[2], rx_shift.q[7:1]}
+          rx_bits.d = rx_bits.q + 1
+          if (rx_bits.q == 7) rx_state.d = RxState.STOP;
+        }
+      RxState.STOP:
+        rx_ctr.d = rx_ctr.q + 1
+        if (rx_ctr.q == CLK_PER_BIT - 1) {                 // mid stop bit
+          rx_ctr.d = 0
+          if (rx_sync.q[2]) {
+            rx_got = 1
+            rx_state.d = RxState.IDLE
+          } else {
+            rx_state.d = RxState.WAIT_HIGH                 // framing error: drop the byte
+          }
+        }
+      RxState.WAIT_HIGH:
+        if (rx_sync.q[2]) rx_state.d = RxState.IDLE;
+      default:
+        rx_state.d = RxState.IDLE
+    }
+
+    // the cpu side of the receiver: pops and clears wait for a ce clock, arrivals don't
+    rx_pop = rx_read && ce
+    rx_full.d = (rx_full.q && !rx_pop) || rx_got
+    if (rx_got && (!rx_full.q || rx_pop)) rx_byte.d = rx_shift.q;
+    rx_over.d = (rx_over.q && !(clear_overrun && ce)) || (rx_got && rx_full.q && !rx_pop)
+    rx_data = rx_byte.q & 8x{rx_full.q}        // an empty receiver reads 0
+    rx_valid = rx_full.q
+    rx_overrun = rx_over.q
+    rx_irq = rx_full.q
   }
 }

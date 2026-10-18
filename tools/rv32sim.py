@@ -22,9 +22,14 @@ mtvec; the instruction has no other effect. A fetch from outside RAM reads 0 (th
 answers loads from devices), so it traps as illegal. Any trap raises unless traps_ok (the program
 expects traps), so a typo in a test program can't hide; step() leaves the trap in self.trapped.
 
-The UART has no timing here: STATUS always reads 0 (not busy), and each store to TXDATA that
+The UART has no timing here: STATUS reads tx-not-busy, and each store to TXDATA that
 writes byte lane 0 appends that byte to uart_out. The hardware's polling loops therefore run a
 different number of times, so UART programs are checked by their output and final state.
+The receiver has none either: rx_in is the list of bytes the program will be sent, all of them
+there from the start. STATUS bit 1 (valid) is set while any remain; a load of RXDATA returns the
+next one with bit 8 set and removes it (0 when none is left); the platform line 0 (mip/mie bit 16)
+is high while any remain. A program whose result doesn't depend on when a byte arrives therefore
+agrees with the hardware, which gets them off the serial line one at a time. No overrun here.
 
 The switch register reads back `switches` (bits 7:0, the rest 0); storing to it raises.
 
@@ -129,7 +134,7 @@ def legal(w):
 
 class Cpu:
     def __init__(self, words, traps_ok=False, switches=0, button_events=(), timer_rate=1, tick_div=1,
-                 plat_events=()):
+                 plat_events=(), rx_in=()):
         """words: {byte address: instruction or data word} as assembled. traps_ok: the program
         expects traps (take them as the core does); otherwise any trap raises."""
         self.traps_ok = traps_ok
@@ -140,6 +145,7 @@ class Cpu:
         self.x = [0] * 16
         self.mem = {}                 # word-aligned byte address -> word, preloaded or written
         self.uart_out = []
+        self.rx_in = list(rx_in)      # bytes still to be received (see the docstring)
         self.display = 0
         self.csr = {a: 0 for a in CSR_WRITABLE}
         self.rate = timer_rate        # raw clocks (timer ticks) per cpu clock
@@ -198,9 +204,12 @@ class Cpu:
     def _load(self, addr, size):
         word_addr, shift = self._ram_addr(addr, size)
         if self._region(addr) == "uart":
-            if word_addr != memmap.UART_STATUS:
-                raise ValueError(f"pc={self.pc:#x}: load from UART {addr:#x}: only STATUS is readable")
-            return 0                                 # never busy: no timing in this model
+            if word_addr == memmap.UART_STATUS:      # tx never busy (no timing in this model), no overrun
+                return ((int(bool(self.rx_in)) << 1) >> shift) & ((1 << (8 * size)) - 1)
+            if word_addr != memmap.UART_RXDATA:
+                raise ValueError(f"pc={self.pc:#x}: load from UART {addr:#x}: only STATUS and RXDATA are readable")
+            value = (0x100 | self.rx_in.pop(0)) if self.rx_in else 0     # the read pops
+            return (value >> shift) & ((1 << (8 * size)) - 1)
         if self._region(addr) == "switches":
             return (self.switches >> shift) & ((1 << (8 * size)) - 1)
         if self._region(addr) == "display":
@@ -226,8 +235,10 @@ class Cpu:
     def _store(self, addr, size, value):
         word_addr, shift = self._ram_addr(addr, size)
         if self._region(addr) == "uart":
+            if word_addr == memmap.UART_STATUS:      # a 1 in bit 2 clears overrun: nothing to clear here
+                return
             if word_addr != memmap.UART_TXDATA:
-                raise ValueError(f"pc={self.pc:#x}: store to UART {addr:#x}: only TXDATA is writable")
+                raise ValueError(f"pc={self.pc:#x}: store to UART {addr:#x}: only TXDATA and STATUS are writable")
             if shift == 0:                           # only byte lane 0 sends
                 self.uart_out.append(value & 0xFF)
             return
@@ -305,7 +316,7 @@ class Cpu:
         for clock, levels in self.plat_events:
             if clock * self.rate <= edge:
                 value = levels
-        return value
+        return value | int(bool(self.rx_in))      # the UART's receiver drives line 0
 
     def mtip(self, stall=0):
         """mip.MTIP as the core sees it during this instruction's EXECUTE (registered one raw
