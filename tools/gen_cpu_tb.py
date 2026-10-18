@@ -134,14 +134,14 @@ def run_to_halt(name, words, sw=0):
     """Run rv32sim until the program's halt has executed twice; return the model."""
     model = new_model(name, words, sw)
     halted_for = 0
-    for _ in range(MAX_STEPS):
+    for _ in range(MAX_PRINT_STEPS):       # (a lockstep program is held to MAX_STEPS where it is rendered)
         word = model.fetch()
         model.step()
         if word == asm.HALT:
             halted_for += 1
             if halted_for == 2:
                 return model
-    raise RuntimeError(f"no halt after {MAX_STEPS} instructions")
+    raise RuntimeError(f"no halt after {MAX_PRINT_STEPS} instructions")
 
 
 # Clock-enable tests: these programs run again with the computer enabled on one clock in

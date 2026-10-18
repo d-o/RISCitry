@@ -6,6 +6,7 @@ every program on rv32sim and checks the hardware against it after each instructi
 that print: by their serial output and final state instead, since polling makes their timing
 differ). Registers are x0-x15 only (RV32E). Code and data share the RAM (see memmap.py).
 """
+import cbuild
 import memmap
 import rv32
 
@@ -982,6 +983,7 @@ PROGRAMS = {
     "PRESS": PRESS,
     "WFI": WFI_TEST,
     "VECTORED": VECTORED,
+    "C_HELLO": cbuild.items("hello"),   # c/hello.c, built by tools/cbuild.py (image committed)
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
