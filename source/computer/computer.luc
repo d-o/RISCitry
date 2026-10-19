@@ -1,5 +1,5 @@
 // The computer: the cpu plus everything it reaches by address (main RAM, UART, switches, timer,
-// buttons, the 7-segment display).
+// buttons, the 7-segment display, the general-purpose counter).
 // The bus side of everything here runs on the cpu clock; machine.luc decides when that ticks.
 // The UART's serializer also needs a steady clock for its baud rate: io_clk.
 //
@@ -49,6 +49,7 @@ module computer #(
     timer timer0(#TICK_DIV(TIMER_TICK_DIV), #STOPTIME(TIMER_STOPTIME), .rst(rst), .ce(ce));
     buttons buttons0(.rst(rst), .ce(ce));
     display_chars display0(.rst(rst), .ce(ce));
+    counter counter0(.rst(rst), .ce(ce));
     // no reset, like the RAM's own read register: the read on reset's last edge (address 0) is
     // the first instruction, and FETCH must see it come from the RAM
     dff read_ram           // the previous clock's read address was in the RAM
@@ -66,6 +67,8 @@ module computer #(
   sig buttons_wsel
   sig display_rsel
   sig display_wsel
+  sig counter_rsel
+  sig counter_wsel
 
   always {
     // --- address decode: reads by the read port, stores by the write port ---
@@ -91,7 +94,16 @@ module computer #(
     buttons0.clear = buttons_wsel && core.bus_be[0]
     buttons0.clear_mask = core.bus_wdata[7:0]
     core.irq_external = buttons0.irq
-    core.irq_plat = c{plat_irq[1], plat_irq[0] | uart0.rx_irq}
+    core.irq_plat = c{plat_irq[1] | counter0.irq, plat_irq[0] | uart0.rx_irq}
+
+    // --- counter: word stores only; platform line 1 when its flag and irq enable are set ---
+    counter_rsel = core.bus_load && (core.bus_raddr >> MemMap.COUNTER_ADDR_BITS) == (MemMap.COUNTER_BASE >> MemMap.COUNTER_ADDR_BITS)
+    counter_wsel = (core.bus_waddr >> MemMap.COUNTER_ADDR_BITS) == (MemMap.COUNTER_BASE >> MemMap.COUNTER_ADDR_BITS)
+    counter0.sel_write = counter_wsel && core.bus_be == 4b1111
+    counter0.waddr = core.bus_waddr[3:2]
+    counter0.wdata = core.bus_wdata
+    counter0.raddr = core.bus_raddr[3:2]
+    counter0.ext = 0         // external tick input: no pin yet (a computer port when one is chosen)
 
     // --- 7-segment display: four characters, one per byte lane ---
     display_rsel = core.bus_load && (core.bus_raddr >> MemMap.DISPLAY_ADDR_BITS) == (MemMap.DISPLAY_BASE >> MemMap.DISPLAY_ADDR_BITS)
@@ -127,6 +139,7 @@ module computer #(
     if (timer_rsel) io_read.d = timer0.rdata;
     if (buttons_rsel) io_read.d = buttons0.rdata;
     if (display_rsel) io_read.d = display0.chars;
+    if (counter_rsel) io_read.d = counter0.rdata;
     if (read_ram.q) core.bus_rdata = ram.rdata; else core.bus_rdata = io_read.q;
 
     core.debug_sel = debug_sel

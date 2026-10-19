@@ -2,7 +2,7 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, RXECHO, RXIRQ, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS, TIMER, IRQ, PRESS, WFI, VECTORED, C_HELLO, C_COST }
+    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, RXECHO, RXIRQ, COUNTER, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS, TIMER, IRQ, PRESS, WFI, VECTORED, C_HELLO, C_COST }
 
     const BOARD = {
         32h0000203A,  // 0x0e40: (data)
@@ -1169,6 +1169,52 @@ global Programs {
         32h80000137,  // 0x0008: lui x2, 0x80000
         32h30519073,  // 0x0004: csrrw x0, 0x305
         32h06000193  // 0x0000: addi x3, x0, rxirq_handler
+    }
+    const COUNTER = {
+        32h30200073,  // 0x00ac: mret
+        32h00170713,  // 0x00a8: addi x14, x14, 1
+        32h00412623,  // 0x00a4: sw x4, 12(x2)
+        32h34202673,  // 0x00a0: csrrs x12, 0x342
+        32h0000006F,  // 0x009c: halt
+        32h00012023,  // 0x0098: sw x0, 0(x2)
+        32h30443073,  // 0x0094: csrrc x0, 0x304
+        32h00F71063,  // 0x0090: bne x14, x15, cnt_wait
+        32h00300793,  // 0x008c: addi x15, x0, 3
+        32h30442073,  // 0x0088: csrrs x0, 0x304
+        32hFE068CE3,  // 0x0084: beq x13, x0, cnt_mip
+        32h0086F6B3,  // 0x0080: and x13, x13, x8
+        32h344026F3,  // 0x007c: csrrs x13, 0x344
+        32h30046073,  // 0x0078: csrrsi x0, 0x300
+        32h00020437,  // 0x0074: lui x8, 32
+        32h00D12023,  // 0x0070: sw x13, 0(x2)
+        32h00300693,  // 0x006c: addi x13, x0, 3
+        32h00D12223,  // 0x0068: sw x13, 4(x2)
+        32h02800693,  // 0x0064: addi x13, x0, 40
+        32h00412623,  // 0x0060: sw x4, 12(x2)
+        32h00812583,  // 0x005c: lw x11, 8(x2)
+        32hFE068CE3,  // 0x0058: beq x13, x0, cnt_poll2
+        32h00C12683,  // 0x0054: lw x13, 12(x2)
+        32h00150513,  // 0x0050: addi x10, x10, 1
+        32h00000513,  // 0x004c: addi x10, x0, 0
+        32h00012483,  // 0x0048: lw x9, 0(x2)
+        32h00812023,  // 0x0044: sw x8, 0(x2)
+        32h03100413,  // 0x0040: addi x8, x0, 49
+        32h00C12383,  // 0x003c: lw x7, 12(x2)
+        32h00412623,  // 0x0038: sw x4, 12(x2)
+        32h00812303,  // 0x0034: lw x6, 8(x2)
+        32hFE030CE3,  // 0x0030: beq x6, x0, cnt_poll1
+        32h00C12303,  // 0x002c: lw x6, 12(x2)
+        32h00128293,  // 0x0028: addi x5, x5, 1
+        32h00000293,  // 0x0024: addi x5, x0, 0
+        32h00412023,  // 0x0020: sw x4, 0(x2)
+        32h00100213,  // 0x001c: addi x4, x0, 1
+        32h00412183,  // 0x0018: lw x3, 4(x2)
+        32h00312223,  // 0x0014: sw x3, 4(x2)
+        32h01400193,  // 0x0010: addi x3, x0, 20
+        32h00412083,  // 0x000c: lw x1, 4(x2)
+        32h80005137,  // 0x0008: lui x2, 0x80005
+        32h30519073,  // 0x0004: csrrw x0, 0x305
+        32h0A000193  // 0x0000: addi x3, x0, cnt_handler
     }
     const STRING = {
         32h00000000,  // 0x0038: (data)

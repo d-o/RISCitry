@@ -160,6 +160,9 @@ class Cpu:
         self.plat_events = sorted(plat_events)
         self.btn = {"edge": 0, "sync0": 0, "sync1": 0, "last": 0, "pending": 0, "overrun": 0}
         self.btn_clear = None         # mask written by a store in this instruction
+        self.cnt = {"edge": 0, "enable": 0, "irq_en": 0, "src": 0, "n": 0, "top": 0xFFFF,
+                    "count": 0, "flag": 0, "pre": 0}   # counter.luc, in cpu clocks (see _cnt_to)
+        self.cnt_write = None         # (register, value) stored to the counter in this instruction
         self.stall = 0                # the last step's WFI wait, in extra EXECUTE clocks
         self.clocks_taken = 0         # the last step's clocks (clocks() + stall)
         size = max(words) // 4 + 1
@@ -200,6 +203,8 @@ class Cpu:
             return "buttons"
         if memmap.DISPLAY_BASE <= addr < memmap.DISPLAY_BASE + memmap.DISPLAY_BYTES:
             return "display"
+        if memmap.COUNTER_BASE <= addr < memmap.COUNTER_BASE + memmap.COUNTER_BYTES:
+            return "counter"
         raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} is unmapped")
 
     def _load(self, addr, size):
@@ -219,6 +224,13 @@ class Cpu:
             self._buttons_to(self._sampled_by(self.cycle + 2))      # as of MEM_ACCESS
             value = (self.btn["sync1"] << 8) | (self.btn["overrun"] << 4) | self.btn["pending"]
             return (value >> shift) & ((1 << (8 * size)) - 1)
+        if self._region(addr) == "counter":
+            if size != 4:
+                raise ValueError(f"pc={self.pc:#x}: {size}-byte load from the counter (words only)")
+            self._cnt_to(self.cycle + 2)                 # as of MEM_ACCESS
+            c = self.cnt
+            return [c["n"] << 4 | c["src"] << 2 | c["irq_en"] << 1 | c["enable"], c["top"], c["count"],
+                    c["flag"]][(word_addr - memmap.COUNTER_BASE) // 4]
         if self._region(addr) == "timer":
             if size != 4:
                 raise ValueError(f"pc={self.pc:#x}: {size}-byte load from the timer (words only)")
@@ -252,6 +264,11 @@ class Cpu:
         if self._region(addr) == "buttons":
             if shift == 0:                           # byte lane 0 carries the clear mask
                 self.btn_clear = value & 0xFF
+            return
+        if self._region(addr) == "counter":
+            if size != 4:
+                raise ValueError(f"pc={self.pc:#x}: {size}-byte store to the counter (the core ignores it)")
+            self.cnt_write = ((word_addr - memmap.COUNTER_BASE) // 4, value & MASK)
             return
         if self._region(addr) == "timer":
             if size != 4:
@@ -303,6 +320,40 @@ class Cpu:
             b["pending"], b["overrun"] = pending, overrun
             b["edge"] = e + 1
 
+    def _cnt_to(self, edges, write_at=None, write=None):
+        """Advance the counter (counter.luc) until `edges` cpu edges have been applied: its state
+        during cpu clock k is the state after k edges. A write lands on edge `write_at`. Source 0
+        (the cpu clock) and source 1 (every clock; only modelled with one raw clock per cpu clock)
+        count; source 2 (the external input) never does here: the input is tied low."""
+        c = self.cnt
+        while c["edge"] < edges or (write_at is not None and c["edge"] <= write_at):
+            e = c["edge"]
+            if c["src"] == 1 and self.rate != 1:
+                raise ValueError("counter source 1 (every clock) is only modelled with ce on every clock")
+            step = c["src"] in (0, 1)
+            mask = (1 << c["n"]) - 1
+            tick = c["enable"] and (c["pre"] & mask) == mask and step
+            wrap = tick and c["count"] >= c["top"]
+            if not c["enable"]:
+                c["pre"] = 0
+            elif step:
+                c["pre"] = (c["pre"] + 1) & 0x7FFF
+            if wrap:
+                c["count"], c["flag"] = 0, 1
+            elif tick:
+                c["count"] = (c["count"] + 1) & 0xFFFF
+            if write is not None and e == write_at:
+                reg, v = write
+                if reg == 0:
+                    c["enable"], c["irq_en"], c["src"], c["n"] = v & 1, v >> 1 & 1, v >> 2 & 3, v >> 4 & 15
+                elif reg == 1:
+                    c["top"] = v & 0xFFFF
+                elif reg == 2:
+                    c["count"] = v & 0xFFFF
+                elif v & 1 and not wrap:
+                    c["flag"] = 0
+            c["edge"] = e + 1
+
     def meip(self, stall=0):
         """mip.MEIP during this instruction's EXECUTE (pending as of its FETCH edge), or during
         its stall-th extra EXECUTE clock while a WFI waits."""
@@ -321,7 +372,9 @@ class Cpu:
         for clock, levels in self.plat_events:
             if clock * self.rate <= edge:
                 value = levels
-        return value | int(self.rx_ready(stall))      # the UART's receiver drives line 0
+        self._cnt_to(self.cycle + 1 + stall)
+        counter_irq = self.cnt["flag"] & self.cnt["irq_en"]
+        return value | int(self.rx_ready(stall)) | counter_irq << 1   # the UART's receiver is line 0, the counter 1
 
     def mtip(self, stall=0):
         """mip.MTIP as the core sees it during this instruction's EXECUTE (registered one raw
@@ -358,6 +411,7 @@ class Cpu:
         self.trapped = None
         self.timer_write = None
         self.btn_clear = None
+        self.cnt_write = None
         start = self.raw
         mstatus, mie = self.csr[0x300], self.csr[0x304]
         self.stall = 0                       # extra EXECUTE clocks a WFI spent waiting
@@ -405,6 +459,8 @@ class Cpu:
         if self.btn_clear is not None:       # cleared on the store's last edge
             last = lambda m: m * self.rate + self.rate - 1       # the raw edge of cpu edge m
             self._buttons_to(last(self.cycle + n - 1), clear_edge=last(self.cycle + 2), mask=self.btn_clear)
+        if self.cnt_write is not None:       # taken on the store's last edge
+            self._cnt_to(self.cycle + 2, write_at=self.cycle + 2, write=self.cnt_write)
         self.cycle += n
 
     def _execute(self, w):

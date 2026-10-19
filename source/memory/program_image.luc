@@ -20,6 +20,7 @@ module program_image #(
     if (PROGRAM_ID == Programs.Id.UART && addr < 26) word = Programs.UART[addr];
     if (PROGRAM_ID == Programs.Id.RXECHO && addr < 25) word = Programs.RXECHO[addr];
     if (PROGRAM_ID == Programs.Id.RXIRQ && addr < 36) word = Programs.RXIRQ[addr];
+    if (PROGRAM_ID == Programs.Id.COUNTER && addr < 44) word = Programs.COUNTER[addr];
     if (PROGRAM_ID == Programs.Id.STRING && addr < 15) word = Programs.STRING[addr];
     if (PROGRAM_ID == Programs.Id.TABLE && addr < 26) word = Programs.TABLE[addr];
     if (PROGRAM_ID == Programs.Id.SELFMOD && addr < 18) word = Programs.SELFMOD[addr];

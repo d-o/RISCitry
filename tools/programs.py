@@ -1068,6 +1068,64 @@ WFI_TEST = [
     ("mret",),
 ]
 
+# The general-purpose counter (counter.luc): TOP resets to 0xFFFF; poll the overflow flag, read
+# COUNT and clear the flag by writing a 1; a prescale of 8; then the level interrupt on platform
+# line 1 (mip/mie bit 17, mcause 0x80000011): pending in mip while masked, then three interrupts
+# whose handler clears the flag. Everything is timed by the cpu clock (source 0), so the lockstep
+# checks are exact; the final registers keep the evidence (polls, COUNT, STATUS, CTRL, mcause).
+CNT = memmap.COUNTER_BASE
+COUNTER = [
+    ("addi", 3, 0, "cnt_handler"),
+    ("csrrw", 0, 0x305, 3),                    # mtvec = handler (direct)
+    ("lui", 2, CNT >> 12),                     # x2 = counter base
+    ("lw", 1, 2, 4),                           # x1 = TOP after reset (0xFFFF)
+    ("addi", 3, 0, 20),
+    ("sw", 3, 2, 4),                           # TOP = 20
+    ("lw", 3, 2, 4),                           # x3 = TOP read back
+    ("addi", 4, 0, 1),
+    ("sw", 4, 2, 0),                           # CTRL = enable (source 0, n = 0)
+    ("addi", 5, 0, 0),
+    "cnt_poll1:",
+    ("addi", 5, 5, 1),
+    ("lw", 6, 2, 12),                          # STATUS
+    ("beq", 6, 0, "cnt_poll1"),                # x5 = polls until the first wrap
+    ("lw", 6, 2, 8),                           # x6 = COUNT just after the wrap
+    ("sw", 4, 2, 12),                          # write a 1: clear the flag
+    ("lw", 7, 2, 12),                          # x7 = STATUS after the clear
+    ("addi", 8, 0, 0x31),                      # enable, n = 3: a tick every 8 cpu clocks
+    ("sw", 8, 2, 0),
+    ("lw", 9, 2, 0),                           # x9 = CTRL read back (0x31)
+    ("addi", 10, 0, 0),
+    "cnt_poll2:",
+    ("addi", 10, 10, 1),
+    ("lw", 13, 2, 12),
+    ("beq", 13, 0, "cnt_poll2"),               # x10 = polls until the slow wrap
+    ("lw", 11, 2, 8),                          # x11 = COUNT
+    ("sw", 4, 2, 12),
+    ("addi", 13, 0, 40),
+    ("sw", 13, 2, 4),                          # TOP = 40: a flag every 41 clocks, the handler needs ~10
+    ("addi", 13, 0, 3),
+    ("sw", 13, 2, 0),                          # CTRL = enable + irq enable, n = 0
+    ("lui", 8, 0x20),                          # 1 << 17
+    ("csrrsi", 0, 0x300, 0x08),                # MIE; mie bit 17 still clear
+    "cnt_mip:",
+    ("csrrs", 13, 0x344, 0),
+    ("and", 13, 13, 8),
+    ("beq", 13, 0, "cnt_mip"),                 # pending in mip, not taken (x14 still 0)
+    ("csrrs", 0, 0x304, 8),                    # unmask: the interrupts start
+    ("addi", 15, 0, 3),
+    "cnt_wait:",
+    ("bne", 14, 15, "cnt_wait"),               # the handler counts three
+    ("csrrc", 0, 0x304, 8),                    # mask the line
+    ("sw", 0, 2, 0),                           # CTRL = 0: stopped
+    ("halt",),
+    "cnt_handler:",
+    ("csrrs", 12, 0x342, 0),                   # x12 = mcause
+    ("sw", 4, 2, 12),                          # clear the flag (else the level re-fires at once)
+    ("addi", 14, 14, 1),
+    ("mret",),
+]
+
 PROGRAMS = {
     "BOARD": BOARD,
     "LARSON": LARSON,
@@ -1079,6 +1137,7 @@ PROGRAMS = {
     "UART": UART,
     "RXECHO": RXECHO,
     "RXIRQ": RXIRQ,
+    "COUNTER": COUNTER,
     "STRING": STRING,
     "TABLE": TABLE,
     "SELFMOD": SELFMOD,
@@ -1117,7 +1176,7 @@ XSIM_ONLY = {"C_COST"}
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6, 7]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
-EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED", "RXIRQ"}
+EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED", "RXIRQ", "COUNTER"}
 # Bytes sent to the UART's receiver by the testbench: (first start bit's post-reset clock, clocks
 # between start bits, bytes). Chosen so the program keeps up (a byte takes 80 clocks on the line).
 # A fourth element is the post-reset clock from which rv32sim has them (it has no serial timing: they

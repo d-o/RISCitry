@@ -14,4 +14,6 @@ global MemMap {
     const BUTTONS_ADDR_BITS = 2
     const DISPLAY_BASE = 32h80004000    // four characters, byte k = digit k from the left
     const DISPLAY_ADDR_BITS = 2
+    const COUNTER_BASE = 32h80005000    // CTRL +0, TOP +4, COUNT +8, STATUS +12
+    const COUNTER_ADDR_BITS = 4
 }
