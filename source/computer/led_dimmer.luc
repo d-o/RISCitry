@@ -52,7 +52,6 @@ module led_dimmer (
   sig tick
   sig wrap
   sig wr
-  sig sum[24][9]
   sig bit_sd[24]
 
   always {
@@ -71,8 +70,11 @@ module led_dimmer (
     }
 
     repeat(i, 24) {
-      sum[i] = c{1b0, acc.q[i]} + c{1b0, active.q[i]}
-      bit_sd[i] = sum[i] >= 255
+      // No `sum` array: a vector written and read through a loop index made Yosys warn "select out of
+      // bounds" and "found logic loop" in the Verilog (the Alchitry sim said nothing), 2026-10-19.
+      // Each use spells the 9-bit sum out; the accumulator keeps its low 8 bits (sum - 255 =
+      // (sum + 1) mod 256 when sum >= 255).
+      bit_sd[i] = (acc.q[i] + active.q[i]) >= 255
       if (!enable.q) {
         active.d[i] = duty.q[i]
         acc.d[i] = 0
@@ -80,7 +82,7 @@ module led_dimmer (
       } else {
         if (wrap) active.d[i] = duty.q[i];
         if (tick) {
-          if (bit_sd[i]) acc.d[i] = sum[i][7:0] + 1; else acc.d[i] = sum[i][7:0];
+          if (bit_sd[i]) acc.d[i] = $resize(acc.q[i] + active.q[i] + 1, 8); else acc.d[i] = $resize(acc.q[i] + active.q[i], 8);
         }
         if (mode.q) {
           if (tick) out.d[i] = bit_sd[i];

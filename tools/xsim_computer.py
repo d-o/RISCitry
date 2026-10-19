@@ -60,7 +60,7 @@ STATE = {"FETCH": 0, "EXECUTE": 1, "MEM_ACCESS": 2, "WRITEBACK": 3}   # control_
 BIT = gen_cpu_tb.TB_UART_CLK_FREQ // gen_cpu_tb.TB_UART_BAUD
 SIGNALS = ["cycle", "debug_pc", "debug_state", "debug_reg", "uart_tx",
            "display_chars", "display_owned"]
-KEEPS_WRITING = {"LARSON", "BOARD", "ILLEGAL"}    # run forever changing registers: no final register check
+KEEPS_WRITING = {"LARSON", "BOARD", "ILLEGAL", "C_FADER"}    # run forever changing registers: no final register check
 
 HARNESS = f"""
 module xsim_top #(parameter PROGRAM_ID = 0, parameter SWITCHES = 0) (
