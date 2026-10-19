@@ -4,6 +4,7 @@
 #define DEVICES_H
 
 #define SWITCHES        (*(volatile unsigned *)0x80001000u)   /* the middle DIP bank, bits 7:0 */
+#define TIMER_TIMEBASE  (*(volatile unsigned *)0x80002010u)   /* clocks per mtime tick (1 us): 25 on the board, 5 in vsim, 1 in tests */
 
 /* general-purpose timer/counter: CTRL [0] enable, [1] irq enable (platform line 1, mie bit 17),
    [3:2] source (0 cpu clock), [7:4] prescale n; TOP [15:0]; COUNT; STATUS bit 0 = overflow, write 1 to clear */

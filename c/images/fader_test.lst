@@ -43,7 +43,7 @@ Disassembly of section .text:
   74:	2c000593          	addi	x11,x0,704
   78:	0007c683          	lbu	x13,0(x15)
   7c:	00178793          	addi	x15,x15,1
-  80:	0026d513          	srli	x10,x13,0x2
+  80:	0036d513          	srli	x10,x13,0x3
   84:	40a686b3          	sub	x13,x13,x10
   88:	fed78fa3          	sb	x13,-1(x15)
   8c:	fef616e3          	bne	x12,x15,78 <frame_isr+0x38>

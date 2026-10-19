@@ -5,14 +5,14 @@ fader.elf:     file format elf32-littleriscv
 Disassembly of section .text:
 
 00001000 <_start>:
-    1000:	54018113          	addi	x2,x3,1344 # 2000 <_stack_top>
+    1000:	4fc18113          	addi	x2,x3,1276 # 2000 <_stack_top>
     1004:	00001197          	auipc	x3,0x1
-    1008:	abc18193          	addi	x3,x3,-1348 # 1ac0 <__global_pointer$>
+    1008:	b0018193          	addi	x3,x3,-1280 # 1b04 <__global_pointer$>
     100c:	00000297          	auipc	x5,0x0
     1010:	02c28293          	addi	x5,x5,44 # 1038 <trap>
     1014:	30529073          	csrrw	x0,mtvec,x5
-    1018:	80418293          	addi	x5,x3,-2044 # 12c4 <phase>
-    101c:	82418313          	addi	x6,x3,-2012 # 12e4 <_bss_end>
+    1018:	80418293          	addi	x5,x3,-2044 # 1308 <phase>
+    101c:	82418313          	addi	x6,x3,-2012 # 1328 <_bss_end>
     1020:	0062f863          	bgeu	x5,x6,1030 <_start+0x30>
     1024:	0002a023          	sw	x0,0(x5)
     1028:	00428293          	addi	x5,x5,4
@@ -36,26 +36,26 @@ Disassembly of section .text:
     1058:	800057b7          	lui	x15,0x80005
     105c:	00a12a23          	sw	x10,20(x2)
     1060:	00e7a623          	sw	x14,12(x15) # 8000500c <_stack_top+0x8000300c>
-    1064:	80c18713          	addi	x14,x3,-2036 # 12cc <level>
+    1064:	80c18713          	addi	x14,x3,-2036 # 1310 <level>
     1068:	01870613          	addi	x12,x14,24
-    106c:	80c18793          	addi	x15,x3,-2036 # 12cc <level>
-    1070:	80c18593          	addi	x11,x3,-2036 # 12cc <level>
+    106c:	80c18793          	addi	x15,x3,-2036 # 1310 <level>
+    1070:	80c18593          	addi	x11,x3,-2036 # 1310 <level>
     1074:	0007c683          	lbu	x13,0(x15)
     1078:	00178793          	addi	x15,x15,1
-    107c:	0026d513          	srli	x10,x13,0x2
+    107c:	0036d513          	srli	x10,x13,0x3
     1080:	40a686b3          	sub	x13,x13,x10
     1084:	fed78fa3          	sb	x13,-1(x15)
     1088:	fef616e3          	bne	x12,x15,1074 <frame_isr+0x38>
     108c:	00001637          	lui	x12,0x1
-    1090:	2c462783          	lw	x15,708(x12) # 12c4 <phase>
+    1090:	30862783          	lw	x15,776(x12) # 1308 <phase>
     1094:	00200693          	addi	x13,x0,2
     1098:	00178793          	addi	x15,x15,1
     109c:	08f6ca63          	blt	x13,x15,1130 <frame_isr+0xf4>
-    10a0:	2cf62223          	sw	x15,708(x12)
+    10a0:	30f62423          	sw	x15,776(x12)
     10a4:	000016b7          	lui	x13,0x1
     10a8:	800065b7          	lui	x11,0x80006
     10ac:	80006637          	lui	x12,0x80006
-    10b0:	1c068693          	addi	x13,x13,448 # 11c0 <_etext>
+    10b0:	20468693          	addi	x13,x13,516 # 1204 <_etext>
     10b4:	01858593          	addi	x11,x11,24 # 80006018 <_stack_top+0x80004018>
     10b8:	00174783          	lbu	x15,1(x14)
     10bc:	00274503          	lbu	x10,2(x14)
@@ -87,41 +87,60 @@ Disassembly of section .text:
     1124:	00012783          	lw	x15,0(x2)
     1128:	01810113          	addi	x2,x2,24
     112c:	30200073          	mret
-    1130:	8081a783          	lw	x15,-2040(x3) # 12c8 <pos>
-    1134:	2c062223          	sw	x0,708(x12)
+    1130:	8081a783          	lw	x15,-2040(x3) # 130c <pos>
+    1134:	30062423          	sw	x0,776(x12)
     1138:	fff00613          	addi	x12,x0,-1
     113c:	00f586b3          	add	x13,x11,x15
     1140:	00c68023          	sb	x12,0(x13)
     1144:	00001637          	lui	x12,0x1
-    1148:	2c062683          	lw	x13,704(x12) # 12c0 <dir>
+    1148:	30462683          	lw	x13,772(x12) # 1304 <dir>
     114c:	00d787b3          	add	x15,x15,x13
-    1150:	80f1a423          	sw	x15,-2040(x3) # 12c8 <pos>
+    1150:	80f1a423          	sw	x15,-2040(x3) # 130c <pos>
     1154:	00078663          	beq	x15,x0,1160 <frame_isr+0x124>
     1158:	01700593          	addi	x11,x0,23
     115c:	f4b794e3          	bne	x15,x11,10a4 <frame_isr+0x68>
     1160:	40d006b3          	sub	x13,x0,x13
-    1164:	2cd62023          	sw	x13,704(x12)
+    1164:	30d62223          	sw	x13,772(x12)
     1168:	f3dff06f          	jal	x0,10a4 <frame_isr+0x68>
 
 0000116c <main>:
-    116c:	000017b7          	lui	x15,0x1
-    1170:	03c78793          	addi	x15,x15,60 # 103c <frame_isr>
-    1174:	30579073          	csrrw	x0,mtvec,x15
-    1178:	800057b7          	lui	x15,0x80005
-    117c:	3d000713          	addi	x14,x0,976
-    1180:	00e7a223          	sw	x14,4(x15) # 80005004 <_stack_top+0x80003004>
-    1184:	800057b7          	lui	x15,0x80005
-    1188:	08700713          	addi	x14,x0,135
-    118c:	00e7a023          	sw	x14,0(x15) # 80005000 <_stack_top+0x80003000>
-    1190:	000207b7          	lui	x15,0x20
-    1194:	3047a073          	csrrs	x0,mie,x15
-    1198:	30046073          	csrrsi	x0,mstatus,8
-    119c:	80006737          	lui	x14,0x80006
-    11a0:	800016b7          	lui	x13,0x80001
-    11a4:	01870713          	addi	x14,x14,24 # 80006018 <_stack_top+0x80004018>
-    11a8:	0006a783          	lw	x15,0(x13) # 80001000 <_stack_top+0x7ffff000>
-    11ac:	0107f793          	andi	x15,x15,16
-    11b0:	0077e793          	ori	x15,x15,7
-    11b4:	00f72023          	sw	x15,0(x14)
-    11b8:	10500073          	wfi
-    11bc:	fedff06f          	jal	x0,11a8 <main+0x3c>
+    116c:	ff410113          	addi	x2,x2,-12
+    1170:	000017b7          	lui	x15,0x1
+    1174:	00112423          	sw	x1,8(x2)
+    1178:	03c78793          	addi	x15,x15,60 # 103c <frame_isr>
+    117c:	30579073          	csrrw	x0,mtvec,x15
+    1180:	800027b7          	lui	x15,0x80002
+    1184:	0107a503          	lw	x10,16(x15) # 80002010 <_stack_top+0x80000010>
+    1188:	000025b7          	lui	x11,0x2
+    118c:	71058593          	addi	x11,x11,1808 # 2710 <_stack_top+0x710>
+    1190:	050000ef          	jal	x1,11e0 <__mulsi3>
+    1194:	00455513          	srli	x10,x10,0x4
+    1198:	fff50513          	addi	x10,x10,-1
+    119c:	800057b7          	lui	x15,0x80005
+    11a0:	00a7a223          	sw	x10,4(x15) # 80005004 <_stack_top+0x80003004>
+    11a4:	04700713          	addi	x14,x0,71
+    11a8:	800057b7          	lui	x15,0x80005
+    11ac:	00e7a023          	sw	x14,0(x15) # 80005000 <_stack_top+0x80003000>
+    11b0:	000207b7          	lui	x15,0x20
+    11b4:	3047a073          	csrrs	x0,mie,x15
+    11b8:	30046073          	csrrsi	x0,mstatus,8
+    11bc:	80006737          	lui	x14,0x80006
+    11c0:	800016b7          	lui	x13,0x80001
+    11c4:	01870713          	addi	x14,x14,24 # 80006018 <_stack_top+0x80004018>
+    11c8:	0006a783          	lw	x15,0(x13) # 80001000 <_stack_top+0x7ffff000>
+    11cc:	0107f793          	andi	x15,x15,16
+    11d0:	0077e793          	ori	x15,x15,7
+    11d4:	00f72023          	sw	x15,0(x14)
+    11d8:	10500073          	wfi
+    11dc:	fedff06f          	jal	x0,11c8 <main+0x5c>
+
+000011e0 <__mulsi3>:
+    11e0:	00050613          	addi	x12,x10,0
+    11e4:	00000513          	addi	x10,x0,0
+    11e8:	0015f693          	andi	x13,x11,1
+    11ec:	00068463          	beq	x13,x0,11f4 <__mulsi3+0x14>
+    11f0:	00c50533          	add	x10,x10,x12
+    11f4:	0015d593          	srli	x11,x11,0x1
+    11f8:	00161613          	slli	x12,x12,0x1
+    11fc:	fe0596e3          	bne	x11,x0,11e8 <__mulsi3+0x8>
+    1200:	00008067          	jalr	x0,0(x1)

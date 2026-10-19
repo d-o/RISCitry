@@ -1197,7 +1197,7 @@ RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160, "C_FADER": 900}
 FOREVER_STEPS = {("BOARD", 3): 600, ("BOARD", 4): 600, ("BOARD", 5): 600,
                  ("BOARD", 6): 400, ("BOARD", 7): 2000,   # scroll: four steps
                  # dial 1 / 3 (the fader, PWM / sigma-delta): up to its first WFI (a frame is 250,000 clocks)
-                 ("BOARD", 0x0F): 93, ("BOARD", 0x1F): 93}
+                 ("BOARD", 0x0F): 179, ("BOARD", 0x1F): 179}
 
 
 def forever_steps(name, sw):
