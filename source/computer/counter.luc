@@ -11,16 +11,24 @@
 // (the compare is >=), instead of running to 65535 first.
 //
 // Registers (word access only, like the machine timer; the computer ignores sb/sh):
-//   +0 CTRL    [0] enable, [1] irq enable, [7:4] prescale n          R/W
+//   +0 CTRL    [0] enable, [1] irq enable, [3:2] source, [7:4] prescale n   R/W
 //   +4 TOP     [15:0]                                                R/W   (resets to 0xFFFF)
 //   +8 COUNT   [15:0], a write sets it                               R/W
 //   +C STATUS  [0] overflow flag, write 1 to clear                   R/W1C
-// Unlike the dimmer, this honours ce: it measures program time, so a single-stepped interrupt
-// handler doesn't find a backlog of ticks. Every register is held while ce = 0.
+// What it counts is a choice (CTRL [3:2], SRC), because this is a peripheral, not the system timer
+// (the machine timer is real time and nothing else; see timer.luc):
+//   0 the cpu clock (ce): program time, so a single-stepped interrupt handler finds no backlog of
+//     ticks, and it stops with the cpu. The reset default.
+//   1 every clock: free-running, whatever the front panel does to the cpu.
+//   2 a rising edge on the external input `ext` (synchronised here): an event counter, or a tick
+//     from outside; the board ties it low until a pin is wired.
+// The counting state (prescaler, count, flag) follows the source; the registers are written only
+// on an enabled clock, like every device on the bus.
 module counter (
     input clk,
     input rst,
-    input ce,                // cpu clock enable: on a clock with ce = 0 nothing here changes
+    input ce,                // cpu clock enable: registers are written, and source 0 counts, only when 1
+    input ext,               // external tick input (source 2)
     input sel_write,         // a word store to the counter this clock
     input waddr[2],          // register: 0 CTRL, 1 TOP, 2 COUNT, 3 STATUS
     input wdata[32],
@@ -33,13 +41,20 @@ module counter (
     dff enable
     dff irq_en
     dff nsel[4]              // prescale n
+    dff src[2]               // what counts: 0 cpu clock (ce), 1 every clock, 2 rising edge on ext
     dff top[16](#INIT(16hFFFF))
     dff count[16]
     dff flag
     dff pre[15]              // free-running while enabled; a tick when its low n bits are all 1
   }
 
+  .clk(clk) {
+    dff ext_sync[3]          // synchroniser, then the previous level for the edge (always on)
+  }
+
   sig full                   // the low n bits of pre are all ones
+  sig step                   // the source says: count this clock
+  sig wr                     // a register write that takes effect (enabled clock)
   sig tick                   // the counter advances on this clock
   sig wrap                   // ... and it is at TOP: wrap and set the flag
 
@@ -49,10 +64,14 @@ module counter (
     repeat(i, 15) {
       if (i < nsel.q && !pre.q[i]) full = 0;
     }
-    tick = enable.q && full
+    ext_sync.d = c{ext_sync.q[1:0], ext}
+    step = (src.q == 2d0 && ce) || src.q == 2d1 || (src.q == 2d2 && ext_sync.q[1] && !ext_sync.q[2])
+    tick = enable.q && full && step
     wrap = tick && count.q >= top.q
+    wr = sel_write && ce
 
-    if (enable.q) pre.d = pre.q + 1; else pre.d = 0;
+    if (!enable.q) pre.d = 0;
+    else if (step) pre.d = pre.q + 1;
     if (wrap) {
       count.d = 0
       flag.d = 1
@@ -60,10 +79,11 @@ module counter (
       count.d = count.q + 1
     }
 
-    if (sel_write) {
+    if (wr) {
       if (waddr == 2d0) {
         enable.d = wdata[0]
         irq_en.d = wdata[1]
+        src.d = wdata[3:2]
         nsel.d = wdata[7:4]
       }
       if (waddr == 2d1) top.d = wdata[15:0];
@@ -74,20 +94,10 @@ module counter (
     irq = flag.q && irq_en.q
 
     case (raddr) {
-      2d0: rdata = c{24b0, nsel.q, 2b0, irq_en.q, enable.q}
+      2d0: rdata = c{24b0, nsel.q, src.q, irq_en.q, enable.q}
       2d1: rdata = c{16b0, top.q}
       2d2: rdata = c{16b0, count.q}
       default: rdata = c{31b0, flag.q}
-    }
-
-    if (!ce) {        // disabled clock: hold everything
-      enable.d = enable.q
-      irq_en.d = irq_en.q
-      nsel.d = nsel.q
-      top.d = top.q
-      count.d = count.q
-      flag.d = flag.q
-      pre.d = pre.q
     }
   }
 }
