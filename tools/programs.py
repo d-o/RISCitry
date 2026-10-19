@@ -1186,6 +1186,7 @@ PROGRAMS = {
     "WFI": WFI_TEST,
     "VECTORED": VECTORED,
     "C_HELLO": cbuild.items("hello"),
+    "C_RESTART": cbuild.items("restart"),   # c/restart.c: crt0 restores .data on every start (a jump back to _start, twice)
     "C_FADER": cbuild.items("fader_test"),   # c/fader_test.c: the fader's interrupt handler on a fast frame
     "C_COST": cbuild.items("cost"),     # c/cost.c: clocks per libgcc mul/div/mod, from mtime   # c/hello.c, built by tools/cbuild.py (image committed)
 }
@@ -1197,7 +1198,7 @@ RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160, "C_FADER": 900}
 FOREVER_STEPS = {("BOARD", 3): 600, ("BOARD", 4): 600, ("BOARD", 5): 600,
                  ("BOARD", 6): 400, ("BOARD", 7): 2000,   # scroll: four steps
                  # dial 1 / 3 (the fader, PWM / sigma-delta): up to its first WFI (a frame is 250,000 clocks)
-                 ("BOARD", 0x0F): 179, ("BOARD", 0x1F): 179}
+                 ("BOARD", 0x0F): 193, ("BOARD", 0x1F): 193}
 
 
 def forever_steps(name, sw):
@@ -1207,6 +1208,9 @@ def forever_steps(name, sw):
 PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered lines
                ("BOARD", 2): 69,
                ("BOARD", 7): 25}       # the C demo's greeting; its cost table is checked as C_COST       # the banner and two interrupts (the first with a lost press)
+# Absolute expectations for printing programs: the model only says what the code does, so a broken
+# start-up (crt0's .data copy) would make model and hardware agree on the wrong output. gen_cpu_tb checks these.
+EXPECTED_OUTPUT = {"C_RESTART": b"5 30 2 7\r\n" * 3}
 # Programs with no Alchitry testbench: only xsim_computer.py checks them (against rv32sim). C_COST
 # prints 308 bytes after 66k clocks of arithmetic: 13 minutes in the Alchitry simulator, and that
 # simulator's cross-instance ordering bug (CLAUDE.md) sends a byte twice in most runs of a print

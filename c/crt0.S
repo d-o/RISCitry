@@ -9,7 +9,16 @@ _start:
     .option pop
     la      t0, trap                # mtvec: a trap halts here (the core's reset value, 0, would
     csrw    mtvec, t0               # silently restart the program)
-    la      t0, _bss_start          # zero .bss
+    la      t0, _data_start         # restore .data from its pristine copy, which cbuild.py appended at
+    la      t1, _edata              # _edata: the RAM keeps the last run's values over a reset, so every
+    la      t2, _edata              # start (reset or a jump back here) must put the initial values back
+3:  bgeu    t0, t1, 4f
+    lw      a0, 0(t2)
+    sw      a0, 0(t0)
+    addi    t0, t0, 4
+    addi    t2, t2, 4
+    j       3b
+4:  la      t0, _bss_start          # zero .bss
     la      t1, _bss_end
 1:  bgeu    t0, t1, 2f
     sw      zero, 0(t0)

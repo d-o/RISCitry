@@ -52,7 +52,17 @@ def build(name):
                          if line.endswith(" _etext")), 16)
         listing = run(PREFIX + "objdump", "-d", "-M", "no-aliases,numeric", str(elf)).replace(str(elf), f"{name}.elf")
         sizes = run(PREFIX + "size", str(elf))
+        symbols = {line.split()[2]: int(line.split()[0], 16) for line in run(PREFIX + "nm", str(elf)).splitlines()
+                   if len(line.split()) == 3}
+    # .data and .sdata (initialised writable data): linker.ld reserves room for a pristine copy right
+    # after them (_edata ...), and crt0 copies it down on every start, because a reset leaves the last
+    # run's values in RAM. The copy is appended here. It costs as much RAM again as the data itself.
+    data_start, data_end = symbols["_data_start"], symbols["_edata"]
+    data_bytes = data_end - data_start
     image += bytes(-len(image) % 4)
+    if len(image) != data_end - origin:
+        raise SystemExit(f"{name}: image is {len(image)} bytes but .data ends at {data_end:#x}: nothing else may follow it")
+    image += image[data_start - origin:data_end - origin]
     words = struct.unpack(f"<{len(image) // 4}I", image)
     bad = [f"{origin + 4 * i:#x}: {w:#010x}" for i, w in enumerate(words) if origin + 4 * i < etext and not rv32sim.legal(w)]
     if bad:
@@ -62,7 +72,8 @@ def build(name):
     IMAGES.mkdir(exist_ok=True)
     (IMAGES / f"{name}.bin").write_bytes(image)
     (IMAGES / f"{name}.lst").write_text(listing)
-    print(f"{name}: {len(image)} bytes at {origin:#x}, code {etext - origin} bytes, {(etext - origin) // 4} instructions, all legal\n{sizes}", end="")
+    print(f"{name}: {len(image)} bytes at {origin:#x}, code {etext - origin} bytes, {(etext - origin) // 4} instructions, all legal; "
+          f".data {data_bytes} bytes (+{data_bytes} for its pristine copy)\n{sizes}", end="")
     return image
 
 

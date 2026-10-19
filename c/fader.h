@@ -28,8 +28,9 @@
 #define NLEDS 24
 #define LED_PRESCALE 3       /* the dimmer ticks at clock / 8: PWM at 12.3 kHz, sigma-delta edges at <= 1.6 MHz */
 
-static unsigned char level[NLEDS];   /* linear brightness, 0..255 */
-static int pos, dir = 1, phase;
+static unsigned char level[NLEDS];   /* linear brightness, 0..255 (zeroed by crt0, with the other .bss) */
+static int pos, dir = 1, phase;      /* dir is initialised data: crt0 restores it on every start (a reset
+                                        left it at -1 after a return sweep once: the chase vanished) */
 
 static void __attribute__((interrupt("machine"))) frame_isr(void) {
     COUNTER_STATUS = 1;                          /* write 1 to clear first, or the level interrupt re-fires at once */

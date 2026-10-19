@@ -301,6 +301,9 @@ def render_uart_testbench(name, words, text, sw, forever=False):
         model = run_to_halt(name, words, sw)
         out = model.uart_out
         halt_pc = model.pc
+    # a program with an absolute expectation (the model only says what the code does, not what it should)
+    if name in programs.EXPECTED_OUTPUT and bytes(out) != programs.EXPECTED_OUTPUT[name]:
+        raise RuntimeError(f"{name}: the model prints {bytes(out)!r}, expected {programs.EXPECTED_OUTPUT[name]!r}")
     n = len(out)
     # the serial line (3x the time the bytes need) plus the clocks the program itself computes for
     # (the model has no UART wait; C_COST spends 66k clocks on arithmetic)
