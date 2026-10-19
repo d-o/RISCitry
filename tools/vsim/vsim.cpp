@@ -57,6 +57,8 @@ struct Options {
     int fps = 30;              // frames per second of board time (snapshot and record)
     std::vector<std::pair<std::string, std::string>> at;   // --at TIME ACTION, in order given
     std::vector<std::pair<std::string, std::string>> send; // --send TIME TEXT, in order given
+    std::string trace;         // --trace FILE LEDS START LEN: a VCD of these io_led bits (with --headless)
+    std::string trace_leds, trace_start, trace_len;
 };
 
 // A duration: "2.5s" is seconds of board time, a plain number is clocks.
@@ -263,6 +265,7 @@ int main(int argc, char** argv) {
         else if (a == "--record" && i + 2 < argc) { o.record = argv[++i]; o.record_for = argv[++i]; }
         else if (a == "--fps" && i + 1 < argc) o.fps = atoi(argv[++i]);
         else if (a == "--at" && i + 2 < argc) { o.at.push_back({argv[i + 1], argv[i + 2]}); i += 2; }
+        else if (a == "--trace" && i + 4 < argc) { o.trace = argv[++i]; o.trace_leds = argv[++i]; o.trace_start = argv[++i]; o.trace_len = argv[++i]; }
         else if (a == "--send" && i + 2 < argc) { o.send.push_back({argv[i + 1], argv[i + 2]}); i += 2; }
         else if (a == "--help") {
             printf("vsim [--scale PX_PER_MM] [--side-by-side] [--dips HEX] [--quiet] [--unthrottled]\n"
@@ -274,6 +277,11 @@ int main(int argc, char** argv) {
                    "  without a window, as fast as they can, frames timed in board time, no echo.\n"
                    "--at TIME ACTION (repeatable): ACTION up, down, left, right, centre or reset is a\n"
                    "  click held 100 ms (NAME/MS for MS ms); dips=HEX sets the switches.\n"
+                   "--trace FILE LEDS START LEN (with --headless): the raw 1-bit waveform of io_led bits LEDS\n"
+                   "  (comma list, LED i = io_led[i/8][i%8], e.g. 0,1,2) from START for LEN, one clock per\n"
+                   "  VCD tick (40 ns), to FILE (open in GTKWave), plus a summary on stderr. The window only\n"
+                   "  shows each LED's average brightness, so PWM and sigma-delta look the same there:\n"
+                   "  the difference is in this waveform.\n"
                    "--send TIME TEXT (repeatable): TEXT goes into the serial input at that clock (\\n, \\xHH\n"
                    "  escapes); in a window, what is typed into the serial pty goes in too.\n");
             return 0;
@@ -285,6 +293,10 @@ int main(int argc, char** argv) {
 
     // Clocks per second of board time: 25 MHz, or less when the design's timing is scaled down
     const double REAL_HZ = SYS_HZ / (o.time_scale > 0 ? o.time_scale : 1);
+    if (!o.trace.empty() && o.headless.empty()) {
+        fprintf(stderr, "vsim: --trace needs --headless TIME (at least START + LEN)\n");
+        return 1;
+    }
     const uint64_t headless_clocks = o.headless.empty() ? 0 : parse_time(o.headless, REAL_HZ);
     // Offline: a snapshot or a recording. No window, no throttle, no echo, and every frame is
     // exactly 1/fps of board time, so the pictures don't depend on how fast this machine is.
@@ -328,6 +340,30 @@ int main(int argc, char** argv) {
         UartRx rx;
         uint64_t cpu_clocks = 0;   // Cu LED 4 toggles once per enabled cpu clock
         unsigned led4 = 0;
+        // --trace: a VCD of some io_led bits over [trace_start, trace_start + trace_len)
+        std::vector<int> trace_leds;
+        FILE* trace = nullptr;
+        const uint64_t trace_start = o.trace.empty() ? 0 : parse_time(o.trace_start, REAL_HZ);
+        const uint64_t trace_end = o.trace.empty() ? 0 : trace_start + parse_time(o.trace_len, REAL_HZ);
+        std::vector<uint64_t> t_on, t_edges, t_run, t_longest;
+        std::vector<int> t_last;
+        if (!o.trace.empty()) {
+            for (size_t pos = 0; pos <= o.trace_leds.size();) {
+                size_t comma = o.trace_leds.find(',', pos);
+                if (comma == std::string::npos) comma = o.trace_leds.size();
+                trace_leds.push_back(atoi(o.trace_leds.substr(pos, comma - pos).c_str()));
+                pos = comma + 1;
+            }
+            trace = fopen(o.trace.c_str(), "w");
+            if (!trace) { fprintf(stderr, "vsim: cannot write %s\n", o.trace.c_str()); return 1; }
+            fprintf(trace, "$timescale 40 ns $end\n$scope module vsim $end\n");
+            for (size_t k = 0; k < trace_leds.size(); k++)
+                fprintf(trace, "$var wire 1 %c led%d $end\n", (char)('!' + k), trace_leds[k]);
+            fprintf(trace, "$upscope $end\n$enddefinitions $end\n");
+            t_on.assign(trace_leds.size(), 0); t_edges.assign(trace_leds.size(), 0);
+            t_run.assign(trace_leds.size(), 0); t_longest.assign(trace_leds.size(), 0);
+            t_last.assign(trace_leds.size(), -1);
+        }
         auto t0 = std::chrono::steady_clock::now();
         for (uint64_t c = 0; c < headless_clocks; c++) {
             script.run_to(c);
@@ -345,6 +381,32 @@ int main(int argc, char** argv) {
             unsigned l = top->led >> 4 & 1;
             cpu_clocks += l != led4;
             led4 = l;
+            if (trace && c >= trace_start && c < trace_end) {
+                std::string changes;
+                for (size_t k = 0; k < trace_leds.size(); k++) {
+                    int v = top->io_led >> trace_leds[k] & 1;
+                    if (v != t_last[k]) {
+                        if (t_last[k] >= 0) { t_edges[k]++; t_run[k] = 0; }
+                        else t_run[k] = 0;
+                        changes += std::string(1, (char)('0' + v)) + (char)('!' + k) + "\n";
+                    }
+                    t_run[k]++;
+                    if (t_run[k] > t_longest[k]) t_longest[k] = t_run[k];
+                    t_on[k] += v;
+                    t_last[k] = v;
+                }
+                if (c == trace_start) fprintf(trace, "#0\n$dumpvars\n%s$end\n", changes.c_str());
+                else if (!changes.empty()) fprintf(trace, "#%llu\n%s", (unsigned long long)(c - trace_start), changes.c_str());
+            }
+        }
+        if (trace) {
+            fclose(trace);
+            uint64_t n = trace_end - trace_start;
+            for (size_t k = 0; k < trace_leds.size(); k++)
+                fprintf(stderr, "vsim: led%d over %llu clocks: on %llu (%.1f%%), %llu edges, longest level %llu clocks\n",
+                        trace_leds[k], (unsigned long long)n, (unsigned long long)t_on[k], 100.0 * t_on[k] / n,
+                        (unsigned long long)t_edges[k], (unsigned long long)t_longest[k]);
+            fprintf(stderr, "vsim: wrote %s\n", o.trace.c_str());
         }
         double dt = std::chrono::duration<double>(std::chrono::steady_clock::now() - t0).count();
         fprintf(stderr, "\nvsim: %llu clocks (%.3f s of board time) in %.2f s: %.2f MHz, %.0f%% of real time\n",

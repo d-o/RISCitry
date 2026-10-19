@@ -1157,7 +1157,7 @@ module main_ram_bram #(
       lane0[1119] = 8'h13; lane1[1119] = 8'h07; lane2[1119] = 8'h00; lane3[1119] = 8'h3D;
       lane0[1120] = 8'h23; lane1[1120] = 8'hA2; lane2[1120] = 8'hE7; lane3[1120] = 8'h00;
       lane0[1121] = 8'hB7; lane1[1121] = 8'h57; lane2[1121] = 8'h00; lane3[1121] = 8'h80;
-      lane0[1122] = 8'h13; lane1[1122] = 8'h07; lane2[1122] = 8'h30; lane3[1122] = 8'h08;
+      lane0[1122] = 8'h13; lane1[1122] = 8'h07; lane2[1122] = 8'h70; lane3[1122] = 8'h08;
       lane0[1123] = 8'h23; lane1[1123] = 8'hA0; lane2[1123] = 8'hE7; lane3[1123] = 8'h00;
       lane0[1124] = 8'hB7; lane1[1124] = 8'h07; lane2[1124] = 8'h02; lane3[1124] = 8'h00;
       lane0[1125] = 8'h73; lane1[1125] = 8'hA0; lane2[1125] = 8'h47; lane3[1125] = 8'h30;
@@ -1502,7 +1502,7 @@ module main_ram_bram #(
       lane0[13] = 8'h03; lane1[13] = 8'h23; lane2[13] = 8'h81; lane3[13] = 8'h00;
       lane0[14] = 8'h23; lane1[14] = 8'h26; lane2[14] = 8'h41; lane3[14] = 8'h00;
       lane0[15] = 8'h83; lane1[15] = 8'h23; lane2[15] = 8'hC1; lane3[15] = 8'h00;
-      lane0[16] = 8'h13; lane1[16] = 8'h04; lane2[16] = 8'h10; lane3[16] = 8'h03;
+      lane0[16] = 8'h13; lane1[16] = 8'h04; lane2[16] = 8'h50; lane3[16] = 8'h03;
       lane0[17] = 8'h23; lane1[17] = 8'h20; lane2[17] = 8'h81; lane3[17] = 8'h00;
       lane0[18] = 8'h83; lane1[18] = 8'h24; lane2[18] = 8'h01; lane3[18] = 8'h00;
       lane0[19] = 8'h13; lane1[19] = 8'h05; lane2[19] = 8'h00; lane3[19] = 8'h00;
@@ -2249,7 +2249,7 @@ module main_ram_bram #(
       lane0[92] = 8'h13; lane1[92] = 8'h07; lane2[92] = 8'h77; lane3[92] = 8'hBB;
       lane0[93] = 8'h23; lane1[93] = 8'hA2; lane2[93] = 8'hE7; lane3[93] = 8'h00;
       lane0[94] = 8'hB7; lane1[94] = 8'h57; lane2[94] = 8'h00; lane3[94] = 8'h80;
-      lane0[95] = 8'h13; lane1[95] = 8'h07; lane2[95] = 8'h30; lane3[95] = 8'h00;
+      lane0[95] = 8'h13; lane1[95] = 8'h07; lane2[95] = 8'h70; lane3[95] = 8'h00;
       lane0[96] = 8'h23; lane1[96] = 8'hA0; lane2[96] = 8'hE7; lane3[96] = 8'h00;
       lane0[97] = 8'hB7; lane1[97] = 8'h07; lane2[97] = 8'h02; lane3[97] = 8'h00;
       lane0[98] = 8'h73; lane1[98] = 8'hA0; lane2[98] = 8'h47; lane3[98] = 8'h30;

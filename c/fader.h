@@ -48,7 +48,9 @@ static void __attribute__((interrupt("machine"))) frame_isr(void) {
 static inline void fader_run(void) {
     __asm__ volatile("csrw mtvec, %0" :: "r"(frame_isr));
     COUNTER_TOP = FRAME_TOP;
-    COUNTER_CTRL = (FRAME_N << 4) | 2 | 1;       /* cpu clock, interrupt enable, enable */
+    /* source 1: every clock. Source 0 (the cpu clock) would freeze while the cpu sleeps in WFI (the
+       machine stops its clock enable) and never wake it: found in vsim, the lockstep tests never sleep */
+    COUNTER_CTRL = (FRAME_N << 4) | (1 << 2) | 2 | 1;
     __asm__ volatile("csrs mie, %0" :: "r"(1u << 17));   /* platform line 1: the counter */
     __asm__ volatile("csrsi mstatus, 8");        /* MIE */
     for (;;) {

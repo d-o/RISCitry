@@ -1073,7 +1073,8 @@ WFI_TEST = [
 # The general-purpose counter (counter.luc): TOP resets to 0xFFFF; poll the overflow flag, read
 # COUNT and clear the flag by writing a 1; a prescale of 8; then the level interrupt on platform
 # line 1 (mip/mie bit 17, mcause 0x80000011): pending in mip while masked, then three interrupts
-# whose handler clears the flag. Everything is timed by the cpu clock (source 0), so the lockstep
+# whose handler clears the flag. Phases 1 and 3 count the cpu clock (source 0), phase 2 every clock
+# (source 1: the same at ce on every clock, three raw clocks per cpu clock in the xsim --ce 3 run), so the lockstep
 # checks are exact; the final registers keep the evidence (polls, COUNT, STATUS, CTRL, mcause).
 CNT = memmap.COUNTER_BASE
 COUNTER = [
@@ -1094,9 +1095,9 @@ COUNTER = [
     ("lw", 6, 2, 8),                           # x6 = COUNT just after the wrap
     ("sw", 4, 2, 12),                          # write a 1: clear the flag
     ("lw", 7, 2, 12),                          # x7 = STATUS after the clear
-    ("addi", 8, 0, 0x31),                      # enable, n = 3: a tick every 8 cpu clocks
+    ("addi", 8, 0, 0x35),                      # enable, source 1 (every clock), n = 3: a tick every 8 clocks
     ("sw", 8, 2, 0),
-    ("lw", 9, 2, 0),                           # x9 = CTRL read back (0x31)
+    ("lw", 9, 2, 0),                           # x9 = CTRL read back (0x35)
     ("addi", 10, 0, 0),
     "cnt_poll2:",
     ("addi", 10, 10, 1),

@@ -111,7 +111,7 @@ Disassembly of section .text:
     117c:	3d000713          	addi	x14,x0,976
     1180:	00e7a223          	sw	x14,4(x15) # 80005004 <_stack_top+0x80003004>
     1184:	800057b7          	lui	x15,0x80005
-    1188:	08300713          	addi	x14,x0,131
+    1188:	08700713          	addi	x14,x0,135
     118c:	00e7a023          	sw	x14,0(x15) # 80005000 <_stack_top+0x80003000>
     1190:	000207b7          	lui	x15,0x20
     1194:	3047a073          	csrrs	x0,mie,x15

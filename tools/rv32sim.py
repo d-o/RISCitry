@@ -161,7 +161,7 @@ class Cpu:
         self.btn = {"edge": 0, "sync0": 0, "sync1": 0, "last": 0, "pending": 0, "overrun": 0}
         self.btn_clear = None         # mask written by a store in this instruction
         self.cnt = {"edge": 0, "enable": 0, "irq_en": 0, "src": 0, "n": 0, "top": 0xFFFF,
-                    "count": 0, "flag": 0, "pre": 0}   # counter.luc, in cpu clocks (see _cnt_to)
+                    "count": 0, "flag": 0, "pre": 0}   # counter.luc, in raw clocks (see _cnt_to)
         self.cnt_write = None         # (register, value) stored to the counter in this instruction
         self.leds = [0] * 24          # the LED dimmer bank's duty bytes ...
         self.leds_ctrl = 0            # ... and CTRL (enable, n, mode: bits 4:0); the waveforms aren't modelled
@@ -238,7 +238,7 @@ class Cpu:
         if self._region(addr) == "counter":
             if size != 4:
                 raise ValueError(f"pc={self.pc:#x}: {size}-byte load from the counter (words only)")
-            self._cnt_to(self.cycle + 2)                 # as of MEM_ACCESS
+            self._cnt_to(self._cnt_edges(self.cycle + 2))     # as of MEM_ACCESS
             c = self.cnt
             return [c["n"] << 4 | c["src"] << 2 | c["irq_en"] << 1 | c["enable"], c["top"], c["count"],
                     c["flag"]][(word_addr - memmap.COUNTER_BASE) // 4]
@@ -340,17 +340,21 @@ class Cpu:
             b["pending"], b["overrun"] = pending, overrun
             b["edge"] = e + 1
 
+    def _cnt_edges(self, k):
+        """Raw edges the counter has seen during cpu clock k (the bus view, one raw clock before
+        that clock's enabled edge): with `rate` raw clocks per cpu clock, k * rate + rate - 1."""
+        return k * self.rate + self.rate - 1
+
     def _cnt_to(self, edges, write_at=None, write=None):
-        """Advance the counter (counter.luc) until `edges` cpu edges have been applied: its state
-        during cpu clock k is the state after k edges. A write lands on edge `write_at`. Source 0
-        (the cpu clock) and source 1 (every clock; only modelled with one raw clock per cpu clock)
-        count; source 2 (the external input) never does here: the input is tied low."""
+        """Advance the counter (counter.luc) until `edges` raw edges have been applied (its state
+        during raw clock r is the state after r edges); a write lands on raw edge `write_at`. It
+        runs on raw clocks: source 0 steps on the cpu's enabled edges only (raw edge e with
+        e % rate == rate - 1), source 1 on every one; source 2 (the external input, tied low)
+        never does here. With rate 1 the two sources are the same."""
         c = self.cnt
         while c["edge"] < edges or (write_at is not None and c["edge"] <= write_at):
             e = c["edge"]
-            if c["src"] == 1 and self.rate != 1:
-                raise ValueError("counter source 1 (every clock) is only modelled with ce on every clock")
-            step = c["src"] in (0, 1)
+            step = c["src"] == 1 or (c["src"] == 0 and e % self.rate == self.rate - 1)
             mask = (1 << c["n"]) - 1
             tick = c["enable"] and (c["pre"] & mask) == mask and step
             wrap = tick and c["count"] >= c["top"]
@@ -392,7 +396,7 @@ class Cpu:
         for clock, levels in self.plat_events:
             if clock * self.rate <= edge:
                 value = levels
-        self._cnt_to(self.cycle + 1 + stall)
+        self._cnt_to(self._cnt_edges(self.cycle + 1 + stall))
         counter_irq = self.cnt["flag"] & self.cnt["irq_en"]
         return value | int(self.rx_ready(stall)) | counter_irq << 1   # the UART's receiver is line 0, the counter 1
 
@@ -480,7 +484,8 @@ class Cpu:
             last = lambda m: m * self.rate + self.rate - 1       # the raw edge of cpu edge m
             self._buttons_to(last(self.cycle + n - 1), clear_edge=last(self.cycle + 2), mask=self.btn_clear)
         if self.cnt_write is not None:       # taken on the store's last edge
-            self._cnt_to(self.cycle + 2, write_at=self.cycle + 2, write=self.cnt_write)
+            edge = (self.cycle + 2) * self.rate + self.rate - 1       # the raw edge of that cpu edge
+            self._cnt_to(edge, write_at=edge, write=self.cnt_write)
         self.cycle += n
 
     def _execute(self, w):
