@@ -1,0 +1,93 @@
+// General-purpose timer/counter (the 6522 / 8253 / AVR kind), the frame tick for the fading
+// Larson scanner (notes/pwm-larson-plan.md). Generic on purpose: the 24-LED dimmer next to it is
+// shaped to the board, this is not.
+//
+// A prescaler divides the clock by 2^n (n = 0..15). The counter counts up from 0; on the tick
+// when it has reached TOP it wraps to 0 and sets the overflow flag, so one period is TOP + 1
+// counts (written TOP = 0: a wrap on every tick). The flag stays set until software writes a 1 to
+// it (STATUS is write-1-to-clear: a 0 changes nothing), and irq = flag && irq enable is a level
+// that stays asserted until then. A wrap on the same edge as a clear wins, so a flag is never lost.
+// A COUNT write wins over a tick on the same edge, and a COUNT above TOP wraps at the next tick
+// (the compare is >=), instead of running to 65535 first.
+//
+// Registers (word access only, like the machine timer; the computer ignores sb/sh):
+//   +0 CTRL    [0] enable, [1] irq enable, [7:4] prescale n          R/W
+//   +4 TOP     [15:0]                                                R/W   (resets to 0xFFFF)
+//   +8 COUNT   [15:0], a write sets it                               R/W
+//   +C STATUS  [0] overflow flag, write 1 to clear                   R/W1C
+// Unlike the dimmer, this honours ce: it measures program time, so a single-stepped interrupt
+// handler doesn't find a backlog of ticks. Every register is held while ce = 0.
+module counter (
+    input clk,
+    input rst,
+    input ce,                // cpu clock enable: on a clock with ce = 0 nothing here changes
+    input sel_write,         // a word store to the counter this clock
+    input waddr[2],          // register: 0 CTRL, 1 TOP, 2 COUNT, 3 STATUS
+    input wdata[32],
+    input raddr[2],          // the register a load reads (registered by the computer)
+    output rdata[32],
+    output irq               // overflow flag && irq enable (platform interrupt line)
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff enable
+    dff irq_en
+    dff nsel[4]              // prescale n
+    dff top[16](#INIT(16hFFFF))
+    dff count[16]
+    dff flag
+    dff pre[15]              // free-running while enabled; a tick when its low n bits are all 1
+  }
+
+  sig full                   // the low n bits of pre are all ones
+  sig tick                   // the counter advances on this clock
+  sig wrap                   // ... and it is at TOP: wrap and set the flag
+
+  always {
+    full = 1
+    // the condition sits inside the loop: a repeat inside an if is a latch to Verilator (vsim)
+    repeat(i, 15) {
+      if (i < nsel.q && !pre.q[i]) full = 0;
+    }
+    tick = enable.q && full
+    wrap = tick && count.q >= top.q
+
+    if (enable.q) pre.d = pre.q + 1; else pre.d = 0;
+    if (wrap) {
+      count.d = 0
+      flag.d = 1
+    } else if (tick) {
+      count.d = count.q + 1
+    }
+
+    if (sel_write) {
+      if (waddr == 2d0) {
+        enable.d = wdata[0]
+        irq_en.d = wdata[1]
+        nsel.d = wdata[7:4]
+      }
+      if (waddr == 2d1) top.d = wdata[15:0];
+      if (waddr == 2d2) count.d = wdata[15:0];
+      if (waddr == 2d3 && wdata[0] && !wrap) flag.d = 0;
+    }
+
+    irq = flag.q && irq_en.q
+
+    case (raddr) {
+      2d0: rdata = c{24b0, nsel.q, 2b0, irq_en.q, enable.q}
+      2d1: rdata = c{16b0, top.q}
+      2d2: rdata = c{16b0, count.q}
+      default: rdata = c{31b0, flag.q}
+    }
+
+    if (!ce) {        // disabled clock: hold everything
+      enable.d = enable.q
+      irq_en.d = irq_en.q
+      nsel.d = nsel.q
+      top.d = top.q
+      count.d = count.q
+      flag.d = flag.q
+      pre.d = pre.q
+    }
+  }
+}

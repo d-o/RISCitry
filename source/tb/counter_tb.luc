@@ -1,0 +1,194 @@
+// counter (hand-written): prescale, wrap and the overflow flag, the level interrupt, the
+// write-1-to-clear STATUS, COUNT writes, a wrap beating a clear, and the hold on a disabled clock.
+// CTRL = enable only is 1, enable + irq enable is 3, n goes in bits 7:4.
+testbench counter_tb {
+    sig clk
+    sig rst
+    sig ce
+    sig sel_write
+    sig waddr[2]
+    sig wdata[32]
+    sig raddr[2]
+
+    counter dut(.clk(clk), .rst(rst), .ce(ce), .sel_write(sel_write), .waddr(waddr),
+                .wdata(wdata), .raddr(raddr))
+
+    fun tick_clock() {
+        clk = 1
+        $silent_tick()
+        clk = 0
+        $silent_tick()
+    }
+
+    fun write(reg[2], data[32]) {
+        sel_write = 1
+        waddr = reg
+        wdata = data
+        $tick_clock()
+        sel_write = 0
+    }
+
+    fun expect(reg[2], want[32]) {
+        raddr = reg
+        $silent_tick()
+        if (dut.rdata != want) $print("reg %d: got %h want %h", reg, dut.rdata, want)
+        $assert(dut.rdata == want)
+    }
+
+    test wrap_and_flag {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        $tick_clock()
+        rst = 0
+        $expect(1, 16hFFFF)                  // TOP resets to all ones
+        $write(1, 3)                         // TOP = 3: four counts per period
+        $write(0, 1)                         // enable, n = 0
+        $expect(0, 1)
+        $tick_clock()                        // first tick
+        $expect(2, 1)
+        $tick_clock()
+        $tick_clock()
+        $expect(2, 3)
+        $expect(3, 0)                        // at TOP, not wrapped yet
+        $tick_clock()
+        $expect(2, 0)                        // wrapped ...
+        $expect(3, 1)                        // ... with the flag set
+        repeat(i, 4) { $tick_clock(); }      // a whole period later it is still set, count back at 0
+        $expect(2, 0)
+        $expect(3, 1)
+        $assert(!dut.irq)                    // irq enable is off
+    }
+
+    test irq_and_w1c {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        $tick_clock()
+        rst = 0
+        $write(1, 3)                         // TOP = 3
+        $write(0, 3)                         // enable + irq enable
+        $assert(!dut.irq)
+        repeat(i, 4) { $tick_clock(); }      // count 1, 2, 3, wrap
+        $expect(3, 1)
+        $assert(dut.irq)
+        $write(3, 0)                         // writing 0 does nothing
+        $expect(3, 1)
+        $assert(dut.irq)
+        $write(3, 1)                         // writing 1 clears it
+        $expect(3, 0)
+        $assert(!dut.irq)
+        $write(0, 1)                         // irq enable off: the flag still sets, irq stays low
+        repeat(i, 3) { $tick_clock(); }
+        $expect(3, 1)
+        $assert(!dut.irq)
+    }
+
+    test prescale {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        $tick_clock()
+        rst = 0
+        $write(1, 100)
+        $write(0, 16h21)                     // enable, n = 2 (bits 7:4 = 2 is 8h21): a tick every 4 clocks
+        $expect(0, 32h21)
+        repeat(i, 3) { $tick_clock(); }
+        $expect(2, 0)                        // 3 clocks after the write: no tick yet
+        $tick_clock()
+        $expect(2, 1)                        // the 4th
+        repeat(i, 3) { $tick_clock(); }
+        $expect(2, 1)
+        $tick_clock()
+        $expect(2, 2)
+        $write(0, 16h00)                     // disable: the count holds
+        repeat(i, 9) { $tick_clock(); }
+        $expect(2, 2)
+    }
+
+    test count_write {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        $tick_clock()
+        rst = 0
+        $write(1, 5)
+        $write(0, 1)
+        $write(2, 4)                         // COUNT = 4 (the write beats the tick on its edge)
+        $expect(2, 4)
+        $tick_clock()
+        $expect(2, 5)
+        $expect(3, 0)
+        $tick_clock()
+        $expect(2, 0)                        // wrapped at TOP = 5
+        $expect(3, 1)
+        $write(3, 1)
+        $write(2, 9)                         // COUNT above TOP: wraps at the next tick, doesn't run to 65535
+        $tick_clock()
+        $expect(2, 0)
+        $expect(3, 1)
+    }
+
+    test wrap_beats_clear {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        $tick_clock()
+        rst = 0
+        $write(1, 0)                         // TOP = 0: a wrap on every tick
+        $write(0, 1)
+        $tick_clock()
+        $expect(3, 1)
+        $write(3, 1)                         // this edge wraps again: the flag stays set
+        $expect(3, 1)
+    }
+
+    test hold_without_ce {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        $tick_clock()
+        rst = 0
+        $write(1, 7)
+        $write(0, 1)
+        $tick_clock()
+        $tick_clock()
+        $expect(2, 2)
+        ce = 0
+        repeat(i, 5) { $tick_clock(); }
+        $expect(2, 2)                        // frozen
+        $write(1, 1)                         // a store with ce off is ignored
+        $write(2, 6)
+        $write(0, 16h00)
+        $expect(1, 7)
+        $expect(2, 2)
+        $expect(0, 1)
+        ce = 1
+        $tick_clock()
+        $expect(2, 3)                        // resumes where it was
+    }
+}
