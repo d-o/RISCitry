@@ -1,0 +1,118 @@
+// LED dimmer bank: 24 byte-wide brightness registers, one per Io LED, each turned into a 1-bit
+// output in hardware, as PWM or as a first-order sigma-delta (pulse density) 1-bit DAC, chosen by
+// a mode bit. Purpose-built for the board's 24 LEDs (notes/pwm-larson-plan.md): the cpu writes a
+// brightness and the bank holds it, with no cpu involvement and no jitter.
+//
+// Both modes give the same average brightness, duty/255 (0 = always off, 255 = always on), so
+// flipping the mode changes the waveform on a scope and not what the eye sees. The period is 255
+// ticks, not 256: a 0..255 counter makes duty 255 on for only 255/256 of the time. The
+// sigma-delta accumulator wraps modulo 255 for the same reason, which makes it emit exactly `duty`
+// ones in any 255 consecutive ticks, from any starting accumulator.
+//   PWM: an 8-bit counter 0..254; the LED is on while count < duty.
+//   Sigma-delta: acc += duty each tick (9 bits); at >= 255 the output is 1 and acc -= 255.
+// A tick is every 2^n clocks (n = 0..7). Writes land in `duty`, and all 24 are copied to the
+// active set when the PWM counter wraps (once per period), so a write never makes a glitch pulse.
+//
+// This ignores the cpu clock enable: the LEDs keep their brightness while the cpu is stopped or
+// single-stepped, so the front panel still shows the frame. Only the bus writes wait for ce.
+//
+// Registers (byte lane writes work: sb sets one LED, sw four):
+//   +0x00..0x17 DUTY[0..23], one byte each; LED 0 = io_led[0][0]               R/W
+//   +0x18 CTRL   [0] enable, [3:1] prescale n, [4] mode: 0 PWM, 1 sigma-delta  R/W (lane 0)
+// Disabled (the reset state): every output is 0, the counters are cleared, and the active set
+// follows the duties, so enabling starts at the right brightness. `enabled` lets the board hand
+// the LEDs over to this bank (and back to the register view when it is off).
+module led_dimmer (
+    input clk,
+    input rst,
+    input ce,                // cpu clock enable: only the bus writes use it
+    input sel_write,         // a store to the bank this clock
+    input be[4],             // ... to these byte lanes
+    input waddr[3],          // the word written: 0..5 duties, 6 CTRL
+    input wdata[32],
+    input raddr[3],          // the word a load reads
+    output rdata[32],
+    output leds[24],         // LED i = bit i
+    output enabled
+  ) {
+
+  .clk(clk), .rst(rst) {
+    dff duty[24][8]
+    dff active[24][8]
+    dff acc[24][8]
+    dff out[24]
+    dff cnt[8]               // PWM counter 0..254
+    dff pre[7]               // prescaler: a tick when its low n bits are all ones
+    dff enable
+    dff mode
+    dff nsel[3]
+  }
+
+  sig full
+  sig tick
+  sig wrap
+  sig wr
+  sig sum[24][9]
+  sig bit_sd[24]
+
+  always {
+    full = 1
+    repeat(i, 7) {
+      if (i < nsel.q && !pre.q[i]) full = 0;
+    }
+    tick = enable.q && full
+    wrap = tick && cnt.q == 254
+    wr = sel_write && ce
+
+    if (enable.q) pre.d = pre.q + 1; else pre.d = 0;
+    if (!enable.q) cnt.d = 0;
+    else if (tick) {
+      if (cnt.q == 254) cnt.d = 0; else cnt.d = cnt.q + 1;
+    }
+
+    repeat(i, 24) {
+      sum[i] = c{1b0, acc.q[i]} + c{1b0, active.q[i]}
+      bit_sd[i] = sum[i] >= 255
+      if (!enable.q) {
+        active.d[i] = duty.q[i]
+        acc.d[i] = 0
+        out.d[i] = 0
+      } else {
+        if (wrap) active.d[i] = duty.q[i];
+        if (tick) {
+          if (bit_sd[i]) acc.d[i] = sum[i][7:0] + 1; else acc.d[i] = sum[i][7:0];
+        }
+        if (mode.q) {
+          if (tick) out.d[i] = bit_sd[i];
+        } else {
+          out.d[i] = cnt.q < active.q[i]
+        }
+      }
+    }
+
+    repeat(w, 6) {
+      repeat(l, 4) {
+        if (wr && waddr == w && be[l]) duty.d[w*4+l] = wdata[l*8+:8];
+      }
+    }
+    if (wr && waddr == 6 && be[0]) {
+      enable.d = wdata[0]
+      nsel.d = wdata[3:1]
+      mode.d = wdata[4]
+    }
+
+    leds = out.q
+    enabled = enable.q
+
+    case (raddr) {
+      3d0: rdata = c{duty.q[3], duty.q[2], duty.q[1], duty.q[0]}
+      3d1: rdata = c{duty.q[7], duty.q[6], duty.q[5], duty.q[4]}
+      3d2: rdata = c{duty.q[11], duty.q[10], duty.q[9], duty.q[8]}
+      3d3: rdata = c{duty.q[15], duty.q[14], duty.q[13], duty.q[12]}
+      3d4: rdata = c{duty.q[19], duty.q[18], duty.q[17], duty.q[16]}
+      3d5: rdata = c{duty.q[23], duty.q[22], duty.q[21], duty.q[20]}
+      3d6: rdata = c{27b0, mode.q, nsel.q, enable.q}
+      default: rdata = 0
+    }
+  }
+}

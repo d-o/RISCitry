@@ -1,0 +1,321 @@
+// led_dimmer (hand-written): in both modes a duty d gives exactly d ones in any 255 consecutive
+// ticks (0, 1, 128, 254 and 255 checked, plus other LEDs at the same time), PWM is one pulse while
+// sigma-delta never holds a level for more than 2 ticks at 50%, switching modes live keeps the
+// counts, a duty written mid-period only shows from the next wrap, byte lanes land in the right
+// LEDs, the outputs keep running with the cpu clock enable off (writes then do nothing), and a
+// disabled bank is dark. The prescaler is 0 (a tick every clock) unless a test says otherwise.
+// CTRL: enable 1, n in bits 3:1, sigma-delta mode in bit 4.
+testbench led_dimmer_tb {
+    sig clk
+    sig rst
+    sig ce
+    sig sel_write
+    sig be[4]
+    sig waddr[3]
+    sig wdata[32]
+    sig raddr[3]
+    sig ones[9]
+    sig run[9]
+    sig maxrun[9]
+    sig prev
+    sig carry[9]
+
+    led_dimmer d(.clk(clk), .rst(rst), .ce(ce), .sel_write(sel_write), .be(be), .waddr(waddr),
+                 .wdata(wdata), .raddr(raddr))
+
+    fun tick_clock() {
+        clk = 1
+        $silent_tick()
+        clk = 0
+        $silent_tick()
+    }
+
+    fun write(word[3], lanes[4], data[32]) {
+        sel_write = 1
+        waddr = word
+        be = lanes
+        wdata = data
+        $tick_clock()
+        sel_write = 0
+        be = 0
+    }
+
+    // the LED's output over the next 255 clocks: its number of ones and its longest run
+    fun measure(led[5]) {
+        ones = 0
+        run = 0
+        maxrun = 0
+        repeat(i, 255) {
+            $tick_clock()
+            if (d.leds[led] == prev) run = run + 1; else run = 1;
+            prev = d.leds[led]
+            if (run > maxrun) maxrun = run;
+            if (d.leds[led]) ones = ones + 1;
+        }
+    }
+
+    // ... and over 510 clocks, one whole period when the prescaler is 1
+    fun measure_long(led[5]) {
+        ones = 0
+        run = 0
+        maxrun = 0
+        repeat(i, 510) {
+            $tick_clock()
+            if (d.leds[led] == prev) run = run + 1; else run = 1;
+            prev = d.leds[led]
+            if (run > maxrun) maxrun = run;
+            if (d.leds[led]) ones = ones + 1;
+        }
+    }
+
+    fun expect_ones(led[5], want[9]) {
+        $measure(led)
+        if (ones != want) $print("led %d: %d ones, want %d", led, ones, want)
+        $assert(ones == want)
+    }
+
+    fun expect_word(word[3], want[32]) {
+        raddr = word
+        $silent_tick()
+        if (d.rdata != want) $print("word %d: got %h want %h", word, d.rdata, want)
+        $assert(d.rdata == want)
+    }
+
+    test pwm_counts {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        be = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        ones = 0
+        run = 0
+        maxrun = 0
+        prev = 0
+        carry = 0
+        $tick_clock()
+        rst = 0
+        $write(0, 4b1111, 32hFE_FF_80_01)       // LEDs 0..3 = 1, 128, 255, 254
+        $write(1, 4b1111, 32h00_00_00_80)       // LED 4 = 128
+        $write(5, 4b1000, 32h4D_00_00_00)       // LED 23 = 77
+        $write(6, 4b0001, 1)                    // enable, n = 0, PWM
+        repeat(i, 300) { $tick_clock(); }       // a whole period, and the copy at the wrap
+        $expect_ones(0, 1)
+        $expect_ones(1, 128)
+        $assert(maxrun >= 127)                  // PWM: one long pulse (a window can cut it by one)
+        $expect_ones(2, 255)
+        $expect_ones(3, 254)
+        $expect_ones(4, 128)
+        $expect_ones(5, 0)
+        $expect_ones(23, 77)
+    }
+
+    test prescaler_stretches_the_period {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        be = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        ones = 0
+        run = 0
+        maxrun = 0
+        prev = 0
+        carry = 0
+        $tick_clock()
+        rst = 0
+        $write(0, 4b0001, 128)
+        $write(6, 4b0011, 32h03)                // enable, n = 1: a tick every 2 clocks
+        repeat(i, 700) { $tick_clock(); }
+        $measure(0)
+        carry = ones
+        $measure(0)
+        $assert(carry + ones == 256)            // 128 ticks on in 255 ticks of 2 clocks (510 clocks)
+        $measure_long(0)
+        $assert(maxrun >= 200)                  // each PWM tick lasts 2 clocks: the pulse is ~256 long
+        $write(6, 4b0001, 32h17)                // sigma-delta at n = 3: a tick every 8 clocks
+        repeat(i, 700) { $tick_clock(); }
+        $measure(0)
+        $assert(maxrun >= 8)                    // no level lasts less than one tick (8 clocks)
+        $assert(ones >= 120 && ones <= 136)     // half of the 255 clocks
+    }
+
+    test sigma_delta_counts {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        be = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        ones = 0
+        run = 0
+        maxrun = 0
+        prev = 0
+        carry = 0
+        $tick_clock()
+        rst = 0
+        $write(0, 4b1111, 32hFE_FF_80_01)
+        $write(1, 4b1111, 32h00_00_00_80)
+        $write(5, 4b1000, 32h4D_00_00_00)
+        $write(6, 4b0001, 32h11)                // enable, n = 0, sigma-delta
+        repeat(i, 300) { $tick_clock(); }
+        $expect_ones(0, 1)
+        $expect_ones(1, 128)
+        $assert(maxrun <= 2)                    // pulse density: spread, never one long pulse
+        $expect_ones(2, 255)
+        $expect_ones(2, 255)                    // two windows in a row: a modulo-256 accumulator drops
+        $expect_ones(2, 255)                    // a pulse once in 256 ticks, which one window can miss
+        $expect_ones(3, 254)
+        $expect_ones(4, 128)
+        $expect_ones(5, 0)
+        $expect_ones(23, 77)
+    }
+
+    test mode_switch_keeps_counts {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        be = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        ones = 0
+        run = 0
+        maxrun = 0
+        prev = 0
+        carry = 0
+        $tick_clock()
+        rst = 0
+        $write(0, 4b1111, 32hFE_FF_80_01)
+        $write(6, 4b0001, 1)
+        repeat(i, 300) { $tick_clock(); }
+        $expect_ones(1, 128)
+        $write(6, 4b0001, 32h11)                // to sigma-delta, live
+        repeat(i, 40) { $tick_clock(); }
+        $expect_ones(1, 128)
+        $expect_ones(0, 1)
+        $expect_ones(3, 254)
+        $write(6, 4b0001, 1)                    // and back
+        repeat(i, 40) { $tick_clock(); }
+        $expect_ones(1, 128)
+        $expect_ones(2, 255)
+    }
+
+    test duty_written_mid_period {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        be = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        ones = 0
+        run = 0
+        maxrun = 0
+        prev = 0
+        carry = 0
+        $tick_clock()
+        rst = 0
+        $write(0, 4b0001, 255)                  // LED 0 fully on, loaded while disabled
+        $write(6, 4b0001, 1)                    // enable: the period starts
+        repeat(i, 4) { $tick_clock(); }
+        $write(0, 4b0001, 0)                    // brightness 0 now, but the active set keeps 255
+        repeat(i, 240) { $tick_clock(); }
+        $assert(d.leds[0])                      // still on, 248 clocks into the period
+        repeat(i, 20) { $tick_clock(); }
+        $assert(!d.leds[0])                     // the wrap copied the 0
+    }
+
+    test byte_lanes_and_readback {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        be = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        ones = 0
+        run = 0
+        maxrun = 0
+        prev = 0
+        carry = 0
+        $tick_clock()
+        rst = 0
+        $write(1, 4b0100, 32h00_AA_00_00)       // sb to byte lane 2: LED 6
+        $expect_word(1, 32h00_AA_00_00)
+        $write(1, 4b0011, 32h00_00_12_34)       // sh: LEDs 4 and 5
+        $expect_word(1, 32h00_AA_12_34)
+        $write(5, 4b1111, 32h01_02_03_04)       // sw: LEDs 20..23
+        $expect_word(5, 32h01_02_03_04)
+        $expect_word(0, 0)
+        $write(6, 4b0001, 32h1B)                // enable, n = 5, sigma-delta (bits 3:1 = 5)
+        $expect_word(6, 32h1B)
+        $write(6, 4b0010, 32hFF_FF_00_00)       // another lane: CTRL unchanged
+        $expect_word(6, 32h1B)
+    }
+
+    test ce_off {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        be = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        ones = 0
+        run = 0
+        maxrun = 0
+        prev = 0
+        carry = 0
+        $tick_clock()
+        rst = 0
+        $write(0, 4b0001, 128)
+        $write(6, 4b0001, 1)
+        repeat(i, 300) { $tick_clock(); }
+        ce = 0
+        $write(0, 4b0001, 0)                    // ignored with ce off
+        $write(6, 4b0001, 0)
+        $expect_word(0, 128)
+        $expect_word(6, 1)
+        $expect_ones(0, 128)                    // the output kept running with the cpu stopped
+    }
+
+    test disabled_is_dark {
+        clk = 0
+        rst = 1
+        ce = 1
+        sel_write = 0
+        be = 0
+        waddr = 0
+        wdata = 0
+        raddr = 0
+        ones = 0
+        run = 0
+        maxrun = 0
+        prev = 0
+        carry = 0
+        $tick_clock()
+        rst = 0
+        $write(0, 4b1111, 32hFF_FF_FF_FF)
+        repeat(i, 20) { $tick_clock(); }
+        $assert(d.leds == 0)
+        $assert(!d.enabled)
+        $write(6, 4b0001, 1)
+        repeat(i, 5) { $tick_clock(); }
+        $assert(d.enabled)
+        $assert(d.leds != 0)                      // the loaded brightness shows from the start
+        $write(6, 4b0001, 0)
+        repeat(i, 3) { $tick_clock(); }
+        $assert(d.leds == 0)
+    }
+}
