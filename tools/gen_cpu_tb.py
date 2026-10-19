@@ -246,6 +246,17 @@ def header(name, sw, extra_sigs=(), suffix="", stoptime=0):
         "        $assert(c{dut.display_owned, dut.display_chars} == value)",
         "    }",
         "",
+        "    fun expect_leds_dark() {          // the LED dimmer bank is dark unless a program enabled it (print tests stop at a byte count)",
+        "        $assert(dut.leds_enabled || dut.leds == 0)",
+        "    }",
+        "",
+        "    fun expect_leds(enabled) {        // the LED dimmer bank: enabled as rv32sim has it, dark when it is not",
+        "        if (dut.leds_enabled != enabled || (!dut.leds_enabled && dut.leds != 0))",
+        '            $print("leds: enabled %d want %d, leds %h", dut.leds_enabled, enabled, dut.leds)',
+        "        $assert(dut.leds_enabled == enabled)",
+        "        $assert(dut.leds_enabled || dut.leds == 0)",
+        "    }",
+        "",
     ]
 
 
@@ -352,6 +363,7 @@ def render_uart_testbench(name, words, text, sw, forever=False):
             "        // final register file",
             *[f"        $expect_reg(4d{r}, 32h{model.x[r]:08X})" for r in range(16)],
         ]
+    lines.append("        $expect_leds_dark()")
     lines += ["    }", "}"]
     return lines, f"{n} bytes"
 
@@ -410,6 +422,7 @@ def render_testbench(name, words, text, sw, ce_every=1, stoptime=0):
     lines.append("        // final register file and display")
     lines += [f"        $expect_reg(4d{r}, 32h{model.x[r]:08X})" for r in range(16)]
     lines.append(f"        $expect_display(33h{model.display:09X})")
+    lines.append(f"        $expect_leds({model.leds_ctrl & 1})")
     lines += ["    }", "}"]
     return lines, f"{steps} instructions"
 

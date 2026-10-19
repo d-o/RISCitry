@@ -24,9 +24,9 @@ ROOT = Path(__file__).resolve().parent.parent
 C_DIR = ROOT / "c"
 IMAGES = C_DIR / "images"
 PREFIX = "riscv64-unknown-elf-"
-ORIGINS = {"demo": 0x800}       # where each program is linked; the others own the machine, from 0
+ORIGINS = {"demo": 0x800, "fader": 0x1000}   # where each program is linked; the others own the machine, from 0
 ARCH = ["-mabi=ilp32e"]
-CFLAGS = ["-march=rv32e", *ARCH, "-Os", "-ffreestanding", "-fno-pic", "-mstrict-align",
+CFLAGS = ["-march=rv32e_zicsr", *ARCH, "-Os", "-ffreestanding", "-fno-pic", "-mstrict-align",
           "-Wall", "-Wextra", "-Werror"]
 
 

@@ -729,6 +729,8 @@ BOARD = [
     (".org", 0x800),                           # above the demos (they end below 0x500)
     "c_demo:",
     *cbuild.items("demo"),
+    (".org", 0x1000),                          # the fading scanner, started by the demo when the dial's bit 3 is set
+    *cbuild.items("fader"),
 ]
 
 # Zicsr and MRET: read the constant CSRs, write/set/clear mscratch (rd gets the old value each
@@ -1183,15 +1185,18 @@ PROGRAMS = {
     "WFI": WFI_TEST,
     "VECTORED": VECTORED,
     "C_HELLO": cbuild.items("hello"),
+    "C_FADER": cbuild.items("fader_test"),   # c/fader_test.c: the fader's interrupt handler on a fast frame
     "C_COST": cbuild.items("cost"),     # c/cost.c: clocks per libgcc mul/div/mod, from mtime   # c/hello.c, built by tools/cbuild.py (image committed)
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
 # checked by its first PRINT_BYTES bytes instead.
-RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160}
+RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160, "C_FADER": 900}
 # ... per switch setting where that differs: the timing ladder, a full sweep at the dial's minimum
 FOREVER_STEPS = {("BOARD", 3): 600, ("BOARD", 4): 600, ("BOARD", 5): 600,
-                 ("BOARD", 6): 400, ("BOARD", 7): 2000}    # scroll: four steps
+                 ("BOARD", 6): 400, ("BOARD", 7): 2000,   # scroll: four steps
+                 # dial 1 / 3 (the fader, PWM / sigma-delta): up to its first WFI (a frame is 250,000 clocks)
+                 ("BOARD", 0x0F): 93, ("BOARD", 0x1F): 93}
 
 
 def forever_steps(name, sw):
@@ -1207,9 +1212,9 @@ PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered
 # this long (byte 20 of 308 doubled in one of three shortened runs; xsim passes every time).
 XSIM_ONLY = {"C_COST"}
 # Programs that read the switch register: one testbench per setting.
-SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6, 7]}
+SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6, 7, 0x0F, 0x1F]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
-EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED", "RXIRQ", "COUNTER"}
+EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED", "RXIRQ", "COUNTER", "C_FADER"}
 # Bytes sent to the UART's receiver by the testbench: (first start bit's post-reset clock, clocks
 # between start bits, bytes). Chosen so the program keeps up (a byte takes 80 clocks on the line).
 # A fourth element is the post-reset clock from which rv32sim has them (it has no serial timing: they
