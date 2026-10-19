@@ -16,4 +16,6 @@ global MemMap {
     const DISPLAY_ADDR_BITS = 2
     const COUNTER_BASE = 32h80005000    // CTRL +0, TOP +4, COUNT +8, STATUS +12
     const COUNTER_ADDR_BITS = 4
+    const LEDS_BASE = 32h80006000    // duty bytes +0..0x17, CTRL +0x18
+    const LEDS_ADDR_BITS = 5
 }

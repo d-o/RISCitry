@@ -25817,6 +25817,331 @@ testbench cpu_counter_tb {
     }
 }
 
+testbench cpu_leds_test_tb {
+    sig clk
+    sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)
+    sig rst
+    sig sel[4]
+    sig switches[8]
+    sig buttons[4]
+    sig plat_irq[2]        // platform interrupt lines (the UART's receiver is ORed into line 0)
+    sig rx_line            // the serial line into the UART's receiver
+    sig ce                 // the computer's clock enable
+
+    computer dut(#PROGRAM_ID(Programs.Id.LEDS_TEST), #SIM_RAM(1), #UART_CLK_FREQ(8), #UART_BAUD(1),
+                 .clk(clk), .rst(rst), .io_clk(io_clk), .io_rst(rst), .switches(switches),
+                 .buttons(buttons), .plat_irq(plat_irq), .uart_rx(rx_line), .ce(ce),
+                 .debug_sel(sel))
+
+    // silent: the simulator keeps every $tick()'s whole-design state (the RAM model included)
+    // for its waveform view, and across the suite that exhausts its memory.
+    // io_clk rises when clk falls: on the board the two clocks are unrelated, and edges at the
+    // same instant in two domains are where this simulator's update order bites (one byte in
+    // most runs of the long printing tests was sent twice with io_clk = clk)
+    fun tick_clock() {
+        clk = 1
+        io_clk = 0
+        $silent_tick()
+        clk = 0
+        io_clk = 1
+        $silent_tick()
+    }
+
+    fun expect_pc(pc[32]) {
+        if (dut.debug_pc != pc)
+            $print("pc: got %h want %h", dut.debug_pc, pc)
+        $assert(dut.debug_pc == pc)
+        $assert(dut.uart_tx)       // idle high unless the program prints
+    }
+
+    fun expect_state(state[Cpu.STATE_BITS]) {
+        if (dut.debug_state != state)
+            $print("state: got %d want %d", dut.debug_state, state)
+        $assert(dut.debug_state == state)
+        $assert(!dut.sleeping || dut.debug_state == Cpu.State.EXECUTE)   // only a waiting WFI sleeps
+    }
+
+    fun expect_reg(r[4], value[32]) {
+        sel = r
+        $silent_tick()
+        if (dut.debug_reg != value)
+            $print("x%d: got %h want %h", r, dut.debug_reg, value)
+        $assert(dut.debug_reg == value)
+    }
+
+    fun expect_display(value[33]) {   // owned, the four characters
+        if (c{dut.display_owned, dut.display_chars} != value)
+            $print("display: got %h want %h", c{dut.display_owned, dut.display_chars}, value)
+        $assert(c{dut.display_owned, dut.display_chars} == value)
+    }
+
+    test run {
+        clk = 0
+        io_clk = 0
+        sel = 0
+        switches = 8h00
+        buttons = 0
+        plat_irq = 0
+        rx_line = 1
+        ce = 1
+        rst = 1
+        $tick_clock()
+        $tick_clock()
+        rst = 0
+        $expect_pc(32h00000000)
+        // 0x0000: lui x2, 0x80006
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000004)
+        $expect_reg(4d2, 32h80006000)
+        // 0x0004: lui x3, 0x4030
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000008)
+        $expect_reg(4d3, 32h04030000)
+        // 0x0008: addi x3, x3, 0x201
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000000C)
+        $expect_reg(4d3, 32h04030201)
+        // 0x000c: sw x3, 0(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000010)
+        $expect_display(33h000000000)
+        // 0x0010: lw x4, 0(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.WRITEBACK)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000014)
+        $expect_reg(4d4, 32h04030201)
+        // 0x0014: addi x5, x0, 170
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000018)
+        $expect_reg(4d5, 32h000000AA)
+        // 0x0018: sb x5, 5(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000001C)
+        $expect_display(33h000000000)
+        // 0x001c: lw x6, 4(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.WRITEBACK)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000020)
+        $expect_reg(4d6, 32h0000AA00)
+        // 0x0020: lui x7, 0xbeef0
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000024)
+        $expect_reg(4d7, 32hBEEF0000)
+        // 0x0024: srli x7, x7, 16
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000028)
+        $expect_reg(4d7, 32h0000BEEF)
+        // 0x0028: sh x7, 8(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000002C)
+        $expect_display(33h000000000)
+        // 0x002c: lw x8, 8(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.WRITEBACK)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000030)
+        $expect_reg(4d8, 32h0000BEEF)
+        // 0x0030: lb x9, 5(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.WRITEBACK)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000034)
+        $expect_reg(4d9, 32hFFFFFFAA)
+        // 0x0034: lhu x10, 8(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.WRITEBACK)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000038)
+        $expect_reg(4d10, 32h0000BEEF)
+        // 0x0038: addi x11, x0, 27
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000003C)
+        $expect_reg(4d11, 32h0000001B)
+        // 0x003c: sw x11, 24(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000040)
+        $expect_display(33h000000000)
+        // 0x0040: lw x12, 24(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.WRITEBACK)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000044)
+        $expect_reg(4d12, 32h0000001B)
+        // 0x0044: addi x13, x0, -1
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000048)
+        $expect_reg(4d13, 32hFFFFFFFF)
+        // 0x0048: sb x13, 25(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000004C)
+        $expect_display(33h000000000)
+        // 0x004c: sw x13, 28(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000050)
+        $expect_display(33h000000000)
+        // 0x0050: lw x13, 24(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.WRITEBACK)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000054)
+        $expect_reg(4d13, 32h0000001B)
+        // 0x0054: lw x14, 28(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.WRITEBACK)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000058)
+        $expect_reg(4d14, 32h00000000)
+        // 0x0058: sb x0, 24(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h0000005C)
+        $expect_display(33h000000000)
+        // 0x005c: lw x15, 24(x2)
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.MEM_ACCESS)
+        $tick_clock()
+        $expect_state(Cpu.State.WRITEBACK)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000060)
+        $expect_reg(4d15, 32h00000000)
+        // 0x0060: halt
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000060)
+        $expect_reg(4d0, 32h00000000)
+        // 0x0060: halt
+        $tick_clock()
+        $expect_state(Cpu.State.EXECUTE)
+        $tick_clock()
+        $expect_state(Cpu.State.FETCH)
+        $expect_pc(32h00000060)
+        $expect_reg(4d0, 32h00000000)
+        // final register file and display
+        $expect_reg(4d0, 32h00000000)
+        $expect_reg(4d1, 32h00000000)
+        $expect_reg(4d2, 32h80006000)
+        $expect_reg(4d3, 32h04030201)
+        $expect_reg(4d4, 32h04030201)
+        $expect_reg(4d5, 32h000000AA)
+        $expect_reg(4d6, 32h0000AA00)
+        $expect_reg(4d7, 32h0000BEEF)
+        $expect_reg(4d8, 32h0000BEEF)
+        $expect_reg(4d9, 32hFFFFFFAA)
+        $expect_reg(4d10, 32h0000BEEF)
+        $expect_reg(4d11, 32h0000001B)
+        $expect_reg(4d12, 32h0000001B)
+        $expect_reg(4d13, 32h0000001B)
+        $expect_reg(4d14, 32h00000000)
+        $expect_reg(4d15, 32h00000000)
+        $expect_display(33h000000000)
+    }
+}
+
 testbench cpu_string_tb {
     sig clk
     sig io_clk             // the UART's clock: same rate as clk, opposite phase (see tick_clock)

@@ -2,7 +2,7 @@
 // Lucid array literals put the LAST element at index 0, so each program is listed
 // from its highest address down to address 0.
 global Programs {
-    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, RXECHO, RXIRQ, COUNTER, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS, TIMER, IRQ, PRESS, WFI, VECTORED, C_HELLO, C_COST }
+    enum Id { BOARD, LARSON, ALU, BRANCHES, JUMPS, MEMORY, BYTES, UART, RXECHO, RXIRQ, COUNTER, LEDS_TEST, STRING, TABLE, SELFMOD, ILLEGAL, CSR, TRAPS, TIMER, IRQ, PRESS, WFI, VECTORED, C_HELLO, C_COST }
 
     const BOARD = {
         32h0000203A,  // 0x0e40: (data)
@@ -1215,6 +1215,33 @@ global Programs {
         32h80005137,  // 0x0008: lui x2, 0x80005
         32h30519073,  // 0x0004: csrrw x0, 0x305
         32h0A000193  // 0x0000: addi x3, x0, cnt_handler
+    }
+    const LEDS_TEST = {
+        32h0000006F,  // 0x0060: halt
+        32h01812783,  // 0x005c: lw x15, 24(x2)
+        32h00010C23,  // 0x0058: sb x0, 24(x2)
+        32h01C12703,  // 0x0054: lw x14, 28(x2)
+        32h01812683,  // 0x0050: lw x13, 24(x2)
+        32h00D12E23,  // 0x004c: sw x13, 28(x2)
+        32h00D10CA3,  // 0x0048: sb x13, 25(x2)
+        32hFFF00693,  // 0x0044: addi x13, x0, -1
+        32h01812603,  // 0x0040: lw x12, 24(x2)
+        32h00B12C23,  // 0x003c: sw x11, 24(x2)
+        32h01B00593,  // 0x0038: addi x11, x0, 27
+        32h00815503,  // 0x0034: lhu x10, 8(x2)
+        32h00510483,  // 0x0030: lb x9, 5(x2)
+        32h00812403,  // 0x002c: lw x8, 8(x2)
+        32h00711423,  // 0x0028: sh x7, 8(x2)
+        32h0103D393,  // 0x0024: srli x7, x7, 16
+        32hBEEF03B7,  // 0x0020: lui x7, 0xbeef0
+        32h00412303,  // 0x001c: lw x6, 4(x2)
+        32h005102A3,  // 0x0018: sb x5, 5(x2)
+        32h0AA00293,  // 0x0014: addi x5, x0, 170
+        32h00012203,  // 0x0010: lw x4, 0(x2)
+        32h00312023,  // 0x000c: sw x3, 0(x2)
+        32h20118193,  // 0x0008: addi x3, x3, 0x201
+        32h040301B7,  // 0x0004: lui x3, 0x4030
+        32h80006137  // 0x0000: lui x2, 0x80006
     }
     const STRING = {
         32h00000000,  // 0x0038: (data)

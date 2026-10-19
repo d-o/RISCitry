@@ -1126,6 +1126,38 @@ COUNTER = [
     ("mret",),
 ]
 
+# The LED dimmer bank (led_dimmer.luc): duty bytes by sb / sh / sw, read back whole and by lane,
+# and CTRL (only lane 0 answers; the word at +0x1C reads 0). It ends disabled. The waveforms are
+# checked in led_dimmer_tb; here the bus side is, and the final registers keep the evidence.
+LD = memmap.LEDS_BASE
+LEDS_TEST = [
+    ("lui", 2, LD >> 12),                      # x2 = bank base
+    ("lui", 3, 0x04030),                       # x3 = 0x04030000
+    ("addi", 3, 3, 0x201),                     # x3 = 0x04030201
+    ("sw", 3, 2, 0),                           # LEDs 0..3
+    ("lw", 4, 2, 0),                           # x4 = 0x04030201
+    ("addi", 5, 0, 0xAA),
+    ("sb", 5, 2, 5),                           # LED 5 = 0xAA (word 1, lane 1)
+    ("lw", 6, 2, 4),                           # x6 = 0x0000AA00
+    ("lui", 7, 0xBEEF0),
+    ("srli", 7, 7, 16),                        # x7 = 0xBEEF
+    ("sh", 7, 2, 8),                           # LEDs 8, 9
+    ("lw", 8, 2, 8),                           # x8 = 0x0000BEEF
+    ("lb", 9, 2, 5),                           # x9 = 0xFFFFFFAA (sign-extended byte)
+    ("lhu", 10, 2, 8),                         # x10 = 0xBEEF
+    ("addi", 11, 0, 0x1B),
+    ("sw", 11, 2, 0x18),                       # CTRL = enable, n = 5, sigma-delta
+    ("lw", 12, 2, 0x18),                       # x12 = 0x1B
+    ("addi", 13, 0, -1),
+    ("sb", 13, 2, 0x19),                       # CTRL lane 1: ignored
+    ("sw", 13, 2, 0x1C),                       # the word at +0x1C: nothing there
+    ("lw", 13, 2, 0x18),                       # x13 = 0x1B
+    ("lw", 14, 2, 0x1C),                       # x14 = 0
+    ("sb", 0, 2, 0x18),                        # CTRL = 0: disabled again
+    ("lw", 15, 2, 0x18),                       # x15 = 0
+    ("halt",),
+]
+
 PROGRAMS = {
     "BOARD": BOARD,
     "LARSON": LARSON,
@@ -1138,6 +1170,7 @@ PROGRAMS = {
     "RXECHO": RXECHO,
     "RXIRQ": RXIRQ,
     "COUNTER": COUNTER,
+    "LEDS_TEST": LEDS_TEST,
     "STRING": STRING,
     "TABLE": TABLE,
     "SELFMOD": SELFMOD,

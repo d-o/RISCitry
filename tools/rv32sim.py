@@ -163,6 +163,8 @@ class Cpu:
         self.cnt = {"edge": 0, "enable": 0, "irq_en": 0, "src": 0, "n": 0, "top": 0xFFFF,
                     "count": 0, "flag": 0, "pre": 0}   # counter.luc, in cpu clocks (see _cnt_to)
         self.cnt_write = None         # (register, value) stored to the counter in this instruction
+        self.leds = [0] * 24          # the LED dimmer bank's duty bytes ...
+        self.leds_ctrl = 0            # ... and CTRL (enable, n, mode: bits 4:0); the waveforms aren't modelled
         self.stall = 0                # the last step's WFI wait, in extra EXECUTE clocks
         self.clocks_taken = 0         # the last step's clocks (clocks() + stall)
         size = max(words) // 4 + 1
@@ -205,6 +207,8 @@ class Cpu:
             return "display"
         if memmap.COUNTER_BASE <= addr < memmap.COUNTER_BASE + memmap.COUNTER_BYTES:
             return "counter"
+        if memmap.LEDS_BASE <= addr < memmap.LEDS_BASE + memmap.LEDS_BYTES:
+            return "leds"
         raise ValueError(f"pc={self.pc:#x}: data address {addr:#x} is unmapped")
 
     def _load(self, addr, size):
@@ -223,6 +227,13 @@ class Cpu:
         if self._region(addr) == "buttons":
             self._buttons_to(self._sampled_by(self.cycle + 2))      # as of MEM_ACCESS
             value = (self.btn["sync1"] << 8) | (self.btn["overrun"] << 4) | self.btn["pending"]
+            return (value >> shift) & ((1 << (8 * size)) - 1)
+        if self._region(addr) == "leds":
+            word = (word_addr - memmap.LEDS_BASE) // 4
+            if word < 6:
+                value = int.from_bytes(bytes(self.leds[4 * word:4 * word + 4]), "little")
+            else:
+                value = self.leds_ctrl if word == 6 else 0
             return (value >> shift) & ((1 << (8 * size)) - 1)
         if self._region(addr) == "counter":
             if size != 4:
@@ -264,6 +275,15 @@ class Cpu:
         if self._region(addr) == "buttons":
             if shift == 0:                           # byte lane 0 carries the clear mask
                 self.btn_clear = value & 0xFF
+            return
+        if self._region(addr) == "leds":
+            word = (word_addr - memmap.LEDS_BASE) // 4
+            for k in range(size):               # byte lanes shift/8 ...
+                lane, byte = shift // 8 + k, (value >> (8 * k)) & 0xFF
+                if word < 6:
+                    self.leds[4 * word + lane] = byte
+                elif word == 6 and lane == 0:   # CTRL answers lane 0 only
+                    self.leds_ctrl = byte & 0x1F
             return
         if self._region(addr) == "counter":
             if size != 4:
