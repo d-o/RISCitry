@@ -1,0 +1,28 @@
+// Holds the design in reset for the first 2^BITS clocks after the clock starts (cold start and
+// reconfiguration only: the counter has no reset, so a reset button press does not repeat it).
+//
+// Why: a block RAM returns garbage (0 at first, then partly right) for the first ~2.0-2.1 us after
+// its clock starts, whatever the address, and is right after that. Measured on a bare SB_RAM40_4K
+// (the same time at 25 MHz and at 100 MHz, 52 and 204 clocks): notes/log.md 2026-10-22. The cpu's
+// reset-time reads and its first fetch fall inside that window, so a cold boot latched junk for
+// the first instruction and ran the wrong boot-menu entry.
+// 2^8 clocks at 25 MHz = 10.24 us, five times the window.
+//
+// done goes high after 2^BITS clocks. The counter stops (bit BITS set), so it cannot wrap.
+module startup_hold #(
+    BITS = 8 : BITS > 0 && BITS < 9
+  ) (
+    input clk,
+    output done
+  ) {
+
+  .clk(clk) {
+    dff count[9]
+  }
+
+  always {
+    count.d = count.q
+    if (!count.q[BITS]) count.d = count.q + 1;
+    done = count.q[BITS]
+  }
+}

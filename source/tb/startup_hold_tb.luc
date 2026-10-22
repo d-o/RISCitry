@@ -1,0 +1,26 @@
+// startup_hold: reset stays held for 2^BITS clocks, then done stays high.
+testbench startup_hold_tb {
+
+  sig clk
+
+  startup_hold dut(#BITS(3), .clk(clk))
+
+  fun tick_clock() {
+    clk = 1
+    $silent_tick()
+    clk = 0
+    $silent_tick()
+  }
+
+  test hold {
+    clk = 0
+    $silent_tick()
+    $assert(dut.done == 0)
+    repeat(i, 7) { $tick_clock(); }
+    $assert(dut.done == 0)         // 7 clocks: still held
+    $tick_clock()
+    $assert(dut.done == 1)         // the 8th clock releases it
+    repeat(i, 30) { $tick_clock(); }
+    $assert(dut.done == 1)         // and it stays released (no wrap)
+  }
+}
