@@ -22,7 +22,7 @@ Disassembly of section .text:
   38:	00438393          	addi	x7,x7,4
   3c:	fedff06f          	jal	x0,28 <_start+0x28>
   40:	2e000293          	addi	x5,x0,736
-  44:	2fc00313          	addi	x6,x0,764
+  44:	30000313          	addi	x6,x0,768
   48:	0062f863          	bgeu	x5,x6,58 <_start+0x58>
   4c:	0002a023          	sw	x0,0(x5)
   50:	00428293          	addi	x5,x5,4
@@ -46,20 +46,20 @@ Disassembly of section .text:
   80:	800057b7          	lui	x15,0x80005
   84:	00a12a23          	sw	x10,20(x2)
   88:	00e7a623          	sw	x14,12(x15) # 8000500c <_stack_top+0x8000300c>
-  8c:	2e400713          	addi	x14,x0,740
+  8c:	2e800713          	addi	x14,x0,744
   90:	01870613          	addi	x12,x14,24
-  94:	2e400793          	addi	x15,x0,740
-  98:	2e400593          	addi	x11,x0,740
+  94:	2e800793          	addi	x15,x0,744
+  98:	2e800593          	addi	x11,x0,744
   9c:	0007c683          	lbu	x13,0(x15)
   a0:	00178793          	addi	x15,x15,1
   a4:	0036d513          	srli	x10,x13,0x3
   a8:	40a686b3          	sub	x13,x13,x10
   ac:	fed78fa3          	sb	x13,-1(x15)
   b0:	fef616e3          	bne	x12,x15,9c <frame_isr+0x38>
-  b4:	2dc02783          	lw	x15,732(x0) # 2dc <phase>
+  b4:	2e002783          	lw	x15,736(x0) # 2e0 <phase>
   b8:	00178793          	addi	x15,x15,1
   bc:	08f04863          	blt	x0,x15,14c <frame_isr+0xe8>
-  c0:	2cf02e23          	sw	x15,732(x0) # 2dc <phase>
+  c0:	2ef02023          	sw	x15,736(x0) # 2e0 <phase>
   c4:	800065b7          	lui	x11,0x80006
   c8:	80006637          	lui	x12,0x80006
   cc:	1d800693          	addi	x13,x0,472
@@ -94,14 +94,14 @@ Disassembly of section .text:
  140:	00012783          	lw	x15,0(x2)
  144:	01810113          	addi	x2,x2,24
  148:	30200073          	mret
- 14c:	2e002783          	lw	x15,736(x0) # 2e0 <pos>
- 150:	2c002e23          	sw	x0,732(x0) # 2dc <phase>
+ 14c:	2e402783          	lw	x15,740(x0) # 2e4 <pos>
+ 150:	2e002023          	sw	x0,736(x0) # 2e0 <phase>
  154:	fff00613          	addi	x12,x0,-1
  158:	00f586b3          	add	x13,x11,x15
  15c:	00c68023          	sb	x12,0(x13)
  160:	2d802683          	lw	x13,728(x0) # 2d8 <dir>
  164:	00d787b3          	add	x15,x15,x13
- 168:	2ef02023          	sw	x15,736(x0) # 2e0 <pos>
+ 168:	2ef02223          	sw	x15,740(x0) # 2e4 <pos>
  16c:	00078663          	beq	x15,x0,178 <frame_isr+0x114>
  170:	01700593          	addi	x11,x0,23
  174:	f4b798e3          	bne	x15,x11,c4 <frame_isr+0x60>

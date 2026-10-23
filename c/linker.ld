@@ -24,7 +24,9 @@ SECTIONS
     _edata = .;
     /* The pristine copy of .data/.sdata sits here, appended to the image by cbuild.py (nothing links into
        it); crt0 copies it down on every start. The room is reserved so .bss doesn't overlap it. */
-    . = . + (_edata - _data_start);
+    /* The reservation is a real output section: a bare `. = . + n` between sections does not move the
+       next region-placed section (the linker put .sbss, with `phase`, right on the copy, 2026-10-23). */
+    .datacopy (NOLOAD) : { . = . + (ABSOLUTE(_edata) - ABSOLUTE(_data_start)); } > RAM
     _bss_start = .;                  /* set here, not inside .sbss: an empty section's symbols land earlier */
     .sbss : { *(.sbss .sbss.* .scommon) } > RAM
     .bss : { *(.bss .bss.* COMMON) . = ALIGN(4); } > RAM

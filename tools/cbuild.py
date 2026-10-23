@@ -54,6 +54,10 @@ def build(name):
         sizes = run(PREFIX + "size", str(elf))
         symbols = {line.split()[2]: int(line.split()[0], 16) for line in run(PREFIX + "nm", str(elf)).splitlines()
                    if len(line.split()) == 3}
+        # (section name, size, address) of every section that takes room in RAM
+        sections = [(f[1], int(f[2], 16), int(f[3], 16)) for f in
+                    (line.split() for line in run(PREFIX + "objdump", "-h", str(elf)).splitlines()
+                     if len(line.split()) >= 7 and line.split()[0].isdigit())]
     # .data and .sdata (initialised writable data): linker.ld reserves room for a pristine copy right
     # after them (_edata ...), and crt0 copies it down on every start, because a reset leaves the last
     # run's values in RAM. The copy is appended here. It costs as much RAM again as the data itself.
@@ -63,6 +67,19 @@ def build(name):
     if len(image) != data_end - origin:
         raise SystemExit(f"{name}: image is {len(image)} bytes but .data ends at {data_end:#x}: nothing else may follow it")
     image += image[data_start - origin:data_end - origin]
+    # Nothing but the reserved copy may sit on the pristine copy of .data, and crt0 must zero every
+    # .sbss/.bss byte (_bss_start.._bss_end). The linker once put .sbss right on the copy, outside the
+    # zeroed range (2026-10-23): `phase` was the "pristine" value of `dir`, so a warm start gave the
+    # fader a random direction.
+    for sname, size, vma in sections:
+        if size == 0 or sname == ".datacopy":
+            continue
+        if vma < data_end + data_bytes and vma + size > data_end and data_bytes:
+            raise SystemExit(f"{name}: section {sname} ({vma:#x}..{vma + size:#x}) overlaps .data's pristine copy "
+                             f"({data_end:#x}..{data_end + data_bytes:#x})")
+        if sname in (".sbss", ".bss") and (vma < symbols["_bss_start"] or vma + size > symbols["_bss_end"]):
+            raise SystemExit(f"{name}: section {sname} ({vma:#x}..{vma + size:#x}) is not inside the zeroed range "
+                             f"{symbols['_bss_start']:#x}..{symbols['_bss_end']:#x}")
     words = struct.unpack(f"<{len(image) // 4}I", image)
     bad = [f"{origin + 4 * i:#x}: {w:#010x}" for i, w in enumerate(words) if origin + 4 * i < etext and not rv32sim.legal(w)]
     if bad:
