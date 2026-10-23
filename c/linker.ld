@@ -1,5 +1,10 @@
 /* One 8 KB RAM holds code and data (tools/memmap.py); main_ram's initial contents ARE the program,
-   so there is no load address different from the run address and .data needs no copy at start-up. */
+   so a section's load address is its run address and nothing is copied from flash at start-up.
+   But a reset does NOT reload the RAM: it keeps whatever the last run left. So crt0 restores .data
+   from a pristine copy kept just after it (.datacopy, appended to the image by cbuild.py) and zeroes
+   .bss on every start. Layout, low to high: .text, .rodata, .data/.sdata (initialised variables),
+   .datacopy (their pristine copy), .sbss/.bss (zeroed variables), free RAM, the stack (grows down
+   from the top of RAM). Nothing but the copy may sit on .datacopy: cbuild.py checks that. */
 OUTPUT_ARCH(riscv)
 ENTRY(_start)
 /* __origin comes from cbuild.py (--defsym): 0 for a program that owns the machine, 0x800 for the
