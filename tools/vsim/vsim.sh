@@ -29,7 +29,7 @@ if [ ! -f "$SRC/basic_riscve_16k16k.v" ]; then
     echo "vsim: no $SRC/basic_riscve_16k16k.v: run alchitry build $ROOT/basic-riscve-16k16k.alp first" >&2
     exit 1
 fi
-newest_src=$(find "$ROOT/source" -name '*.luc' -o -name '*.v' | xargs stat -c %Y | sort -n | tail -1)
+newest_src=$(find "$ROOT/source" \( -name '*.luc' -o -name '*.v' \) -print0 | xargs -0 stat -c %Y | sort -n | tail -1)
 if [ "$(stat -c %Y "$SRC/basic_riscve_16k16k.v")" -lt "$newest_src" ]; then
     echo "vsim: build/source is older than source/: rerun alchitry build (simulating the old Verilog)" >&2
 fi
