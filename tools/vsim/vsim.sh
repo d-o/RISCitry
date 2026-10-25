@@ -19,10 +19,13 @@ fi
 HERE="$ROOT/tools/vsim"
 [ -f "$HERE/vsim.cpp" ] || HERE="$SELF"      # a checkout from before vsim: use this harness
 SRC="$ROOT/build/source"
+# The object directory is outside the project: GNU Make can't build in a directory whose path has
+# spaces (the Dropbox folder), and one per checkout/worktree keeps their binaries apart.
+CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/vsim/$(basename "$ROOT")-$(printf %s "$ROOT" | md5sum | cut -c1-8)"
 if [ "${VSIM_REAL:-0}" = 1 ]; then
-    OBJ="$ROOT/build/vsim-real"; TIME_SCALE=1; PARAMS=""
+    OBJ="$CACHE/real"; TIME_SCALE=1; PARAMS=""
 else
-    OBJ="$ROOT/build/vsim"; TIME_SCALE=5; PARAMS="-GSLOW_BITS=18 -GTICK_DIV=5 -GDEBOUNCE_BITS=17"
+    OBJ="$CACHE/fast"; TIME_SCALE=5; PARAMS="-GSLOW_BITS=18 -GTICK_DIV=5 -GDEBOUNCE_BITS=17"
 fi
 
 if [ ! -f "$SRC/basic_riscve_16k16k.v" ]; then
@@ -38,6 +41,11 @@ fi
 bin="$OBJ/Vbasic_riscve_16k16k"
 if [ ! -x "$bin" ] || [ -n "$(find "$SRC" "$HERE" -newer "$bin" -name '*.v' -o -newer "$bin" -name '*.cpp' | head -1)" ]; then
     mkdir -p "$OBJ"
+    # Verilator's generated makefile passes the source paths to make unquoted: reach the sources
+    # through a space-free symlink to the project.
+    LINKDIR="$(mktemp -d)"; trap 'rm -rf "$LINKDIR"' EXIT
+    ln -s "$ROOT" "$LINKDIR/p"
+    B_OBJ="$OBJ"; B_SRC="$LINKDIR/p${SRC#"$ROOT"}"; B_HERE="$LINKDIR/p${HERE#"$ROOT"}"
     # -GPLL=0: sys_clock passes clk straight through (Verilator can't run SB_PLL40_CORE), so one
     # clk is one 25 MHz sys_clk. WIDTH: Lucid's generated Verilog pads and truncates freely
     # (Yosys accepts it; the Lucid checker has already passed the source). UNOPTFLAT: a few wide
@@ -46,8 +54,8 @@ if [ ! -x "$bin" ] || [ -n "$(find "$SRC" "$HERE" -newer "$bin" -name '*.v' -o -
     verilator --cc --exe --build -j 0 -O3 --x-assign fast --x-initial fast \
         -Wno-WIDTH -Wno-UNOPTFLAT --top-module basic_riscve_16k16k -GPLL=0 $PARAMS \
         -CFLAGS "-O2 $(sdl2-config --cflags)" -LDFLAGS "$(sdl2-config --libs)" \
-        --Mdir "$OBJ" -o Vbasic_riscve_16k16k \
-        "$HERE/sb_pll40_core.v" "$SRC"/*.v "$HERE/vsim.cpp" >"$OBJ/build.log" 2>&1 || {
+        --Mdir "$B_OBJ" -o Vbasic_riscve_16k16k \
+        "$B_HERE/sb_pll40_core.v" "$B_SRC"/*.v "$B_HERE/vsim.cpp" >"$OBJ/build.log" 2>&1 || {
             grep -E '^%(Error|Warning)' "$OBJ/build.log" | head -20 >&2
             echo "vsim: verilator failed, see $OBJ/build.log" >&2
             exit 1
