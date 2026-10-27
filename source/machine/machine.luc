@@ -5,7 +5,7 @@
 // with a clock enable, ce: on a clock with ce = 0 none of its state changes (every flip-flop
 // there holds; see the `if (!ce)` blocks). "A cpu clock" is a clock with ce = 1. Until
 // 2026-10-16 the sequencer made a separate cpu clock from a flip-flop instead (a second clock
-// domain, a logic-made clock on its own global net, crossings everywhere); see notes.
+// domain, a logic-made clock on its own global net, crossings everywhere).
 //
 // ce is a flip-flop: a decision made on this clock enables the computer's next edge.
 //   Run fast: ce = 1 on every clock (the cpu at the full clock rate).

@@ -1,4 +1,4 @@
-/* The fading Larson scanner on the Io's 24 LEDs (notes/pwm-larson-plan.md).
+/* The fading Larson scanner on the Io's 24 LEDs.
 
    Two peripherals do the work, so the cpu does almost nothing: the general-purpose counter
    interrupts once per frame (about 100 Hz), and the LED dimmer bank holds one brightness byte per

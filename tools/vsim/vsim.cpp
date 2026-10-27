@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // vsim: the board design (Cu + Io) compiled by Verilator, with the Io front panel drawn in an SDL
 // window. It runs the Verilog that `alchitry build` writes (build/source/*.v, the hardware
 // parameters: SLOW_BITS 20, TICK_DIV 25, 1 Mbaud) with the PLL bypassed, so one clk here is one

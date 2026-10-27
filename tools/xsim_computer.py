@@ -2,8 +2,8 @@
 `alchitry build` generated (build/source/*.v).
 
 Why: the Alchitry simulator (2.0.57) doesn't update every flip-flop on a clock edge at once.
-It works through the instances in a name-dependent order, so a flip-flop in one instance can
-sample another instance's value from after the edge (see notes 2026-10-15). A passing cpu_tb
+It works through the instances one at a time, in an order that changes from run to run, so a
+flip-flop in one instance can sample another instance's value from after the edge. A passing cpu_tb
 can therefore hide a timing bug, and a failing one can be a simulator artefact. Yosys's
 simulator updates all flip-flops together, and it runs the hardware Verilog, block RAM
 included (SIM_RAM = 0).

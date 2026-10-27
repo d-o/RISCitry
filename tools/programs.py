@@ -888,7 +888,7 @@ IRQ = [
 #      Re-press at 115: its edge (117) finds the bit already set, so nothing changes, and the clear
 #      removes both presses: merged, no interrupt for it. This is the press a pending *bit* can't
 #      keep: from a button's first press until the handler clears it, further presses of that
-#      button are absorbed (see notes 2026-10-16 for what would keep them). It does set the
+#      button are absorbed (keeping them would take a press counter or an event FIFO). It does set the
 #      button's overrun bit, which the handler's clear (the value it read) leaves alone.
 # Four presses, three interrupts; the program then waits to show no fourth arrives, reads the
 # overrun bit (case A set none, case B one), clears it and reads again.
@@ -1213,7 +1213,7 @@ PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered
 EXPECTED_OUTPUT = {"C_RESTART": b"5 30 2 7\r\n" * 3}
 # Programs with no Alchitry testbench: only xsim_computer.py checks them (against rv32sim). C_COST
 # prints 308 bytes after 66k clocks of arithmetic: 13 minutes in the Alchitry simulator, and that
-# simulator's cross-instance ordering bug (CLAUDE.md) sends a byte twice in most runs of a print
+# simulator's cross-instance ordering bug sends a byte twice in most runs of a print
 # this long (byte 20 of 308 doubled in one of three shortened runs; xsim passes every time).
 XSIM_ONLY = {"C_COST"}
 # Programs that read the switch register: one testbench per setting.

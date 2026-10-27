@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-3.0-or-later
 // Stand-in for the iCE40 PLL primitive so Verilator can elaborate pll_25.v. vsim runs with
 // PLL = 0 (sys_clock bypasses the PLL), so this is never instantiated; it only has to exist.
 module SB_PLL40_CORE #(

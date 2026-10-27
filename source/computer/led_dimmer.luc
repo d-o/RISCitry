@@ -1,6 +1,6 @@
 // LED dimmer bank: 24 byte-wide brightness registers, one per Io LED, each turned into a 1-bit
 // output in hardware, as PWM or as a first-order sigma-delta (pulse density) 1-bit DAC, chosen by
-// a mode bit. Purpose-built for the board's 24 LEDs (notes/pwm-larson-plan.md): the cpu writes a
+// a mode bit. Purpose-built for the board's 24 LEDs: the cpu writes a
 // brightness and the bank holds it, with no cpu involvement and no jitter.
 //
 // Both modes give the same average brightness, duty/255 (0 = always off, 255 = always on), so

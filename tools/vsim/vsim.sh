@@ -1,4 +1,5 @@
 #!/bin/bash
+# SPDX-License-Identifier: GPL-3.0-or-later
 # Build (if needed) and start vsim: the board's Verilog under Verilator with the Io front panel.
 #   tools/vsim/vsim.sh [vsim options]      e.g. --scale 14, --dips 400501, --record demo.gif 5s
 # The project is the checkout or worktree containing the current directory (so a symlink on PATH

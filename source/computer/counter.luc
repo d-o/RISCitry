@@ -1,5 +1,5 @@
 // General-purpose timer/counter (the 6522 / 8253 / AVR kind), the frame tick for the fading
-// Larson scanner (notes/pwm-larson-plan.md). Generic on purpose: the 24-LED dimmer next to it is
+// Larson scanner. Generic on purpose: the 24-LED dimmer next to it is
 // shaped to the board, this is not.
 //
 // A prescaler divides the clock by 2^n (n = 0..15). The counter counts up from 0; on the tick

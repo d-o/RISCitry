@@ -4,7 +4,7 @@
 // same edge as the clear wins, so none is lost). irq = any bit pending.
 // A press while that button's bit is still pending (after this edge's clear) can't be recorded:
 // it merges with the first. It sets the button's overrun bit instead, so software knows it missed
-// presses (as a UART reports receive overrun). See notes 2026-10-16 for what would keep them.
+// presses (as a UART reports receive overrun). Keeping them would take a press counter or an event FIFO.
 // Always on (since 2026-10-17): the synchroniser and the pending/overrun bits run on every clock,
 // ce or not, so a press while the cpu is slow, stopped or asleep (WFI) is still caught. Only the
 // software side is on the cpu clock: a store's clear takes effect on an enabled clock (the store
