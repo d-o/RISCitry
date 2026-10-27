@@ -18,7 +18,7 @@
 // shorter (SLOW_BITS, TICK_DIV, DEBOUNCE_BITS) and passes --time-scale 5: then 5 MHz here is
 // real time, and "board time" in the title is what a stopwatch on the real board would show.
 
-#include "Vbasic_riscve_16k16k.h"
+#include "Vriscitry.h"
 #include "verilated.h"
 
 #include <SDL.h>
@@ -333,7 +333,7 @@ int main(int argc, char** argv) {
 
     if (headless_clocks) {
         // No window: the given DIPs, a power-on reset, then CLOCKS clocks at full speed.
-        Vbasic_riscve_16k16k* top = new Vbasic_riscve_16k16k;
+        Vriscitry* top = new Vriscitry;
         top->io_button = 0;
         top->io_dip = o.dips;
         top->usb_rx = 1;
@@ -488,7 +488,7 @@ int main(int argc, char** argv) {
     bool reset_held = false;
     int mouse_button = -1;     // which push button the mouse is holding (-1 none, 5 = Cu reset)
 
-    Vbasic_riscve_16k16k* top = new Vbasic_riscve_16k16k;
+    Vriscitry* top = new Vriscitry;
     top->clk = 0;
     top->rst_n = 0;
     top->io_button = 0;

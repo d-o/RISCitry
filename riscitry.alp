@@ -1,13 +1,13 @@
 {
     "project": {
         "type": "V1.3",
-        "projectName": "basic-riscve-16k16k",
+        "projectName": "riscitry",
         "board": "Alchitry Cu V2",
         "sourceFiles": [
             {
                 "file": {
                     "type": "DiskFile",
-                    "path": "source/board/basic-riscve-16k16k.luc"
+                    "path": "source/board/riscitry.luc"
                 },
                 "top": true
             },
