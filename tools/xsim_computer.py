@@ -127,11 +127,11 @@ def run(pid, sw, clocks, name=""):
         harness.write_text(HARNESS.replace("BUTTONS", f"({buttons_expr(name)})").replace("PLATIRQ", f"({plat_expr(name)})").replace("RXLINE", f"({rx_expr(name, sw)})").replace("CE_EXPR", ce)
                            .replace("TICKDIV", str(TICK_DIV)))
         vcd = Path(tmp) / "out.vcd"
-        files = " ".join(str(p) for p in sorted(VERILOG.glob("*.v"))) + f" {harness}"
+        files = " ".join('"%s"' % p for p in sorted(VERILOG.glob("*.v"))) + f" {harness}"
         r = subprocess.run([YOSYS, "-q", "-p",
                             f"read_verilog -sv {files}; chparam -set PROGRAM_ID {pid} -set SWITCHES {sw} xsim_top; "
                             f"hierarchy -top xsim_top; proc; flatten; opt_clean; "
-                            f"sim -clock clk -n {clocks} -vcd {vcd}"],
+                            f"sim -clock clk -n {clocks} -vcd \"{vcd}\""],
                            capture_output=True, text=True)
         if r.returncode:
             sys.exit(r.stdout + r.stderr)

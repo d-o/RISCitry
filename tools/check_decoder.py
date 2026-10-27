@@ -39,7 +39,7 @@ def main():
     ws = words()
     with tempfile.TemporaryDirectory() as tmp:
         script = Path(tmp) / "dec.ys"
-        script.write_text(f"read_verilog -sv {VERILOG / 'decoder.v'} {VERILOG / 'lucid_globals.v'}\n"
+        script.write_text(f"read_verilog -sv \"{VERILOG / 'decoder.v'}\" \"{VERILOG / 'lucid_globals.v'}\"\n"
                           "hierarchy -top decoder\nproc\nflatten\n"
                           + "".join(f"eval -set instruction 32'h{w:08x} -show ctrl\n" for w in ws))
         r = subprocess.run([YOSYS, "-s", str(script)], capture_output=True, text=True)

@@ -33,8 +33,8 @@ def lane_inits(pid, words):
     """{lane number: [byte per word]} from the elaborated memories' INIT parameters."""
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "ram.json"
-        yosys(f"read_verilog -sv {VERILOG}; chparam -set PROGRAM_ID {pid} -set WORDS {words} main_ram_bram; "
-              f"hierarchy -top main_ram_bram; proc; memory_collect; write_json {out}")
+        yosys(f"read_verilog -sv \"{VERILOG}\"; chparam -set PROGRAM_ID {pid} -set WORDS {words} main_ram_bram; "
+              f"hierarchy -top main_ram_bram; proc; memory_collect; write_json \"{out}\"")
         module = json.loads(out.read_text())["modules"]["main_ram_bram"]
     lanes = {}
     for cell in module["cells"].values():
@@ -62,8 +62,8 @@ def main():
 
     with tempfile.TemporaryDirectory() as tmp:
         report = Path(tmp) / "stat.txt"
-        yosys(f"read_verilog -sv {VERILOG}; chparam -set WORDS {words} main_ram_bram; "
-              f"synth_ice40 -top main_ram_bram; tee -q -o {report} stat")
+        yosys(f"read_verilog -sv \"{VERILOG}\"; chparam -set WORDS {words} main_ram_bram; "
+              f"synth_ice40 -top main_ram_bram; tee -q -o \"{report}\" stat")
         stat = report.read_text()
     cells = {line.split()[1]: int(line.split()[0]) for line in stat.splitlines()
              if len(line.split()) == 2 and line.split()[0].isdigit() and line.split()[1].startswith("SB_")}

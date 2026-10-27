@@ -80,7 +80,7 @@ endmodule
 def main():
     verilog = Path(sys.argv[1]) if len(sys.argv) > 1 else ROOT / "build" / "source"
     dut = verilog / "led_dimmer.v"
-    check = subprocess.run([YOSYS, "-p", f"read_verilog -sv {dut}; proc; check -assert"],
+    check = subprocess.run([YOSYS, "-p", f"read_verilog -sv \"{dut}\"; proc; check -assert"],
                            capture_output=True, text=True)
     if check.returncode:
         print("YOSYS CHECK FAILED\n" + "\n".join(l for l in (check.stdout + check.stderr).splitlines()
