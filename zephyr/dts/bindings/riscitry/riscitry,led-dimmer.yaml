@@ -1,4 +1,4 @@
-description: RISCitry led-dimmer device (register layout: tools/memmap.py)
+description: RISCitry led-dimmer device (register layout in tools/memmap.py)
 compatible: "riscitry,led-dimmer"
 include: base.yaml
 properties:

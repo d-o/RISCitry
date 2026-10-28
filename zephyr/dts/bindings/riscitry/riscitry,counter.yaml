@@ -1,4 +1,4 @@
-description: RISCitry counter device (register layout: tools/memmap.py)
+description: RISCitry counter device (register layout in tools/memmap.py)
 compatible: "riscitry,counter"
 include: base.yaml
 properties:

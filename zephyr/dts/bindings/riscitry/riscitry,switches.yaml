@@ -1,4 +1,4 @@
-description: RISCitry switches device (register layout: tools/memmap.py)
+description: RISCitry switches device (register layout in tools/memmap.py)
 compatible: "riscitry,switches"
 include: base.yaml
 properties:

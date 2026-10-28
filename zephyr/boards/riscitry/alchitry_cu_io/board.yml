@@ -1,4 +1,5 @@
-board:
-  name: alchitry_cu_io
-  socs:
-    - name: riscitry
+boards:
+  - name: alchitry_cu_io
+    full_name: Alchitry Cu V2 + Io V2 (RISCitry)
+    socs:
+      - name: riscitry
