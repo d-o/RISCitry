@@ -1,0 +1,10 @@
+if SOC_RISCITRY
+
+# mtime ticks at 1 MHz on the board (timer.luc TICK_DIV 25 at 25 MHz), whatever the cpu clock does
+config SYS_CLOCK_HW_CYCLES_PER_SEC
+	default 1000000
+
+config RISCV_GENERIC_TOOLCHAIN
+	default y
+
+endif # SOC_RISCITRY

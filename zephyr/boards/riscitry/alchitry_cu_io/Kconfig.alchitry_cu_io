@@ -1,0 +1,2 @@
+config BOARD_ALCHITRY_CU_IO
+	select SOC_RISCITRY

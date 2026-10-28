@@ -1,0 +1,6 @@
+description: RISCitry switches device (register layout: tools/memmap.py)
+compatible: "riscitry,switches"
+include: base.yaml
+properties:
+  reg:
+    required: true

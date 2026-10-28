@@ -1,0 +1,6 @@
+description: RISCitry display device (register layout: tools/memmap.py)
+compatible: "riscitry,display"
+include: base.yaml
+properties:
+  reg:
+    required: true

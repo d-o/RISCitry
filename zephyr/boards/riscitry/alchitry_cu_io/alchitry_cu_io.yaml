@@ -1,0 +1,9 @@
+identifier: alchitry_cu_io
+name: Alchitry Cu V2 + Io V2 (RISCitry)
+type: mcu
+arch: riscv
+toolchain:
+  - zephyr
+ram: 8
+supported:
+  - uart

@@ -1,0 +1,6 @@
+description: RISCitry buttons device (register layout: tools/memmap.py)
+compatible: "riscitry,buttons"
+include: base.yaml
+properties:
+  reg:
+    required: true

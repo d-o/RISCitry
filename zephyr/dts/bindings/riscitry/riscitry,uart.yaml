@@ -1,0 +1,8 @@
+description: RISCitry UART (TXDATA +0, STATUS +4, RXDATA +8; the RXDATA read pops the byte)
+compatible: "riscitry,uart"
+include: [uart-controller.yaml, base.yaml]
+properties:
+  reg:
+    required: true
+  interrupts-extended:
+    required: false

@@ -1,0 +1,20 @@
+/* SPDX-License-Identifier: MIT */
+/dts-v1/;
+#include <riscitry/riscitry.dtsi>
+
+/ {
+	model = "Alchitry Cu V2 + Io V2 (RISCitry)";
+	compatible = "riscitry,alchitry-cu-io";
+
+	chosen {
+		zephyr,sram = &ram;
+		zephyr,console = &uart0;
+		zephyr,shell-uart = &uart0;
+	};
+};
+
+/* usb_tx / usb_rx on the Cu's FTDI port; usually /dev/ttyUSB1 */
+&uart0 {
+	current-speed = <1000000>;
+	status = "okay";
+};

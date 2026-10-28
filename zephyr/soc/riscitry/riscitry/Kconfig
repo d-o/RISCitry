@@ -1,0 +1,16 @@
+# RISCitry SoC options
+
+if SOC_RISCITRY
+
+config RISCV_SOC_INTERRUPT_INIT
+	bool
+	default y
+
+config NUM_IRQS
+	int
+	default 18
+	help
+	  Local interrupts only: 7 (timer), 11 (external), 16 (UART RX), 17 (counter). Bits above 17
+	  of mie/mip are not implemented.
+
+endif # SOC_RISCITRY
