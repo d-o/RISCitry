@@ -26,12 +26,17 @@ in the march, hence `RISCV_ISA_EXT_ZIFENCEI`). Not run on hardware or in any sim
 
 `samples/hello` prints through `drivers/serial/uart_riscitry.c` (polling). Run in `tools/rv32sim.py` (RAM
 zero-filled, 1 us mtime) it prints `Hello from Zephyr on alchitry_cu_io/riscitry` after 5,504 instructions;
-all 2,815 code words are legal for the decoder. Not yet run in xsim or on the board.
+all 2,815 code words are legal for the decoder. It is also a program in `tools/programs.py`
+(`ZEPHYR_HELLO`, image `zephyr/images/hello.bin`, committed like `c/images`; hardware-only: its Lucid arrays are
+stubs): `python3 tools/xsim_computer.py --only zephyr_hello` runs it in the generated Verilog and checks the
+46 serial bytes (OK at `--tick-div 1` and `5`; a changed byte in the RAM init makes it fail). Not run on the board.
+Rebuild the image: `west build -b alchitry_cu_io zephyr/samples/hello ...`, copy `zephyr.bin` to
+`zephyr/images/hello.bin`, rerun `tools/gen_cpu_tb.py`, `alchitry build`.
 
 ## Open issues
 - **RAM**: 16 KB (all 32 BRAMs), code and data together. The trimmed hello leaves 1.4 KB.
-- **Loading**: no flash. The RAM is preloaded from the bitstream, so `zephyr.bin` must go through the
-  `memimage.py` / `cbuild.py` path into `main_ram_bram.v`, then a rebuild. No XIP, no `zephyr,flash`.
+- **Loading**: no flash. The RAM is preloaded from the bitstream: `zephyr.bin` goes into `main_ram_bram.v`
+  through `programs.py`, then an `alchitry build`. No XIP, no `zephyr,flash`. Not yet selectable from the boot menu.
 - **Drivers**: UART is polling only (no RX interrupt yet). Still to write: counter, buttons, LED dimmer, display.
   The timer uses the stock driver (`riscv,machine-timer`, mtime +0 / mtimecmp +8, 1 MHz).
 - **mtvec**: BASE is 128-byte aligned in `csr_file.luc`; Zephyr's direct-mode `__irq_wrapper` must be placed accordingly.

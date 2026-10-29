@@ -6,6 +6,8 @@ every program on rv32sim and checks the hardware against it after each instructi
 that print: by their serial output and final state instead, since polling makes their timing
 differ). Registers are x0-x15 only (RV32E). Code and data share the RAM (see memmap.py).
 """
+from pathlib import Path
+
 import cbuild
 import memmap
 import rv32
@@ -1161,6 +1163,14 @@ LEDS_TEST = [
     ("halt",),
 ]
 
+def zephyr_items(name):
+    """A Zephyr image (west build, committed in zephyr/images) as words for asm.py, placed at 0."""
+    import struct
+    image = (Path(__file__).resolve().parent.parent / "zephyr" / "images" / f"{name}.bin").read_bytes()
+    image += bytes(-len(image) % 4)
+    return [(".word", *struct.unpack(f"<{len(image) // 4}I", image))]
+
+
 PROGRAMS = {
     "BOARD": BOARD,
     "LARSON": LARSON,
@@ -1188,12 +1198,13 @@ PROGRAMS = {
     "C_HELLO": cbuild.items("hello"),
     "C_RESTART": cbuild.items("restart"),   # c/restart.c: crt0 restores .data on every start (a jump back to _start, twice)
     "C_FADER": cbuild.items("fader_test"),   # c/fader_test.c: the fader's interrupt handler on a fast frame
+    "ZEPHYR_HELLO": zephyr_items("hello"),   # zephyr/samples/hello built for alchitry_cu_io (west), image committed
     "C_COST": cbuild.items("cost"),     # c/cost.c: clocks per libgcc mul/div/mod, from mtime   # c/hello.c, built by tools/cbuild.py (image committed)
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
 # checked by its first PRINT_BYTES bytes instead.
-RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160, "C_FADER": 900}
+RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160, "C_FADER": 900, "ZEPHYR_HELLO": 5504}
 # ... per switch setting where that differs: the timing ladder, a full sweep at the dial's minimum
 FOREVER_STEPS = {("BOARD", 3): 600, ("BOARD", 4): 600, ("BOARD", 5): 600,
                  ("BOARD", 6): 400, ("BOARD", 7): 2000,   # scroll: four steps
@@ -1207,19 +1218,25 @@ def forever_steps(name, sw):
 
 PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered lines
                ("BOARD", 2): 69,
-               ("BOARD", 7): 25}       # the C demo's greeting; its cost table is checked as C_COST       # the banner and two interrupts (the first with a lost press)
+               ("BOARD", 7): 25,
+               ("ZEPHYR_HELLO", 0): 46}       # the C demo's greeting; its cost table is checked as C_COST       # the banner and two interrupts (the first with a lost press)
 # Absolute expectations for printing programs: the model only says what the code does, so a broken
 # start-up (crt0's .data copy) would make model and hardware agree on the wrong output. gen_cpu_tb checks these.
-EXPECTED_OUTPUT = {"C_RESTART": b"5 30 2 7\r\n" * 3}
+EXPECTED_OUTPUT = {"C_RESTART": b"5 30 2 7\r\n" * 3,
+                   "ZEPHYR_HELLO": b"Hello from Zephyr on alchitry_cu_io/riscitry\r\n"}
 # Programs with no Alchitry testbench: only xsim_computer.py checks them (against rv32sim). C_COST
 # prints 308 bytes after 66k clocks of arithmetic: 13 minutes in the Alchitry simulator, and that
 # simulator's cross-instance ordering bug sends a byte twice in most runs of a print
 # this long (byte 20 of 308 doubled in one of three shortened runs; xsim passes every time).
-XSIM_ONLY = {"C_COST"}
+XSIM_ONLY = {"C_COST", "ZEPHYR_HELLO"}
+# Programs whose image is only in the hardware RAM and xsim (their Programs.* arrays in programs.luc are stubs).
+HARDWARE_ONLY = {"ZEPHYR_HELLO"}
+# Programs that read RAM they never wrote (Zephyr's .bss and stacks): the hardware RAM starts as zeros, so rv32sim does too.
+ZERO_RAM = {"ZEPHYR_HELLO"}
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6, 7, 0x0F, 0x1F]}
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
-EXPECTS_TRAPS = {"ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED", "RXIRQ", "COUNTER", "C_FADER"}
+EXPECTS_TRAPS = {"ZEPHYR_HELLO", "ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED", "RXIRQ", "COUNTER", "C_FADER"}
 # Bytes sent to the UART's receiver by the testbench: (first start bit's post-reset clock, clocks
 # between start bits, bytes). Chosen so the program keeps up (a byte takes 80 clocks on the line).
 # A fourth element is the post-reset clock from which rv32sim has them (it has no serial timing: they

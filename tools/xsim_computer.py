@@ -245,6 +245,9 @@ def check_uart(pid, name, words, sw, forever=False):
         n = programs.PRINT_BYTES[(name, sw)]
         model = gen_cpu_tb.run_to_bytes(name, words, sw, n)
         want = model.uart_out[:n]
+        exp = programs.EXPECTED_OUTPUT.get(name)
+        if exp is not None and exp[:len(want)] != bytes(want):
+            return [f"the model prints {bytes(want)!r}, expected {exp[:len(want)]!r}"], ""
     else:
         model = gen_cpu_tb.run_to_halt(name, words, sw)
         want = model.uart_out

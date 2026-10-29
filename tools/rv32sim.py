@@ -134,7 +134,7 @@ def legal(w):
 
 class Cpu:
     def __init__(self, words, traps_ok=False, switches=0, button_events=(), timer_rate=1, tick_div=1,
-                 plat_events=(), rx_in=(), rx_from=0):
+                 plat_events=(), rx_in=(), rx_from=0, zero_ram=False):
         """words: {byte address: instruction or data word} as assembled. traps_ok: the program
         expects traps (take them as the core does); otherwise any trap raises."""
         self.traps_ok = traps_ok
@@ -172,6 +172,9 @@ class Cpu:
             raise ValueError(f"program ({size * 4} bytes) doesn't fit in RAM ({memmap.RAM_BYTES} bytes)")
         for i in range(size):
             self.mem[memmap.RAM_BASE + 4 * i] = words.get(4 * i, NOP)
+        if zero_ram:          # the hardware RAM starts as zeros: a program that reads its own .bss/stack unwritten
+            for a in range(memmap.RAM_BASE, memmap.RAM_BASE + memmap.RAM_BYTES, 4):
+                self.mem.setdefault(a, 0)
 
     def reg(self, r):
         if r > 15:
