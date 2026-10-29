@@ -1,5 +1,7 @@
 name: riscitry
 build:
+  cmake: zephyr
+  kconfig: zephyr/Kconfig
   settings:
     board_root: zephyr
     soc_root: zephyr

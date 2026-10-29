@@ -1,0 +1,10 @@
+# SPDX-License-Identifier: MIT
+
+config UART_RISCITRY
+	bool "RISCitry UART"
+	default y
+	depends on DT_HAS_RISCITRY_UART_ENABLED
+	select SERIAL_HAS_DRIVER
+	help
+	  Memory-mapped UART of the RISCitry soft core (source/computer/uart.luc). Polling only: the
+	  baud rate is fixed in hardware, and the receive interrupt (platform line 0) is not used yet.
