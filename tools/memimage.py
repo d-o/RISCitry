@@ -46,7 +46,7 @@ def render_main_ram_v(assembled):
            "// Programs.Id order in programs.luc); everything else starts at 0.",
            "module main_ram_bram #(",
            "    parameter PROGRAM_ID = 0,",
-           "    parameter WORDS = 2048",
+           "    parameter WORDS = 4096",
            "  ) (",
            "    input clk,",
            "    input ce,                // clock enable: no read, no write while 0",
@@ -57,32 +57,29 @@ def render_main_ram_v(assembled):
            "    input [3:0] be",
            "  );",
            "",
-           "  reg [7:0] lane0 [0:WORDS-1];",
-           "  reg [7:0] lane1 [0:WORDS-1];",
-           "  reg [7:0] lane2 [0:WORDS-1];",
-           "  reg [7:0] lane3 [0:WORDS-1];",
+           "  reg [31:0] mem [0:WORDS-1];",
            "  integer i;",
            "",
+           "  // byte enables write byte lanes of one 32-bit word (one array, not four byte arrays: Alchitry",
+           "  // Labs unrolls the init loop below while parsing, and four statements per word ran its heap out",
+           "  // of memory at 4096 words)",
            "  always @(posedge clk) if (ce) begin",
-           "    rdata <= {lane3[raddr], lane2[raddr], lane1[raddr], lane0[raddr]};",
-           "    if (be[0]) lane0[waddr] <= wdata[7:0];",
-           "    if (be[1]) lane1[waddr] <= wdata[15:8];",
-           "    if (be[2]) lane2[waddr] <= wdata[23:16];",
-           "    if (be[3]) lane3[waddr] <= wdata[31:24];",
+           "    rdata <= mem[raddr];",
+           "    if (be[0]) mem[waddr][7:0] <= wdata[7:0];",
+           "    if (be[1]) mem[waddr][15:8] <= wdata[15:8];",
+           "    if (be[2]) mem[waddr][23:16] <= wdata[23:16];",
+           "    if (be[3]) mem[waddr][31:24] <= wdata[31:24];",
            "  end",
            "",
            "  // every word defined: words left out of an initial block are x in Verilog (a zero",
            "  // word in a program, e.g. a .string's terminator, read as x in simulation)",
            "  initial begin",
-           "    for (i = 0; i < WORDS; i = i + 1) begin",
-           "      lane0[i] = 8'h00; lane1[i] = 8'h00; lane2[i] = 8'h00; lane3[i] = 8'h00;",
-           "    end"]
+           "    for (i = 0; i < WORDS; i = i + 1) mem[i] = 0;"]
     for pid, (name, (words, _)) in enumerate(assembled.items()):
         out.append(f"    if (PROGRAM_ID == {pid}) begin   // {name}")
         for i, w in enumerate(image(words)):
             if w:
-                out.append(f"      lane0[{i}] = 8'h{w & 0xFF:02X}; lane1[{i}] = 8'h{(w >> 8) & 0xFF:02X}; "
-                           f"lane2[{i}] = 8'h{(w >> 16) & 0xFF:02X}; lane3[{i}] = 8'h{w >> 24:02X};")
+                out.append(f"      mem[{i}] = 32'h{w:08X};")
         out.append("    end")
     out += ["  end", "", "endmodule"]
     return "\n".join(out) + "\n"

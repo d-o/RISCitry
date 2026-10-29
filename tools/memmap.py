@@ -9,7 +9,7 @@ Decoding is full: every byte address outside these ranges is unmapped. The hardw
 writes there and reads 0; rv32sim raises, so programs can't depend on either.
 """
 RAM_BASE = 0x0000_0000
-RAM_BYTES = 8192              # 2048 words: 16 BRAMs (main_ram), code + data
+RAM_BYTES = 16384             # 4096 words: all 32 BRAMs (main_ram), code + data
 
 UART_BASE = 0x8000_0000       # 16-byte window
 UART_TXDATA = UART_BASE + 0   # write: send byte lane 0 (bits 7:0); dropped if STATUS.busy

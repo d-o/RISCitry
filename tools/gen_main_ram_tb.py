@@ -19,7 +19,7 @@ import programs
 ROOT = Path(__file__).resolve().parent.parent
 PROGRAM = "LARSON"     # has a .org gap (nops) and ends with a non-nop word
 SMALL_WORDS = 64
-FULL_WORDS = 2048
+FULL_WORDS = 4096
 
 
 def h(v):

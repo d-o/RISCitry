@@ -5,7 +5,7 @@
 / {
 	ram: memory@0 {
 		device_type = "memory";
-		reg = <0x0 0x2000>;
+		reg = <0x0 0x4000>;
 	};
 
 	soc {

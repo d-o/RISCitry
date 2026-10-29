@@ -4,6 +4,6 @@ type: mcu
 arch: riscv
 toolchain:
   - zephyr
-ram: 8
+ram: 16
 supported:
   - uart

@@ -1,11 +1,11 @@
 """Check source/memory/main_ram_bram.v, which the Alchitry simulator can't run.
 
-1. For every program: elaborate the Verilog with Yosys at that PROGRAM_ID, read each lane's
+1. For every program: elaborate the Verilog with Yosys at that PROGRAM_ID, read the
    memory init back out, and compare the words with the assembled program (0 elsewhere).
 2. Synthesise it for the iCE40 (synth_ice40) and report the block RAMs and logic it maps to,
    so a RAM that silently became flip-flops, or grew glue logic, shows up.
 
-Usage: python3 tools/check_main_ram.py [WORDS]    (default 2048)
+Usage: python3 tools/check_main_ram.py [WORDS]    (default 4096)
 """
 import json
 import subprocess
@@ -29,33 +29,29 @@ def yosys(script):
     return r.stdout
 
 
-def lane_inits(pid, words):
-    """{lane number: [byte per word]} from the elaborated memories' INIT parameters."""
+def mem_init(pid, words):
+    """[word] from the elaborated memory's INIT parameter."""
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "ram.json"
         yosys(f"read_verilog -sv \"{VERILOG}\"; chparam -set PROGRAM_ID {pid} -set WORDS {words} main_ram_bram; "
               f"hierarchy -top main_ram_bram; proc; memory_collect; write_json \"{out}\"")
         module = json.loads(out.read_text())["modules"]["main_ram_bram"]
-    lanes = {}
-    for cell in module["cells"].values():
-        if not cell["type"].startswith("$mem"):
-            continue
-        name = cell["parameters"]["MEMID"].lstrip("\\")
-        bits = cell["parameters"]["INIT"][::-1]                     # LSB first: word 0 first
-        if "x" in bits[:words * 8]:
-            raise RuntimeError(f"PROGRAM_ID {pid}: {name} has undefined (x) initial bits")
-        lanes[int(name[-1])] = [int(bits[i * 8:(i + 1) * 8][::-1] or "0", 2) for i in range(words)]
-    return lanes
+    mems = [c for c in module["cells"].values() if c["type"].startswith("$mem")]
+    if len(mems) != 1:
+        raise RuntimeError(f"PROGRAM_ID {pid}: expected one memory, found {len(mems)}")
+    bits = mems[0]["parameters"]["INIT"][::-1]                      # LSB first: word 0 first
+    if "x" in bits[:words * 32]:
+        raise RuntimeError(f"PROGRAM_ID {pid}: undefined (x) initial bits")
+    return [int(bits[i * 32:(i + 1) * 32][::-1] or "0", 2) for i in range(words)]
 
 
 def main():
-    words = int(sys.argv[1]) if len(sys.argv) > 1 else 2048
+    words = int(sys.argv[1]) if len(sys.argv) > 1 else 4096
     failures = 0
     for pid, (name, prog) in enumerate(programs.PROGRAMS.items()):
         img = memimage.image(asm.assemble(prog))
         expect = img + [0] * (words - len(img))
-        lanes = lane_inits(pid, words)
-        got = [lanes[0][i] | lanes[1][i] << 8 | lanes[2][i] << 16 | lanes[3][i] << 24 for i in range(words)]
+        got = mem_init(pid, words)
         bad = [i for i in range(words) if got[i] != expect[i]]
         print(f"{name}: {len(img)} words, {'OK' if not bad else f'{len(bad)} words differ, first at {bad[0]}'}")
         failures += bool(bad)

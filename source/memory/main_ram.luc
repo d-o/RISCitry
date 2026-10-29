@@ -18,7 +18,7 @@
 // as for a build but still read the model, so every address past 1 was out of bounds and every
 // fetch returned word 0 (2026-10-15).
 module main_ram #(
-    WORDS = 2048 : WORDS > 1 && WORDS <= 16384,
+    WORDS = 4096 : WORDS > 1 && WORDS <= 16384,
     PROGRAM_ID = 0,
     SIM_MODEL = 0 : SIM_MODEL == 0 || SIM_MODEL == 1
   ) (

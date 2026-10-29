@@ -117,12 +117,12 @@ testbench main_ram_tb {
 
 testbench main_ram_full_tb {
     sig clk
-    sig raddr[11]
-    sig waddr[11]
+    sig raddr[12]
+    sig waddr[12]
     sig wdata[32]
     sig be[4]
 
-    main_ram dut(#WORDS(2048), #PROGRAM_ID(Programs.Id.LARSON), #SIM_MODEL(1),
+    main_ram dut(#WORDS(4096), #PROGRAM_ID(Programs.Id.LARSON), #SIM_MODEL(1),
                  .clk(clk), .ce(1), .raddr(raddr), .waddr(waddr), .wdata(wdata), .be(be))
 
     // settle first: inputs changed in the same step as the rising edge would be missed
@@ -135,7 +135,7 @@ testbench main_ram_full_tb {
     }
 
     // present addr on the read port for one clock, then check what comes back
-    fun expect_word(addr[11], value[32]) {
+    fun expect_word(addr[12], value[32]) {
         raddr = addr
         $tick_clock()
         if (dut.rdata != value)
@@ -152,13 +152,13 @@ testbench main_ram_full_tb {
         // full size: the image's first and last words, then the top word
         $expect_word(0, 32h07C0006F)
         $expect_word(31, 32hFCDFF0EF)
-        $expect_word(2047, 32h00000000)
-        waddr = 2047
+        $expect_word(4095, 32h00000000)
+        waddr = 4095
         wdata = 32h600DCAFE
         be = 4b1111
         $tick_clock()
         be = 0
-        $expect_word(2047, 32h600DCAFE)
+        $expect_word(4095, 32h600DCAFE)
         $expect_word(0, 32h07C0006F)
     }
 }
