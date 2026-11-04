@@ -1,0 +1,10 @@
+description: RISCitry machine timer, mtime +0 / mtimecmp +8 (register layout in tools/memmap.py)
+compatible: "riscitry,timer"
+include: base.yaml
+properties:
+  reg:
+    required: true
+  reg-names:
+    required: true
+  interrupts-extended:
+    required: true

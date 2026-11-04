@@ -1,0 +1,13 @@
+# SPDX-License-Identifier: MIT
+
+config TIMER_RISCITRY
+	bool "RISCitry machine timer"
+	default y
+	depends on DT_HAS_RISCITRY_TIMER_ENABLED
+	select TICKLESS_CAPABLE
+	select TIMER_HAS_64BIT_CYCLE_COUNTER
+	help
+	  System clock on the RISCitry mtime/mtimecmp (source/computer/timer.luc). Same registers as
+	  the generic RISC-V machine timer, but all divides and multiplies are 32-bit: the upstream
+	  driver pulls in libgcc's 64-bit divide (1.6 KB), which matters in a 16 KB RAM that holds code
+	  and data. Tickless only.

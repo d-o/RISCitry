@@ -64,7 +64,7 @@ def render():
 		/* mtime +0, mtimecmp +8, both 64-bit, word access only. Ticks are 1 us on the board.
 		 * (A read-only timebase word at +0x10 holds the clocks per tick.) */
 		mtimer: timer@{m.TIMER_BASE:x} {{
-			compatible = "riscv,machine-timer";
+			compatible = "riscitry,timer";
 			reg = <{hx(m.TIMER_MTIME)} 0x8>, <{hx(m.TIMER_MTIMECMP)} 0x8>;
 			reg-names = "mtime", "mtimecmp";
 			interrupts-extended = <&cpu0_intc {IRQ_TIMER}>;

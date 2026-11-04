@@ -31,7 +31,7 @@
 		/* mtime +0, mtimecmp +8, both 64-bit, word access only. Ticks are 1 us on the board.
 		 * (A read-only timebase word at +0x10 holds the clocks per tick.) */
 		mtimer: timer@80002000 {
-			compatible = "riscv,machine-timer";
+			compatible = "riscitry,timer";
 			reg = <0x80002000 0x8>, <0x80002008 0x8>;
 			reg-names = "mtime", "mtimecmp";
 			interrupts-extended = <&cpu0_intc 7>;

@@ -4,6 +4,11 @@ if SOC_RISCITRY
 config SYS_CLOCK_HW_CYCLES_PER_SEC
 	default 1000000
 
+# 1 ms ticks: ms <-> tick conversions are then the identity, so the kernel needs no 64-bit divide
+# (libgcc __udivdi3, 1.6 KB of a 16 KB RAM). 10 kHz, the tickless default, is what pulled it in.
+config SYS_CLOCK_TICKS_PER_SEC
+	default 1000
+
 config RISCV_GENERIC_TOOLCHAIN
 	default y
 

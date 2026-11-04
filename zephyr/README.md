@@ -48,7 +48,7 @@ rerun `tools/gen_cpu_tb.py`, `alchitry build`.
 - **Loading**: no flash. The RAM is preloaded from the bitstream: `zephyr.bin` goes into `main_ram_bram.v`
   through `programs.py`, then an `alchitry build`. No XIP, no `zephyr,flash`. Not yet selectable from the boot menu.
 - **Drivers**: UART is polling only (no RX interrupt yet). Still to write: counter, buttons, LED dimmer, display.
-  The timer uses the stock driver (`riscv,machine-timer`, mtime +0 / mtimecmp +8, 1 MHz).
+  The timer uses our own driver (`riscitry,timer`, `drivers/timer/timer_riscitry.c`, mtime +0 / mtimecmp +8, 1 MHz, 32-bit arithmetic, tickless; SoC default 1000 ticks/s) instead of the stock `riscv,machine-timer`, which pulled in libgcc's 64-bit divide (1.6 KB).
 - **mtvec**: the 128-byte alignment is for vectored mode only; Zephyr runs direct mode with `_isr_wrapper` at 0x14. Fine (checked, and exercised by `tick`).
 - **No PLIC**: interrupts are cpu-local (7 timer, 11 buttons, 16 UART RX, 17 counter), `NUM_IRQS` 18.
 - **No M extension**: libgcc multiply/divide. `mcycle`/`minstret` not implemented.
