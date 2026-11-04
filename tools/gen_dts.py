@@ -17,6 +17,13 @@ import memmap as m
 OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "zephyr", "dts", "riscv",
                    "riscitry", "riscitry-memmap.dtsi")
 
+# The 16 KB RAM is the program store too, and a reset does not reload it. Zephyr only re-initialises
+# .data on a start when it is an XIP image (arch_data_copy), so the bottom ROM_BYTES are "flash"
+# (code, rodata and the pristine .data) and the rest is RAM (.data, .bss, stacks). Without this a
+# reset while main sleeps in k_msleep leaves timeout_list pointing at a zeroed node: fatal on restart.
+# The image must fit ROM_BYTES (the link fails when it does not): raise it as the code grows.
+ROM_BYTES = 0x2800
+
 IRQ_TIMER = 7        # machine timer interrupt (mie.MTIE)
 IRQ_EXTERNAL = 11    # machine external interrupt (mie.MEIE): the buttons device
 IRQ_UART_RX = 16     # platform line 0
@@ -36,9 +43,16 @@ def render():
  * Included by riscitry.dtsi; the cpu0_intc label is defined there. */
 
 / {{
-	ram: memory@{m.RAM_BASE:x} {{
+	flash0: flash@{m.RAM_BASE:x} {{
+		compatible = "soc-nv-flash";
+		reg = <{hx(m.RAM_BASE)} {hx(ROM_BYTES)}>;
+		erase-block-size = <4>;
+		write-block-size = <4>;
+	}};
+
+	ram: memory@{m.RAM_BASE + ROM_BYTES:x} {{
 		device_type = "memory";
-		reg = <{hx(m.RAM_BASE)} {hx(m.RAM_BYTES)}>;
+		reg = <{hx(m.RAM_BASE + ROM_BYTES)} {hx(m.RAM_BYTES - ROM_BYTES)}>;
 	}};
 
 	soc {{

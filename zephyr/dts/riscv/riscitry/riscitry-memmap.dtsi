@@ -3,9 +3,16 @@
  * Included by riscitry.dtsi; the cpu0_intc label is defined there. */
 
 / {
-	ram: memory@0 {
+	flash0: flash@0 {
+		compatible = "soc-nv-flash";
+		reg = <0x0 0x2800>;
+		erase-block-size = <4>;
+		write-block-size = <4>;
+	};
+
+	ram: memory@2800 {
 		device_type = "memory";
-		reg = <0x0 0x4000>;
+		reg = <0x2800 0x1800>;
 	};
 
 	soc {
