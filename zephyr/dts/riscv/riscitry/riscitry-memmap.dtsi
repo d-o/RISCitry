@@ -5,14 +5,14 @@
 / {
 	flash0: flash@0 {
 		compatible = "soc-nv-flash";
-		reg = <0x0 0x2800>;
+		reg = <0x0 0x2c00>;
 		erase-block-size = <4>;
 		write-block-size = <4>;
 	};
 
-	ram: memory@2800 {
+	ram: memory@2c00 {
 		device_type = "memory";
-		reg = <0x2800 0x1800>;
+		reg = <0x2c00 0x1400>;
 	};
 
 	soc {

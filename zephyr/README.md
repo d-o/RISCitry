@@ -48,16 +48,17 @@ and 1,376 B of the RAM part (it was 15,696 B in one lump).
 `samples/larson` is the fading Larson scanner of `c/fader.h` run from `main()`: the LED dimmer bank (PWM or
 sigma-delta, DIP bit 4 of the middle bank, read every frame) does the dimming, the thread decays 24 levels, moves the
 head every third frame, maps them through `c/gamma.h` (shared with the C fader through the include path) and writes six
-words, then `k_msleep(9)` (a relative sleep wakes one tick late: a 10 ms frame). ROM 10,076 B of 10,240 (164 B spare),
-RAM part 1,392 B. Registered as `ZEPHYR_LARSON` (image `zephyr/images/larson.bin`, hardware-only, switch cases 0 and 0x10):
+words, then `k_msleep(9)` (a relative sleep wakes one tick late: a 10 ms frame). ROM 10,592 B of 11,264 (672 B spare) on Zephyr 4.5.0,
+RAM part 1,440 B (4.4.99: 10,076 B / 1,392 B). Registered as `ZEPHYR_LARSON` (image `zephyr/images/larson.bin`, hardware-only, switch cases 0 and 0x10):
 `python3 tools/xsim_computer.py --only zephyr_larson_sw0,zephyr_larson_sw16` checks the greeting and the instruction
-stream; xsim does not look at the LEDs. Seen working on the board (PWM and sigma-delta, resets).
+stream; xsim does not look at the LEDs. The committed image is the 4.5.0 build: rv32sim and xsim pass, and it sweeps on the
+board (PWM; resets and sigma-delta not yet tried on the 4.5.0 image). The 4.4.99 build was seen working with resets.
 
 ## Open issues
 - **RAM**: 16 KB (all 32 BRAMs), code and data together. The tick sample leaves 0.7 KB.
 - **Loading**: no flash chip is used. The RAM is preloaded from the bitstream: `zephyr.bin` goes into `main_ram_bram.v`
   through `programs.py`, then an `alchitry build`. The 16 KB is split XIP-style by `tools/gen_dts.py`: `flash0` = the
-  first `ROM_BYTES` (0x2800: code, rodata, the pristine `.data`), `ram` = the rest (`.data`, bss, stacks), with
+  first `ROM_BYTES` (0x2C00: code, rodata, the pristine `.data`), `ram` = the rest (`.data`, bss, stacks), with
   `CONFIG_XIP=y`, so Zephyr reloads `.data` on every start (without it a reset left `timeout_list` stale and crashed
   the restart). `zephyr.bin` covers only the ROM part; the link fails if the code outgrows `ROM_BYTES`. Not selectable
   from the boot menu: menu and Zephyr together do not fit in 16 KB, so Zephyr is a separate flashed build.
@@ -70,5 +71,6 @@ stream; xsim does not look at the LEDs. Seen working on the board (PWM and sigma
 - `zifencei` is in the march only to pick the rv32e multilib: the core traps FENCE.I as illegal, so nothing may execute it
   (no icache; the XIP split above is only Zephyr's way to reload `.data`). No `fence.i` is in the tick, Larson or hello images.
 - Zephyr 4.5.0 and main build the port unchanged (tick ROM 10,148 / 10,196 B, +516 / +564 B, mostly the fatal-error
-  dump: `CONFIG_EXCEPTION_DUMP=n` gives 8,644 B on main). Larson would not fit in the ROM part on 4.5.0 without that
-  or a larger `ROM_BYTES`.
+  dump: `CONFIG_EXCEPTION_DUMP=n` gives 8,644 B on main). `ROM_BYTES` was raised from 0x2800 to 0x2C00 so Larson fits
+  on 4.5.0 with the crash dump kept (10,592 B; it would not link in 10,240). `images/larson.bin` is the 4.5.0 build;
+  `tick.bin` and `hello.bin` are still 4.4.99 builds made with the old 0x2800 split.

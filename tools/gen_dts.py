@@ -22,7 +22,7 @@ OUT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "zephyr", "
 # (code, rodata and the pristine .data) and the rest is RAM (.data, .bss, stacks). Without this a
 # reset while main sleeps in k_msleep leaves timeout_list pointing at a zeroed node: fatal on restart.
 # The image must fit ROM_BYTES (the link fails when it does not): raise it as the code grows.
-ROM_BYTES = 0x2800
+ROM_BYTES = 0x2C00
 
 IRQ_TIMER = 7        # machine timer interrupt (mie.MTIE)
 IRQ_EXTERNAL = 11    # machine external interrupt (mie.MEIE): the buttons device
