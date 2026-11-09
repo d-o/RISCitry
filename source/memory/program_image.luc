@@ -37,6 +37,7 @@ module program_image #(
     if (PROGRAM_ID == Programs.Id.C_RESTART && addr < 178) word = Programs.C_RESTART[addr];
     if (PROGRAM_ID == Programs.Id.C_FADER && addr < 184) word = Programs.C_FADER[addr];
     if (PROGRAM_ID == Programs.Id.ZEPHYR_TICK && addr < 1) word = Programs.ZEPHYR_TICK[addr];
+    if (PROGRAM_ID == Programs.Id.ZEPHYR_LARSON && addr < 1) word = Programs.ZEPHYR_LARSON[addr];
     if (PROGRAM_ID == Programs.Id.C_COST && addr < 349) word = Programs.C_COST[addr];
   }
 }

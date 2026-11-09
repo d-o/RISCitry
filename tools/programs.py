@@ -1199,12 +1199,14 @@ PROGRAMS = {
     "C_RESTART": cbuild.items("restart"),   # c/restart.c: crt0 restores .data on every start (a jump back to _start, twice)
     "C_FADER": cbuild.items("fader_test"),   # c/fader_test.c: the fader's interrupt handler on a fast frame
     "ZEPHYR_TICK": zephyr_items("tick"),     # zephyr/samples/tick: a line per period, from the machine timer; the DIPs set the period
+    "ZEPHYR_LARSON": zephyr_items("larson"), # zephyr/samples/larson: the fading Larson from Zephyr's main thread, on the LED dimmer bank
     "C_COST": cbuild.items("cost"),     # c/cost.c: clocks per libgcc mul/div/mod, from mtime   # c/hello.c, built by tools/cbuild.py (image committed)
 }
 
 # Programs that never halt, and how many instructions to check (lockstep). One that prints is
 # checked by its first PRINT_BYTES bytes instead.
-RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160, "C_FADER": 900, "ZEPHYR_TICK": 5170}
+RUNS_FOREVER = {"BOARD": 40, "LARSON": 34, "ILLEGAL": 160, "C_FADER": 900, "ZEPHYR_TICK": 5170,
+                "ZEPHYR_LARSON": 13000}   # the greeting, then about eight 10 ms frames: the head reaches LED 1
 # ... per switch setting where that differs: the timing ladder, a full sweep at the dial's minimum
 FOREVER_STEPS = {("ZEPHYR_TICK", 0): 5170,     # 500 ms: only the greeting (rv32sim gives up on a WFI longer than 1,000,000 clocks)
                  ("ZEPHYR_TICK", 1): 10790,    # 1 ms: the greeting and three ticks
@@ -1222,12 +1224,15 @@ PRINT_BYTES = {("BOARD", 1): 100,      # the banner and the first three numbered
                ("BOARD", 2): 69,
                ("BOARD", 7): 25,
                ("ZEPHYR_TICK", 0): 36,      # the greeting
-               ("ZEPHYR_TICK", 1): 60}      # the greeting and tick 1 to 3       # the C demo's greeting; its cost table is checked as C_COST       # the banner and two interrupts (the first with a lost press)
+               ("ZEPHYR_TICK", 1): 60,      # the greeting and tick 1 to 3
+               ("ZEPHYR_LARSON", 0): 38, ("ZEPHYR_LARSON", 0x10): 38}   # the greeting      # the greeting and tick 1 to 3       # the C demo's greeting; its cost table is checked as C_COST       # the banner and two interrupts (the first with a lost press)
 # Absolute expectations for printing programs: the model only says what the code does, so a broken
 # start-up (crt0's .data copy) would make model and hardware agree on the wrong output. gen_cpu_tb checks these.
 EXPECTED_OUTPUT = {"C_RESTART": b"5 30 2 7\r\n" * 3,
                    ("ZEPHYR_TICK", 0): b"tick up on alchitry_cu_io/riscitry\r\n",
-                   ("ZEPHYR_TICK", 1): b"tick up on alchitry_cu_io/riscitry\r\ntick 1\r\ntick 2\r\ntick 3\r\n"}
+                   ("ZEPHYR_TICK", 1): b"tick up on alchitry_cu_io/riscitry\r\ntick 1\r\ntick 2\r\ntick 3\r\n",
+                   ("ZEPHYR_LARSON", 0): b"larson up on alchitry_cu_io/riscitry\r\n",
+                   ("ZEPHYR_LARSON", 0x10): b"larson up on alchitry_cu_io/riscitry\r\n"}
 
 
 def expected_output(name, sw):
@@ -1237,16 +1242,17 @@ def expected_output(name, sw):
 # prints 308 bytes after 66k clocks of arithmetic: 13 minutes in the Alchitry simulator, and that
 # simulator's cross-instance ordering bug sends a byte twice in most runs of a print
 # this long (byte 20 of 308 doubled in one of three shortened runs; xsim passes every time).
-XSIM_ONLY = {"C_COST", "ZEPHYR_TICK"}
+XSIM_ONLY = {"C_COST", "ZEPHYR_TICK", "ZEPHYR_LARSON"}
 # Programs whose image is only in the hardware RAM and xsim (their Programs.* arrays in programs.luc are stubs).
-HARDWARE_ONLY = {"ZEPHYR_TICK"}
+HARDWARE_ONLY = {"ZEPHYR_TICK", "ZEPHYR_LARSON"}
 # Programs that read RAM they never wrote (Zephyr's .bss and stacks): the hardware RAM starts as zeros, so rv32sim does too.
-ZERO_RAM = {"ZEPHYR_TICK"}
+ZERO_RAM = {"ZEPHYR_TICK", "ZEPHYR_LARSON"}
 # Programs that read the switch register: one testbench per setting.
 SWITCHES = {"BOARD": [0, 1, 2, 3, 4, 5, 6, 7, 0x0F, 0x1F],
-            "ZEPHYR_TICK": [0, 1]}    # the period: 0 = 500 ms, else that many ms
+            "ZEPHYR_TICK": [0, 1],    # the period: 0 = 500 ms, else that many ms
+            "ZEPHYR_LARSON": [0, 0x10]}   # bit 4: the dimmer's mode, PWM / sigma-delta
 # Programs that trap on purpose (rv32sim raises on a trap anywhere else).
-EXPECTS_TRAPS = {"ZEPHYR_TICK", "ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED", "RXIRQ", "COUNTER", "C_FADER"}
+EXPECTS_TRAPS = {"ZEPHYR_TICK", "ZEPHYR_LARSON", "ILLEGAL", "TRAPS", "TIMER", "IRQ", "PRESS", "BOARD", "WFI", "VECTORED", "RXIRQ", "COUNTER", "C_FADER"}
 # Bytes sent to the UART's receiver by the testbench: (first start bit's post-reset clock, clocks
 # between start bits, bytes). Chosen so the program keeps up (a byte takes 80 clocks on the line).
 # A fourth element is the post-reset clock from which rv32sim has them (it has no serial timing: they

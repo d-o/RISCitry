@@ -30,7 +30,7 @@ legal for the decoder. **It is no longer a program in `tools/programs.py`**: Alc
 two Zephyr images (about 9,300 RAM init statements; it unrolls them), so only `samples/tick` is registered. Its
 image is the superset (the same greeting, then ticks). `images/hello.bin` stays as the minimal sample's build.
 
-`samples/tick` (15,696 B of 16,384) sleeps `k_msleep(n)` and prints `tick N` per period, so every line is a
+`samples/tick` sleeps `k_msleep(n)` and prints `tick N` per period, so every line is a
 timer interrupt through Zephyr's trap handler (`mtvec = _isr_wrapper`, direct mode), `mret`, and a `WFI` that the
 machine timer ends. The period is the **middle DIP bank in milliseconds, 500 when it is 0** (so xsim can run it at
 1 ms). Registered as `ZEPHYR_TICK`, image `zephyr/images/tick.bin` (committed like `c/images`; hardware-only: its
@@ -42,14 +42,33 @@ gives up on a `WFI` longer than 1,000,000 clocks, so the 500 ms case only checks
 value in ms (31.19 ms mean over 317 ticks with the DIPs at about 31).
 Rebuild: `west build -b alchitry_cu_io zephyr/samples/tick ...`, copy `zephyr.bin` to `zephyr/images/tick.bin`,
 rerun `tools/gen_cpu_tb.py`, `alchitry build`.
+With the size trims, the own timer driver and the XIP split (below) the tick image is 9,632 B of the 10,240 B ROM part
+and 1,376 B of the RAM part (it was 15,696 B in one lump).
+
+`samples/larson` is the fading Larson scanner of `c/fader.h` run from `main()`: the LED dimmer bank (PWM or
+sigma-delta, DIP bit 4 of the middle bank, read every frame) does the dimming, the thread decays 24 levels, moves the
+head every third frame, maps them through `c/gamma.h` (shared with the C fader through the include path) and writes six
+words, then `k_msleep(9)` (a relative sleep wakes one tick late: a 10 ms frame). ROM 10,076 B of 10,240 (164 B spare),
+RAM part 1,392 B. Registered as `ZEPHYR_LARSON` (image `zephyr/images/larson.bin`, hardware-only, switch cases 0 and 0x10):
+`python3 tools/xsim_computer.py --only zephyr_larson_sw0,zephyr_larson_sw16` checks the greeting and the instruction
+stream; xsim does not look at the LEDs. Seen working on the board (PWM and sigma-delta, resets).
 
 ## Open issues
 - **RAM**: 16 KB (all 32 BRAMs), code and data together. The tick sample leaves 0.7 KB.
-- **Loading**: no flash. The RAM is preloaded from the bitstream: `zephyr.bin` goes into `main_ram_bram.v`
-  through `programs.py`, then an `alchitry build`. No XIP, no `zephyr,flash`. Not yet selectable from the boot menu.
-- **Drivers**: UART is polling only (no RX interrupt yet). Still to write: counter, buttons, LED dimmer, display.
+- **Loading**: no flash chip is used. The RAM is preloaded from the bitstream: `zephyr.bin` goes into `main_ram_bram.v`
+  through `programs.py`, then an `alchitry build`. The 16 KB is split XIP-style by `tools/gen_dts.py`: `flash0` = the
+  first `ROM_BYTES` (0x2800: code, rodata, the pristine `.data`), `ram` = the rest (`.data`, bss, stacks), with
+  `CONFIG_XIP=y`, so Zephyr reloads `.data` on every start (without it a reset left `timeout_list` stale and crashed
+  the restart). `zephyr.bin` covers only the ROM part; the link fails if the code outgrows `ROM_BYTES`. Not selectable
+  from the boot menu: menu and Zephyr together do not fit in 16 KB, so Zephyr is a separate flashed build.
+- **Drivers**: UART is polling only (no RX interrupt yet). Still to write: counter, buttons, display. The LED dimmer
+  has no driver: `samples/larson` writes its registers through the addresses in the generated device tree.
   The timer uses our own driver (`riscitry,timer`, `drivers/timer/timer_riscitry.c`, mtime +0 / mtimecmp +8, 1 MHz, 32-bit arithmetic, tickless; SoC default 1000 ticks/s) instead of the stock `riscv,machine-timer`, which pulled in libgcc's 64-bit divide (1.6 KB).
 - **mtvec**: the 128-byte alignment is for vectored mode only; Zephyr runs direct mode with `_isr_wrapper` at 0x14. Fine (checked, and exercised by `tick`).
 - **No PLIC**: interrupts are cpu-local (7 timer, 11 buttons, 16 UART RX, 17 counter), `NUM_IRQS` 18.
 - **No M extension**: libgcc multiply/divide. `mcycle`/`minstret` not implemented.
-- `zifencei` is in the march only to pick the rv32e multilib: the core traps FENCE.I as illegal, so nothing may execute it (no icache, no XIP).
+- `zifencei` is in the march only to pick the rv32e multilib: the core traps FENCE.I as illegal, so nothing may execute it
+  (no icache; the XIP split above is only Zephyr's way to reload `.data`). No `fence.i` is in the tick, Larson or hello images.
+- Zephyr 4.5.0 and main build the port unchanged (tick ROM 10,148 / 10,196 B, +516 / +564 B, mostly the fatal-error
+  dump: `CONFIG_EXCEPTION_DUMP=n` gives 8,644 B on main). Larson would not fit in the ROM part on 4.5.0 without that
+  or a larger `ROM_BYTES`.
